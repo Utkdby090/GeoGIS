@@ -34,6 +34,7 @@ nav = [
   { "Python" = "python.md" },
   { "MCP Server" = "mcp.md" },
   { "Plugins" = "plugins.md" },
+  { "GeoFlux inspection" = "geoflux.md" },
   { "Languages" = "i18n.md" },
   { "Architecture" = "architecture.md" },
   { "Contributing" = "contributing.md" },
