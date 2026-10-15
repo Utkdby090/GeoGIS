@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "com.geo.telecom",
+  "name": "Electric Grid Inspection",
+  "version": "1.0.0",
+  "description": "Process 765kV transmission lines, mid-spans, and hardware fittings.",
+  "fields": [
+    { "key": "lineName", "label": "Line Name", "type": "text", "required": true, "group": "Location & Temporal Data", "row": 0 },
+    { "key": "towerNumber", "label": "Tower No", "type": "text", "required": true, "group": "Location & Temporal Data", "row": 0, "weight": 0.5 },
+    { "key": "circuit", "label": "Circuit", "type": "text", "group": "Location & Temporal Data", "row": 0, "weight": 0.5 },
+    { "key": "phase", "label": "Phase", "type": "text", "group": "Location & Temporal Data", "row": 1 },
+    { "key": "side", "label": "Side", "type": "text", "group": "Location & Temporal Data", "row": 1 },
+    { "key": "direction", "label": "Direction", "type": "text", "group": "Location & Temporal Data", "row": 1 },
+    { "key": "capturedDate", "label": "Captured Date", "type": "text", "group": "Location & Temporal Data", "row": 2 },
+    { "key": "capturedTime", "label": "Captured Time", "type": "text", "group": "Location & Temporal Data", "row": 2 },
+    { "key": "core.latitude", "label": "Latitude", "type": "number", "required": true, "group": "Location & Temporal Data", "row": 2 },
+    { "key": "core.longitude", "label": "Longitude", "type": "number", "required": true, "group": "Location & Temporal Data", "row": 2 },
+    { "key": "humidity", "label": "Humidity (%)", "type": "text", "group": "Environmental & Load Data", "row": 0 },
+    { "key": "emissivity", "label": "Emissivity", "type": "text", "group": "Environmental & Load Data", "row": 0 },
+    { "key": "ambientTemp", "label": "Amb. Temp (°C)", "type": "text", "group": "Environmental & Load Data", "row": 0 },
+    { "key": "faultDescription", "label": "Fault Description", "type": "text", "group": "Fault Analysis", "row": 0 },
+    { "key": "faultTemp", "label": "Fault Temp (°C)", "type": "text", "group": "Fault Analysis", "row": 1 },
+    { "key": "riseTemp", "label": "Rise Temp (°C)", "type": "text", "group": "Fault Analysis", "row": 1 }
+  ],
+  "imageSlots": [
+    { "id": "LOCATION", "label": "Location" },
+    { "id": "THERMAL", "label": "Thermal Image", "thermal": true },
+    { "id": "STRUCTURE", "label": "Structure Image" },
+    { "id": "RGB_ZOOM", "label": "RGB Image" }
+  ],
+  "csv": {
+    "columns": [
+      { "header": "Tower No.", "key": "towerNumber" },
+      { "header": "Line Name", "key": "lineName" },
+      { "header": "CKT", "key": "circuit" },
+      { "header": "Phase", "key": "phase" },
+      { "header": "Side", "key": "side" },
+      { "header": "Captured Date", "key": "capturedDate" },
+      { "header": "Captured Time", "key": "capturedTime" },
+      { "header": "Ambeint Temp.", "key": "ambientTemp" },
+      { "header": "Humidity", "key": "humidity" },
+      { "header": "Emissivity", "key": "emissivity" },
+      { "header": "Fault Temp.", "key": "faultTemp" },
+      { "header": "Rise Temp.", "key": "riseTemp" },
+      { "header": "Fault Description", "key": "faultDescription" },
+      { "header": "Company Name", "key": "companyName" },
+      { "header": "Direction", "key": "direction" },
+      { "header": "report_Type", "key": "reportType", "default": "tower" },
+      { "header": "Fault", "key": "faultStatus", "default": "normal" }
+    ],
+    "required": ["towerNumber", "lineName"],
+    "latitude": "Lat.",
+    "longitude": "Long.",
+    "ignore": ["Sr. No."],
+    "extraPrefix": "load.",
+    "extraGroup": "Environmental & Load Data"
+  },
+  "severity": {
+    "rise": "riseTemp",
+    "measured": "faultTemp",
+    "reference": "ambientTemp",
+    "flaggedWhen": [
+      { "key": "faultStatus", "contains": "fault" },
+      { "key": "reportType", "contains": "fault" }
+    ],
+    "thresholds": { "low": 1.0, "medium": 4.0, "high": 16.0, "critical": 40.0 }
+  }
+}

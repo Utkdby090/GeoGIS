@@ -1750,6 +1750,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-domain"
+version = "0.2.0"
+dependencies = [
+ "csv",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "geographiclib-rs"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3823,6 +3833,7 @@ name = "rustgis-engine"
 version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
+ "geoflux-domain",
  "iana-time-zone",
  "log",
  "rusqlite",
