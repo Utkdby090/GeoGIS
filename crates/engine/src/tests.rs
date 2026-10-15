@@ -2103,6 +2103,53 @@ fn plugin_tools_run_in_the_geoprocessing_pane() {
 }
 
 #[test]
+fn plugin_tools_run_off_the_session() {
+    use crate::cmd::gp::{plugin_complete, plugin_start};
+    use rustgis_plugins::tools::Control;
+    let mut s = world();
+    plugin("eng-bg", &[]);
+    // Started: its layers are read now; it runs elsewhere while the project goes on.
+    let run = plugin_start(&mut s, "plugin:eng-bg/m", &json!({"input": "Cities"})).unwrap();
+    assert_eq!(run.tool, "plugin:eng-bg/m");
+    let made = std::thread::spawn(move || {
+        let r = run.run(&Control::default());
+        (run.id, r)
+    });
+    s.run("layer.remove", &json!({"layer": "Cities"})).unwrap();
+    let (id, r) = made.join().unwrap();
+    plugin_complete(&mut s, id, r).unwrap();
+    // Applied as gp.run applies a run: its layer, its history, undo.
+    s.run("gp.finish", &json!({"id": id})).unwrap();
+    assert_eq!(s.map().layer_by_name("Made").map(|l| l.dataset.features.len()), Some(1));
+    let h = s.project.gp_history.last().unwrap();
+    assert!(h.ok && h.tool == "Make Points" && h.messages == ["made"] && h.params["input"] == "Cities", "{h:?}");
+    s.run("edit.undo", &Value::Null).unwrap();
+    assert!(s.map().layer_by_name("Made").is_none());
+    // Selections too.
+    let mut s = world();
+    let run = plugin_start(&mut s, "plugin:eng-bg/x", &json!({"input": "Cities"})).unwrap();
+    let r = run.run(&Control::default());
+    plugin_complete(&mut s, run.id, r).unwrap();
+    s.run("gp.finish", &json!({"id": run.id})).unwrap();
+    assert_eq!(s.map().layer_by_name("Cities").unwrap().selection, vec![0, 2]);
+    // A cancelled run fails, whatever the tool returned, and adds nothing.
+    let run = plugin_start(&mut s, "plugin:eng-bg/m", &json!({"input": "Cities"})).unwrap();
+    let control = Control::default();
+    control.cancel();
+    let r = run.run(&control);
+    plugin_complete(&mut s, run.id, r).unwrap();
+    let e = s.run("gp.finish", &json!({"id": run.id})).unwrap_err();
+    assert_eq!(e, "Make Points: cancelled");
+    assert!(s.map().layer_by_name("Made").is_none());
+    // Parameters are checked when it starts; only plugin tools start so; a run completes once.
+    assert!(plugin_start(&mut s, "plugin:eng-bg/m", &json!({})).err().unwrap().contains("required"));
+    assert!(plugin_start(&mut s, "buffer", &json!({"input": "Cities"})).err().unwrap().contains("no plugin tool"));
+    assert!(plugin_complete(&mut s, run.id, Err("late".into())).unwrap_err().contains("dropped"));
+    assert!(crate::cmd::gp::is_plugin_tool("plugin:eng-bg/m") && !crate::cmd::gp::is_plugin_tool("buffer"));
+    rustgis_plugins::unload("eng-bg");
+}
+
+#[test]
 fn plugin_file_parameters_reach_files_and_stay_out_of_the_history() {
     use crate::cmd::plugins::{Reach, reaches};
     let mut s = world();

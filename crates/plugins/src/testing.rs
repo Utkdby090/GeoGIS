@@ -144,6 +144,9 @@ pub fn process_manifest(id: &str, permissions: &[&str], run: &[String]) -> Strin
         c.push(serde_json::json!({"id": "n", "label": "Noisy"}));
         c.push(serde_json::json!({"id": "c", "label": "Crash"}));
     }
+    if let Some(t) = m["tools"].as_array_mut() {
+        t.push(serde_json::json!({"id": "w", "name": "Work Forever", "params": []}));
+    }
     m.to_string()
 }
 
@@ -156,7 +159,7 @@ pub fn process_manifest(id: &str, permissions: &[&str], run: &[String]) -> Strin
 ///   `g` starts another copy of itself that never answers, logs its process id and never
 ///   answers either.
 /// - Tools: `m` returns the layer "Made"; `x` selects rows 0 and 2 of "Cities"; `r` returns the
-///   names of the files it was given as its messages.
+///   names of the files it was given as its messages; `w` logs "working" and never answers.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn serve_if_child() {
     use serde_json::{Value, json};
@@ -192,6 +195,13 @@ pub fn serve_if_child() {
         Some('c') => {
             eprintln!("boom");
             std::process::exit(3);
+        }
+        Some('w') => {
+            let _ = writeln!(out, "{}", json!({"log": "working"}));
+            let _ = out.flush();
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
         }
         Some('s') => loop {
             std::thread::sleep(std::time::Duration::from_secs(1));

@@ -36,6 +36,10 @@ const MAX_HOST_CALLS: u32 = 100_000;
 const MAX_LOGGED: usize = 200;
 /// The longest line of a program's error output kept (a longer one is split).
 const MAX_ERROR_LINE: usize = 64 * 1024;
+/// How often a call waiting on the program checks whether it was cancelled.
+const CANCEL_POLL: Duration = Duration::from_millis(100);
+/// The error of a call cancelled through its host.
+pub const CANCELLED: &str = "it was cancelled";
 
 /// How to start a process plugin.
 #[derive(Clone, Debug)]
@@ -263,13 +267,21 @@ fn converse(
     let deadline = timeout.map(|t| Instant::now() + t);
     let (mut calls, mut logged) = (0u32, 0usize);
     loop {
-        let line = match deadline {
-            Some(d) => match rx.recv_timeout(d.saturating_duration_since(Instant::now())) {
-                Ok(l) => l,
-                Err(RecvTimeoutError::Timeout) => return Err("it ran too long and was stopped".into()),
-                Err(RecvTimeoutError::Disconnected) => Line::End,
-            },
-            None => rx.recv().unwrap_or(Line::End),
+        // Waits a little at a time, to notice a cancel (the program is then stopped by the
+        // caller, as on a timeout).
+        let line = loop {
+            if host.cancelled() {
+                return Err(CANCELLED.into());
+            }
+            let wait = deadline.map_or(CANCEL_POLL, |d| d.saturating_duration_since(Instant::now()).min(CANCEL_POLL));
+            match rx.recv_timeout(wait) {
+                Ok(l) => break l,
+                Err(RecvTimeoutError::Timeout) if deadline.is_some_and(|d| Instant::now() >= d) => {
+                    return Err("it ran too long and was stopped".into());
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => break Line::End,
+            }
         };
         let bytes = match line {
             Line::Text(b) => b,

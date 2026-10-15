@@ -323,6 +323,8 @@ pub struct Session {
     /// Asynchronous runs started and not yet complete: (id, job, resolved params, start time).
     #[cfg(feature = "geolibre")]
     pub(crate) started: Vec<(u64, rustgis_geolibre::Job, serde_json::Value, u64)>,
+    /// Plugin tool runs started and not yet complete (`gp::plugin_start`).
+    pub(crate) plugin_runs: Vec<cmd::gp::StartedRun>,
     /// Data downloads of this project under way (Add Data › From URL), by id.
     downloading: Vec<u64>,
     /// Downloads that landed, waiting for `layer.addDownload`.
@@ -425,6 +427,7 @@ impl Session {
             next_pending: 0,
             #[cfg(feature = "geolibre")]
             started: Vec::new(),
+            plugin_runs: Vec::new(),
             downloading: Vec::new(),
             downloaded: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]

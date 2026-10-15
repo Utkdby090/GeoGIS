@@ -2043,6 +2043,7 @@ impl RustGisApp {
         i18n::set_current(self.lang());
         rustgis_engine::plugins::set_language(self.lang().code());
         panes::poll_geolibre(self, ctx);
+        panes::poll_plugin_run(self, ctx);
         self.poll_downloads();
         sqlpane::poll(self, ctx);
         self.poll_service();

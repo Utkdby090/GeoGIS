@@ -157,7 +157,6 @@ pub fn external_load_manifests(json: &str) -> Result<usize, String> {
 }
 
 /// How many asynchronous runs (started, or finished and not yet applied) the session keeps.
-#[cfg(feature = "geolibre")]
 const MAX_ASYNC_RUNS: usize = 8;
 
 /// A GeoLibre run to carry out asynchronously (the browser's WASI runner): run `tool` with
@@ -231,7 +230,114 @@ pub fn external_complete(s: &mut Session, id: u64, ran: ExternalOutput) -> Resul
     }
 }
 
-/// Applies a finished run stashed by [`external_complete`].
+/// A plugin tool's run, prepared on the session by [`plugin_start`] and carried out elsewhere
+/// (the desktop app runs it on a thread of its own, so the window stays responsive): call
+/// [`PluginRun::run`] there, hand what it returns to [`plugin_complete`], then apply it with
+/// `gp.finish {"id"}`.
+pub struct PluginRun {
+    pub id: u64,
+    /// The tool's id.
+    pub tool: &'static str,
+    job: rustgis_plugins::tools::Job,
+}
+
+impl PluginRun {
+    /// Runs the tool, blocking until it ends; `control` stops it and shows its progress.
+    pub fn run(&self, control: &rustgis_plugins::tools::Control) -> Result<rustgis_analysis::ToolResult, String> {
+        // A bug in a tool must not take the app down.
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.job.run(control)))
+            .unwrap_or_else(|_| Err(format!("{} failed unexpectedly", self.job.name())))
+    }
+}
+
+/// Whether `tool` (an id or a name) is a plugin's tool.
+pub fn is_plugin_tool(tool: &str) -> bool {
+    tool_id(tool).unwrap_or(tool).starts_with(rustgis_plugins::PREFIX)
+}
+
+/// A plugin tool's run started and not yet complete.
+pub(crate) struct StartedRun {
+    id: u64,
+    name: String,
+    /// The parameters, as the history records them.
+    params: Value,
+    t0: u64,
+    /// The feature ids of the streamed layers it reads whole, by lowercase name.
+    full_ids: FullIds,
+}
+
+/// The feature ids of the streamed layers a tool read whole, by lowercase name: what its
+/// selections' rows are.
+type FullIds = std::collections::HashMap<String, Vec<u64>>;
+
+fn full_ids(full: &std::collections::HashMap<String, Dataset>) -> FullIds {
+    full.iter().map(|(k, d)| (k.clone(), d.features.iter().map(|f| f.id).collect())).collect()
+}
+
+/// Prepares a run of a plugin tool on the active map, as `gp.run` would run it: its parameters
+/// checked and its layers read now, so that the map can change while it runs.
+pub fn plugin_start(s: &mut Session, tool: &str, params: &Value) -> Result<PluginRun, String> {
+    let spec = rustgis_analysis::tool(tool_id(tool).unwrap_or(tool))
+        .filter(|t| t.id.starts_with(rustgis_plugins::PREFIX))
+        .ok_or_else(|| format!("no plugin tool '{tool}'"))?;
+    let resolved = rustgis_analysis::resolve_params(spec, params)?;
+    let inputs = map_inputs(s, Some(spec), &resolved)?;
+    let job = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rustgis_plugins::tools::prepare(spec, &inputs, &resolved)))
+        .unwrap_or_else(|_| Err(format!("{} failed unexpectedly", spec.name)))?;
+    let full_ids = full_ids(&inputs.3);
+    drop(inputs);
+    s.next_pending = s.next_pending.wrapping_add(1);
+    let id = s.next_pending;
+    let params = recorded(Some(spec), params.clone());
+    s.plugin_runs.push(StartedRun { id, name: spec.name.to_string(), params, t0: now_ms(), full_ids });
+    // A run that never completes is dropped eventually.
+    if s.plugin_runs.len() > MAX_ASYNC_RUNS {
+        s.plugin_runs.remove(0);
+    }
+    Ok(PluginRun { id, tool: spec.id, job })
+}
+
+/// Finishes a run from [`plugin_start`] with what [`PluginRun::run`] returned: `gp.finish
+/// {"id"}` then applies it like `gp.run` would, with undo and history.
+pub fn plugin_complete(s: &mut Session, id: u64, result: Result<rustgis_analysis::ToolResult, String>) -> Result<(), String> {
+    let i = s
+        .plugin_runs
+        .iter()
+        .position(|r| r.id == id)
+        .ok_or("the tool's run was dropped (its project was closed, or too many runs were waiting)")?;
+    let run = s.plugin_runs.remove(i);
+    let mut result = result;
+    fit_to_windows(s, &mut result, &run.full_ids);
+    s.pending.push(crate::PendingRun { id, tool: run.name, params: run.params, result, millis: now_ms().saturating_sub(run.t0) });
+    if s.pending.len() > MAX_ASYNC_RUNS {
+        s.pending.remove(0);
+    }
+    Ok(())
+}
+
+/// Fits a tool's result to the map: a selection it made on a streamed layer it read whole
+/// becomes rows of the layer's window in view, and an update of a streamed layer it read only
+/// in part (its selection, from the window in view), which would replace the whole layer with
+/// that part, is refused.
+fn fit_to_windows(s: &Session, res: &mut Result<rustgis_analysis::ToolResult, String>, full_ids: &FullIds) {
+    if let Ok(r) = res
+        && let Output::Selection { layer, rows } = &mut r.output
+        && let Some(full) = full_ids.get(&layer.to_ascii_lowercase())
+        && let Some(l) = s.map().layer_by_name(layer)
+    {
+        let ids: std::collections::HashSet<u64> = rows.iter().filter_map(|r| full.get(*r)).copied().collect();
+        *rows = l.dataset.features.iter().enumerate().filter(|(_, f)| ids.contains(&f.id)).map(|(i, _)| i).collect();
+    }
+    if let Ok(r) = res
+        && let Output::Update { layer, .. } = &r.output
+        && !full_ids.contains_key(&layer.to_ascii_lowercase())
+        && s.map().layer_by_name(layer).is_some_and(|l| l.is_streamed())
+    {
+        *res = Err(format!("{layer} is read in place from its file; Load All Features (layer.loadAll) before a tool updates it"));
+    }
+}
+
+/// Applies a finished run stashed by [`external_complete`] or [`plugin_complete`].
 fn finish(s: &mut Session, p: &Value) -> CmdResult {
     let id = p.get("id").and_then(Value::as_u64).ok_or("id is required")?;
     let i = s.pending.iter().position(|r| r.id == id).ok_or("no finished run with that id")?;
@@ -394,25 +500,9 @@ pub fn run_tool(s: &mut Session, tool: &str, params: &Value) -> CmdResult {
     let t0 = now_ms();
     let inputs = map_inputs(s, rustgis_analysis::tool(&tool), &params)?;
     let mut res = rustgis_analysis::run(&tool, &inputs, &params);
-    // A selection made on a streamed layer read whole: its rows, as rows of the window in view.
-    if let Ok(r) = &mut res
-        && let Output::Selection { layer, rows } = &mut r.output
-        && let Some(full) = inputs.3.get(&layer.to_ascii_lowercase())
-        && let Some(l) = s.map().layer_by_name(layer)
-    {
-        let ids: std::collections::HashSet<u64> = rows.iter().filter_map(|r| full.features.get(*r)).map(|f| f.id).collect();
-        *rows = l.dataset.features.iter().enumerate().filter(|(_, f)| ids.contains(&f.id)).map(|(i, _)| i).collect();
-    }
-    // A tool updating a streamed layer it read only partly (its selection, from the window in
-    // view) would replace the whole layer with that part: refused.
-    if let Ok(r) = &res
-        && let Output::Update { layer, .. } = &r.output
-        && !inputs.3.contains_key(&layer.to_ascii_lowercase())
-        && s.map().layer_by_name(layer).is_some_and(|l| l.is_streamed())
-    {
-        res = Err(format!("{layer} is read in place from its file; Load All Features (layer.loadAll) before a tool updates it"));
-    }
+    let ids = full_ids(&inputs.3);
     drop(inputs);
+    fit_to_windows(s, &mut res, &ids);
     let millis = now_ms().saturating_sub(t0);
     let spec = rustgis_analysis::tool(&tool);
     let name = spec.map(|t| t.name).unwrap_or("Tool").to_string();

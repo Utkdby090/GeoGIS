@@ -253,6 +253,12 @@ selected features when a layer has a selection), and its `file` parameters' file
 selection, plus messages for the Geoprocessing history. RustGIS adds the results as it does for
 built-in tools, with undo. Tools can log, but they make no host requests.
 
+In the desktop app a plugin tool runs in the background, so the map and the rest of the window
+stay usable: the Tools pane shows the line the tool last logged, as its progress, and a
+**Cancel** button. Cancel stops a process plugin's program; a WebAssembly tool runs on to its
+end and its result is dropped. One plugin tool runs at a time. `gp.run`, scripts and
+`rustgis-cli` still wait for the result.
+
 ### The ABI (version 1)
 
 The SDK implements this; it is described here for other languages.
@@ -338,7 +344,8 @@ requests and replies over its standard input and output, one JSON object per lin
 
 Output lines that aren't protocol messages are logged and skipped, since libraries print (even
 JSON), and so is the program's error output. A command is stopped after 2 minutes; a tool runs
-until it finishes. While it runs, RustGIS waits for it.
+until it finishes or is cancelled (the desktop app runs it in the background: see
+[What a plugin can ask for](#what-a-plugin-can-ask-for)).
 
 The plugin above, in Python with no SDK:
 
