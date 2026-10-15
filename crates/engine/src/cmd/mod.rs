@@ -7,6 +7,7 @@ pub mod design;
 pub mod edit;
 pub mod effects;
 pub mod geocode;
+pub mod geoflux;
 pub mod gp;
 pub mod graphics;
 pub mod imagery;
@@ -77,6 +78,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(stac::commands());
     v.extend(portals::commands());
     v.extend(catalogs::commands());
+    v.extend(geoflux::commands());
     v
 }
 

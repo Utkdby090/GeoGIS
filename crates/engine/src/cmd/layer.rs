@@ -1780,7 +1780,7 @@ fn move_to(s: &mut Session, p: &Value) -> CmdResult {
     Ok(Value::Null)
 }
 
-fn symbology(s: &mut Session, p: &Value) -> CmdResult {
+pub(crate) fn symbology(s: &mut Session, p: &Value) -> CmdResult {
     let id = s.layer_id(p)?;
     let kind = ps(p, "type").unwrap_or("single").to_ascii_lowercase();
     // The layer's own ramp: kept when no other is named and the type stays, and found by name even

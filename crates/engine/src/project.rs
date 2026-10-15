@@ -89,6 +89,9 @@ pub struct Project {
     pub shared: Vec<crate::cmd::sharing::SharedItem>,
     #[serde(default)]
     pub data_stores: Vec<crate::cmd::sharing::DataStore>,
+    /// GeoFlux: the industry schemas this project carries and which layer follows which.
+    #[serde(default, skip_serializing_if = "crate::cmd::geoflux::GeoFlux::is_empty")]
+    pub geoflux: crate::cmd::geoflux::GeoFlux,
 }
 
 /// A standalone table: a dataset without geometry, under an id that stays with it. Names can
@@ -275,6 +278,7 @@ impl Project {
             dl_models: Vec::new(),
             shared: Vec::new(),
             data_stores: Vec::new(),
+            geoflux: Default::default(),
         }
     }
 
@@ -359,6 +363,7 @@ impl Project {
         self.dl_models.retain(|m| m.model.validate().is_ok());
         self.shared.truncate(MAX_ITEMS);
         self.data_stores.truncate(MAX_ITEMS);
+        self.geoflux.clamp();
         for p in &mut self.presentations {
             p.clamp();
         }
