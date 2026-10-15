@@ -1,0 +1,15 @@
+[package]
+name = "geoflux-domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GeoFlux L1: industry schemas as data, inspection assets, form validation, CSV asset import and severity rules"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+csv = { workspace = true }
+thiserror = { workspace = true }

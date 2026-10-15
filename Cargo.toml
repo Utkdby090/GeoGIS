@@ -23,6 +23,8 @@ rustgis-geolibre = { path = "crates/geolibre" }
 rustgis-plugins = { path = "crates/plugins" }
 rustgis-tiles = { path = "crates/tiles" }
 rustgis-assistant = { path = "crates/assistant" }
+# GeoFlux Workstation components
+geoflux-domain = { path = "crates/geoflux-domain" }
 
 # foundation
 thiserror = "2"

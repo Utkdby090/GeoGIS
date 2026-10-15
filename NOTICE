@@ -1,0 +1,8 @@
+GeoFlux Workstation
+Copyright 2026 Utkarsh Dubey
+
+This product is based on RustGIS (https://github.com/opengeos/RustGIS),
+Copyright the RustGIS contributors, licensed under the Apache License 2.0.
+
+GeoFlux additions live in crates/geoflux-*; files of RustGIS that GeoFlux
+changes are listed in the commit history of this repository.
