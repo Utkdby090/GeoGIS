@@ -1,0 +1,18 @@
+[package]
+name = "geoflux-licence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GeoFlux L1: the desktop app's machine-locked licence key and 15-day trial, compatible with the keys GeoFlux's licence server already issues"
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+thiserror = { workspace = true }
+
+# RSA SHA-256 checks. Already in the desktop build through rustls, so this adds no new code there;
+# the browser build has no licence (it gets accounts in Phase 7).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ring = "0.17"
