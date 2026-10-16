@@ -534,7 +534,41 @@ fn basemap_gallery(ui: &mut Ui, app: &mut RustGisApp) {
             }
         }
     });
+    web_basemaps(ui, app);
     tile_layers(ui, app, &t);
+}
+
+/// Online maps with streets, place names or imagery, one click each (they need the internet).
+fn web_basemaps(ui: &mut Ui, app: &mut RustGisApp) {
+    ui.add_space(6.0);
+    ui.separator();
+    ui.label(egui::RichText::new(tl!("Streets and Imagery")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Online maps with roads and place names, or satellite imagery.")).weak().small());
+    let maps: [(&str, &str, Value); 3] = [
+        (
+            "Streets",
+            "Roads, buildings and place names (OpenFreeMap, free to use).",
+            json!({"url": "https://tiles.openfreemap.org/styles/liberty", "name": "Streets (OpenFreeMap)", "attribution": "© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors", "replace": true}),
+        ),
+        (
+            "OpenStreetMap",
+            "The standard OpenStreetMap map (light use only, by OpenStreetMap's tile policy).",
+            json!({"url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "name": "OpenStreetMap", "attribution": "© OpenStreetMap contributors", "maxZoom": 19, "replace": true}),
+        ),
+        (
+            "Satellite",
+            "Esri World Imagery (check Esri's terms before commercial use).",
+            json!({"url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", "name": "Satellite (Esri World Imagery)", "attribution": "Esri, Maxar, Earthstar Geographics, and the GIS User Community", "maxZoom": 19, "replace": true}),
+        ),
+    ];
+    ui.horizontal_wrapped(|ui| {
+        for (label, tip, params) in maps {
+            if ui.button(tl!(label)).on_hover_text(tl!(tip)).clicked() {
+                let _ = app.run("map.addTiles", params);
+                ui.close();
+            }
+        }
+    });
 }
 
 /// The map's web tile layers (top first): shown, opacity, order and removal, and adding one.
@@ -704,7 +738,7 @@ fn project_group(app: &mut RustGisApp, ui: &mut Ui) {
     group(ui, "Project", |ui| {
         big(ui, app, "new_map", "New\nMap", "Add a new map to the project.", "map.new", Value::Null, false, false);
         big(ui, app, "toolbox", "Toolbox", "Browse the geoprocessing toolbox.", "ui.pane.geoprocessing", Value::Null, false, false);
-        big(ui, app, "open", "Import\nProject", "Open a RustGIS project.", "ui.open", Value::Null, false, false);
+        big(ui, app, "open", "Import\nProject", "Open a GeoGIS project.", "ui.open", Value::Null, false, false);
         big_menu(ui, app, "new_layout", "New\nLayout", "Add a page layout for printing and exporting the map.", |ui, app| {
             for (id, label, w, h) in rustgis_engine::map::layout::PAGES {
                 let text = format!("{} ({w:.0} × {h:.0} mm)", tl!(*label));
@@ -1059,16 +1093,7 @@ fn notebook_group(app: &mut RustGisApp, ui: &mut Ui) {
     group(ui, "Notebook", |ui| {
         big(ui, app, "python", "New\nNotebook", "A notebook of text and command cells.", "ui.newNotebook", Value::Null, false, false);
         col(ui, |ui| {
-            small(
-                ui,
-                app,
-                "open",
-                "Add and Open",
-                "Open a RustGIS or Jupyter notebook.",
-                "ui.openItem",
-                json!({"kind": "notebook"}),
-                false,
-            );
+            small(ui, app, "open", "Add and Open", "Open a GeoGIS or Jupyter notebook.", "ui.openItem", json!({"kind": "notebook"}), false);
             small(
                 ui,
                 app,
@@ -2774,7 +2799,7 @@ fn start_project_menu(app: &mut RustGisApp, ui: &mut Ui) {
     let blank = app.ui.start_blank;
     let current = if blank { tl!("Blank Map") } else { tl!("World Atlas") };
     let label = format!("{}\n{current}", tl!("Start With"));
-    big_menu(ui, app, "map", &label, "What RustGIS opens with: the World Atlas sample or a blank map.", move |ui, app| {
+    big_menu(ui, app, "map", &label, "What GeoGIS opens with: the World Atlas sample or a blank map.", move |ui, app| {
         for (b, name) in [(false, tl!("World Atlas")), (true, tl!("Blank Map"))] {
             if ui.add(egui::Button::selectable(blank == b, name)).clicked() {
                 let _ = app.run("ui.startup", json!({"blank": b}));
@@ -2865,7 +2890,7 @@ fn help_tab(app: &mut RustGisApp, ui: &mut Ui) {
         big(ui, app, "help", "Learning\nResources", "Open the RustGIS user guide.", "ui.learn", Value::Null, false, false);
     });
     group(ui, "Help", |ui| {
-        big(ui, app, "help", "About", "About RustGIS.", "ui.about", Value::Null, false, false);
+        big(ui, app, "help", "About", "About GeoGIS.", "ui.about", Value::Null, false, false);
         if !cfg!(target_arch = "wasm32") {
             big(
                 ui,

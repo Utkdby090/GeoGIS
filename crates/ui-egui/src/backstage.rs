@@ -90,7 +90,7 @@ fn start(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
         let (r, _) = ui.allocate_exact_size(vec2(44.0, 44.0), Sense::hover());
         app.paint_logo(ui, r);
         ui.add_space(6.0);
-        ui.label(egui::RichText::new(tl!("Welcome to RustGIS")).font(semibold(26.0)));
+        ui.label(egui::RichText::new(tl!("Welcome to GeoGIS")).font(semibold(26.0)));
     });
     ui.label(egui::RichText::new(tl!("Create a new project or start from the World Atlas sample.")).color(t.text_dim));
     ui.add_space(24.0);
@@ -149,15 +149,16 @@ fn card(ui: &mut Ui, t: &Tokens, title: &str, sub: &str, icon: &str) -> bool {
 }
 
 fn about(ui: &mut Ui, t: &Tokens) {
-    ui.label(egui::RichText::new(tl!("About RustGIS")).font(semibold(24.0)));
+    ui.label(egui::RichText::new(tl!("About GeoGIS")).font(semibold(24.0)));
     ui.add_space(8.0);
     ui.label(crate::i18n::fmt("Version {version}", &[("version", env!("CARGO_PKG_VERSION"))]));
     ui.add_space(8.0);
-    ui.label(tl!("RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line."));
+    ui.label(tl!("GeoGIS is GeoFlux's GIS workstation, built on RustGIS, a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line."));
     ui.add_space(4.0);
     crate::chrome::project_links(ui);
     ui.add_space(8.0);
     ui.label(
-        egui::RichText::new(tl!("Sample data © Natural Earth (public domain). RustGIS is licensed under Apache-2.0.")).color(t.text_dim),
+        egui::RichText::new(tl!("Sample data © Natural Earth (public domain). GeoGIS is built on RustGIS, licensed under Apache-2.0."))
+            .color(t.text_dim),
     );
 }

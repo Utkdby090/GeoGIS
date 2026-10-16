@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	一个值、一个字段，或用 + − × ÷ 连接的两者。应用于所选行；若未选择任何行，则应用于所有行。
 About	关于
 About plugins	关于插件
-About RustGIS	关于 RustGIS
-About RustGIS.	关于 RustGIS。
+About GeoGIS	关于 GeoGIS
+About GeoGIS.	关于 GeoGIS。
 Above	上方
 Above Left	左上方
 Above Right	右上方
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	使用范围: 距 {lon}° 经�
 Area of use: within {r}° of {lon}°, {lat}°	使用范围: 距 {lon}°, {lat}° {r}° 以内
 Area {area}   ·   Perimeter {perimeter}	面积 {area}   ·   周长 {perimeter}
 Areas (name, land use, area)	区域（名称、土地利用、面积）
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	提出有关数据的问题，或描述要对地图进行的操作。助手会为您运行 RustGIS 命令；每项更改都可以撤销。
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	提出有关数据的问题，或描述要对地图进行的操作。助手会为您运行 GeoGIS 命令；每项更改都可以撤销。
 Ask about the map, or tell it what to do…	询问有关地图的问题，或告诉它要做什么…
 Ask about your data, or tell the assistant what to do with the map.	询问有关数据的问题，或告诉助手要对地图做什么。
 Assistant settings	助手设置
@@ -778,7 +778,7 @@ Import Thumbnail	导入缩略图
 Import Web Tool	导入 Web 工具
 In Beyond	放大超过
 In Progress	进行中
-In RustGIS, it can:	在 RustGIS 中，它可以：
+In GeoGIS, it can:	在 GeoGIS 中，它可以：
 in progress	进行中
 In project	在工程中
 In use	正在使用
@@ -1075,7 +1075,7 @@ North	北
 North\nArrow	指北\n针
 North Polar Stereographic	北极球面投影
 Not sandboxed	未沙箱隔离
-not a RustGIS layout	不是 RustGIS 布局
+not a GeoGIS layout	不是 GeoGIS 布局
 not needed	无需填写
 Not saved yet	尚未保存
 Notebook	笔记本
@@ -1104,8 +1104,8 @@ Opacity	不透明度
 Open	打开
 Open a .rgis project	打开 .rgis 工程
 open a layout first	请先打开布局
-Open a RustGIS or Jupyter notebook.	打开 RustGIS 或 Jupyter 笔记本。
-Open a RustGIS project.	打开 RustGIS 工程。
+Open a GeoGIS or Jupyter notebook.	打开 GeoGIS 或 Jupyter 笔记本。
+Open a GeoGIS project.	打开 GeoGIS 工程。
 Open an offline area to edit.	打开要编辑的离线区域。
 Open Custom Template	打开自定义模板
 Open Custom Template…	打开自定义模板…
@@ -1201,7 +1201,7 @@ Plugin Manager…	插件管理器…
 Plugin registry	插件库
 Plugins	插件
 Plugins are .rgplugin files. Install only plugins from people you trust.	插件是 .rgplugin 文件。请只安装来自您信任的人的插件。
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	插件在沙箱中运行：它们无法访问您的文件或网络，只能在您接受的权限范围内通过 RustGIS 自身的命令更改工程。
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	插件在沙箱中运行：它们无法访问您的文件或网络，只能在您接受的权限范围内通过 GeoGIS 自身的命令更改工程。
 PMTiles archive	PMTiles 归档
 PMTiles File…	PMTiles 文件…
 PNG frames (zip)	PNG 帧（zip）
@@ -1377,23 +1377,23 @@ Run the task	运行该任务
 Run Tool	运行工具
 Run {name}	运行 {name}
 Running…	正在运行…
-RustGIS	RustGIS
-RustGIS deep learning package	RustGIS 深度学习包
+GeoGIS	GeoGIS
+GeoGIS deep learning package	GeoGIS 深度学习包
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS 是一款用纯 Rust 编写的免费开源 GIS。它可在桌面和浏览器中运行，并且每个操作都是一条命令，也可以在命令行中运行。
-RustGIS layer file	RustGIS 图层文件
-RustGIS layers, maps and projects	RustGIS 图层、地图和工程
-RustGIS layout	RustGIS 布局
-RustGIS maps and projects	RustGIS 地图和工程
-RustGIS or Jupyter notebook	RustGIS 或 Jupyter 笔记本
-RustGIS plugin	RustGIS 插件
-RustGIS presentation	RustGIS 演示文稿
-RustGIS project	RustGIS 工程
-RustGIS project template	RustGIS 工程模板
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	RustGIS 上次运行时发生内部错误。详细信息在 {path} 中，请将其附加到错误报告。
+GeoGIS layer file	GeoGIS 图层文件
+GeoGIS layers, maps and projects	GeoGIS 图层、地图和工程
+GeoGIS layout	GeoGIS 布局
+GeoGIS maps and projects	GeoGIS 地图和工程
+GeoGIS or Jupyter notebook	GeoGIS 或 Jupyter 笔记本
+GeoGIS plugin	GeoGIS 插件
+GeoGIS presentation	GeoGIS 演示文稿
+GeoGIS project	GeoGIS 工程
+GeoGIS project template	GeoGIS 工程模板
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS 上次运行时发生内部错误。详细信息在 {path} 中，请将其附加到错误报告。
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS 在处理模型回复时发生内部错误，因此已停止该请求。请在 https://github.com/opengeos/RustGIS/issues 报告此问题。
-RustGIS report or report template	RustGIS 报表或报表模板
-RustGIS styles	RustGIS 样式
-RustGIS task	RustGIS 任务
+GeoGIS report or report template	GeoGIS 报表或报表模板
+GeoGIS styles	GeoGIS 样式
+GeoGIS task	GeoGIS 任务
 RustGIS {latest} is available.	RustGIS {latest} 已发布。
 RustGIS {version} is the latest version.	RustGIS {version} 是最新版本。
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	文本
 Text Symbol	文本符号
 The assistant is busy; stop it or wait for it to finish.	助手正忙；请停止它或等待其完成。
 The assistant wants to run this, and {why}:	助手想要执行以下操作，由于{why}，需要您确认：
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	此插件作为程序在您的计算机上运行，位于 RustGIS 沙箱之外。它能做您能做的任何事：读取和更改您的文件、使用网络以及运行其他程序。请仅在信任其作者时安装。
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	此插件作为程序在您的计算机上运行，位于 GeoGIS 沙箱之外。它能做您能做的任何事：读取和更改您的文件、使用网络以及运行其他程序。请仅在信任其作者时安装。
 the capture failed unexpectedly	捕获意外失败
 the Help tab always shows	“帮助”选项卡始终显示
 The job covers the map view	作业覆盖地图视图
@@ -1787,11 +1787,11 @@ Web Tile Layers	Web 瓦片图层
 Web Tool	Web 工具
 Website	网站
 Weights	权重
-Welcome to RustGIS	欢迎使用 RustGIS
+Welcome to GeoGIS	欢迎使用 GeoGIS
 West	西
 WGS 84 / Globe	WGS 84 / 地球仪
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	RustGIS 启动时打开的内容：World Atlas 示例或空白地图。
+What GeoGIS opens with: the World Atlas sample or a blank map.	GeoGIS 启动时打开的内容：World Atlas 示例或空白地图。
 What's near a point	某点附近有什么
 Where	条件
 Where Clause	Where 子句

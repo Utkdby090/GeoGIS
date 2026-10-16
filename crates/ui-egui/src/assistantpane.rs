@@ -488,7 +488,7 @@ fn composer(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, busy: bool, ctx: &egu
 fn transcript(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context) {
     let Some(agent) = app.assistant.agent.as_ref() else { return };
     if agent.transcript.is_empty() {
-        ui.label(RichText::new(tl!("Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.")).color(t.text_dim));
+        ui.label(RichText::new(tl!("Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.")).color(t.text_dim));
         ui.add_space(8.0);
         let mut chosen = None;
         for s in SUGGESTIONS {

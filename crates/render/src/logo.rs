@@ -1,10 +1,7 @@
-//! The RustGIS logo, drawn in code: a rust-coloured cog framing a globe split into four
-//! segments by white gaps, with a tilted orbit. The same design is published as SVG in
-//! rustgis-assets; this keeps the app free of image files.
+//! The GeoGIS logo, drawn in code so the app needs no image files. It is a placeholder (see
+//! [`pixmap`]) until GeoFlux has a designed mark.
 
-use tiny_skia::{
-    Color, FillRule, GradientStop, LineCap, LinearGradient, Mask, Paint, PathBuilder, Pixmap, Point, SpreadMode, Stroke, Transform,
-};
+use tiny_skia::{Color, FillRule, GradientStop, LinearGradient, Mask, Paint, PathBuilder, Pixmap, Point, SpreadMode, Stroke, Transform};
 
 const C: f32 = 256.0;
 
@@ -25,113 +22,68 @@ fn solid(r: u8, g: u8, b: u8, a: u8) -> Paint<'static> {
     p
 }
 
-const RUST: ((u8, u8, u8), (u8, u8, u8)) = ((0xE4, 0x78, 0x3D), (0xA8, 0x3F, 0x24));
-
 /// The logo as a premultiplied RGBA pixmap of `size`×`size` pixels (16..=1024).
+///
+/// A placeholder GeoGIS mark until the real one is designed: a rounded navy-to-teal tile with
+/// a faint map grid and a white location pin holding a thermal hot spot.
 pub fn pixmap(size: u32) -> Option<Pixmap> {
     let size = size.clamp(16, 1024);
     let mut pm = Pixmap::new(size, size)?;
     let t = Transform::from_scale(size as f32 / 512.0, size as f32 / 512.0);
-    let rust = gradient(RUST.0, RUST.1, 0.0, 0.0, 512.0, 512.0);
 
-    // Cog.
-    let mut pb = PathBuilder::new();
-    let teeth = 12;
-    let step = std::f32::consts::TAU / teeth as f32;
-    let mut first = true;
-    for i in 0..teeth {
-        let a = i as f32 * step - std::f32::consts::FRAC_PI_2;
-        for (frac, r) in [(-0.5, 212.0), (-0.31, 212.0), (-0.21, 246.0), (0.21, 246.0), (0.31, 212.0)] {
-            let ang = a + frac * step;
-            let (x, y) = (C + r * ang.cos(), C + r * ang.sin());
-            if first {
-                pb.move_to(x, y);
-                first = false;
-            } else {
-                pb.line_to(x, y);
-            }
-        }
-    }
-    pb.close();
-    pm.fill_path(&pb.finish()?, &rust, FillRule::Winding, t, None);
-    let white = solid(255, 255, 255, 255);
-    pm.fill_path(&PathBuilder::from_circle(C, C, 184.0)?, &white, FillRule::Winding, t, None);
-
-    // Globe segments, clipped to a circle.
+    // Tile.
+    let tile = PathBuilder::from_rect(tiny_skia::Rect::from_xywh(16.0, 16.0, 480.0, 480.0)?);
     let mut mask = Mask::new(size, size)?;
-    mask.fill_path(&PathBuilder::from_circle(C, C, 166.0)?, FillRule::Winding, true, t);
-    let seg = |cmds: &dyn Fn(&mut PathBuilder)| -> Option<tiny_skia::Path> {
-        let mut pb = PathBuilder::new();
-        cmds(&mut pb);
-        pb.close();
-        pb.finish()
-    };
-    let blue = seg(&|pb| {
-        pb.move_to(60.0, 60.0);
-        pb.line_to(250.0, 60.0);
-        pb.cubic_to(215.0, 150.0, 205.0, 230.0, 214.0, 262.0);
-        pb.cubic_to(150.0, 250.0, 100.0, 262.0, 60.0, 282.0);
-    })?;
-    let teal = seg(&|pb| {
-        pb.move_to(250.0, 60.0);
-        pb.line_to(452.0, 60.0);
-        pb.line_to(452.0, 226.0);
-        pb.cubic_to(380.0, 236.0, 300.0, 250.0, 214.0, 262.0);
-        pb.cubic_to(205.0, 230.0, 215.0, 150.0, 250.0, 60.0);
-    })?;
-    let green = seg(&|pb| {
-        pb.move_to(60.0, 282.0);
-        pb.cubic_to(100.0, 262.0, 150.0, 250.0, 214.0, 262.0);
-        pb.cubic_to(222.0, 330.0, 250.0, 400.0, 280.0, 452.0);
-        pb.line_to(60.0, 452.0);
-    })?;
-    let gold = seg(&|pb| {
-        pb.move_to(214.0, 262.0);
-        pb.cubic_to(300.0, 250.0, 380.0, 236.0, 452.0, 226.0);
-        pb.line_to(452.0, 452.0);
-        pb.line_to(280.0, 452.0);
-        pb.cubic_to(250.0, 400.0, 222.0, 330.0, 214.0, 262.0);
-    })?;
-    for (path, (a, b), (x0, y0, x1, y1)) in [
-        (&blue, ((0x3B, 0x8E, 0xDB), (0x1F, 0x5F, 0xA8)), (60.0, 60.0, 250.0, 282.0)),
-        (&teal, ((0x22, 0xB5, 0xA2), (0x0E, 0x85, 0x76)), (214.0, 60.0, 452.0, 262.0)),
-        (&green, ((0x8C, 0xC8, 0x4B), (0x4E, 0x9A, 0x2E)), (60.0, 250.0, 280.0, 452.0)),
-        (&gold, ((0xF8, 0xC1, 0x50), (0xE3, 0x9A, 0x22)), (214.0, 226.0, 452.0, 452.0)),
-    ] {
-        pm.fill_path(path, &gradient(a, b, x0, y0, x1, y1), FillRule::Winding, t, Some(&mask));
-    }
-    let gap = Stroke { width: 14.0, line_cap: LineCap::Round, ..Stroke::default() };
-    let mut pb = PathBuilder::new();
-    pb.move_to(250.0, 60.0);
-    pb.cubic_to(215.0, 150.0, 205.0, 230.0, 214.0, 262.0);
-    pb.cubic_to(222.0, 330.0, 250.0, 400.0, 280.0, 452.0);
-    pb.move_to(60.0, 282.0);
-    pb.cubic_to(100.0, 262.0, 150.0, 250.0, 214.0, 262.0);
-    pb.cubic_to(300.0, 250.0, 380.0, 236.0, 452.0, 226.0);
-    pm.stroke_path(&pb.finish()?, &white, &gap, t, Some(&mask));
-    let mut pb = PathBuilder::new();
-    pb.move_to(70.0, 170.0);
-    pb.cubic_to(170.0, 135.0, 330.0, 125.0, 440.0, 150.0);
-    pb.move_to(75.0, 360.0);
-    pb.cubic_to(180.0, 345.0, 330.0, 335.0, 440.0, 345.0);
-    pm.stroke_path(&pb.finish()?, &solid(255, 255, 255, 140), &Stroke { width: 5.0, ..Stroke::default() }, t, Some(&mask));
+    mask.fill_path(&rounded(16.0, 16.0, 480.0, 480.0, 104.0)?, FillRule::Winding, true, t);
+    pm.fill_path(&tile, &gradient((0x13, 0x4B, 0x7A), (0x12, 0x9C, 0x86), 16.0, 16.0, 496.0, 496.0), FillRule::Winding, t, Some(&mask));
 
-    // Orbit: the front half of an ellipse tilted by -28°, ending in a node.
-    let (rx, ry, tilt) = (226.0f32, 70.0f32, (-28.0f32).to_radians());
+    // Map grid.
     let mut pb = PathBuilder::new();
-    for i in 0..=64 {
-        let th = std::f32::consts::PI * (1.0 - i as f32 / 64.0);
-        let (ex, ey) = (rx * th.cos(), ry * th.sin());
-        let (x, y) = (C + ex * tilt.cos() - ey * tilt.sin(), C + ex * tilt.sin() + ey * tilt.cos());
-        if i == 0 { pb.move_to(x, y) } else { pb.line_to(x, y) }
+    for k in 1..4 {
+        let v = 16.0 + 120.0 * k as f32;
+        pb.move_to(v, 16.0);
+        pb.line_to(v, 496.0);
+        pb.move_to(16.0, v);
+        pb.line_to(496.0, v);
     }
-    let orbit = pb.finish()?;
-    pm.stroke_path(&orbit, &white, &Stroke { width: 24.0, line_cap: LineCap::Round, ..Stroke::default() }, t, None);
-    pm.stroke_path(&orbit, &rust, &Stroke { width: 11.0, line_cap: LineCap::Round, ..Stroke::default() }, t, None);
-    let (nx, ny) = (C + rx * tilt.cos(), C + rx * tilt.sin());
-    pm.fill_path(&PathBuilder::from_circle(nx, ny, 22.0)?, &white, FillRule::Winding, t, None);
-    pm.fill_path(&PathBuilder::from_circle(nx, ny, 14.0)?, &rust, FillRule::Winding, t, None);
+    pm.stroke_path(&pb.finish()?, &solid(255, 255, 255, 46), &Stroke { width: 6.0, ..Stroke::default() }, t, Some(&mask));
+
+    // Pin: a circle above a point, with a hole holding the hot spot.
+    let mut pb = PathBuilder::new();
+    pb.move_to(C, 432.0);
+    pb.cubic_to(C - 40.0, 360.0, C - 132.0, 300.0, C - 132.0, 212.0);
+    pb.cubic_to(C - 132.0, 139.0, C - 73.0, 80.0, C, 80.0);
+    pb.cubic_to(C + 73.0, 80.0, C + 132.0, 139.0, C + 132.0, 212.0);
+    pb.cubic_to(C + 132.0, 300.0, C + 40.0, 360.0, C, 432.0);
+    pb.close();
+    pm.fill_path(&pb.finish()?, &solid(255, 255, 255, 255), FillRule::Winding, t, None);
+    pm.fill_path(
+        &PathBuilder::from_circle(C, 212.0, 70.0)?,
+        &gradient((0xFF, 0xC2, 0x3D), (0xE0, 0x3B, 0x24), C - 70.0, 142.0, C + 70.0, 282.0),
+        FillRule::Winding,
+        t,
+        None,
+    );
+    pm.fill_path(&PathBuilder::from_circle(C, 212.0, 26.0)?, &solid(255, 248, 214, 255), FillRule::Winding, t, None);
     Some(pm)
+}
+
+/// A rounded rectangle.
+fn rounded(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Path> {
+    let k = 0.552_285 * r;
+    let (x1, y1) = (x + w, y + h);
+    let mut pb = PathBuilder::new();
+    pb.move_to(x + r, y);
+    pb.line_to(x1 - r, y);
+    pb.cubic_to(x1 - r + k, y, x1, y + r - k, x1, y + r);
+    pb.line_to(x1, y1 - r);
+    pb.cubic_to(x1, y1 - r + k, x1 - r + k, y1, x1 - r, y1);
+    pb.line_to(x + r, y1);
+    pb.cubic_to(x + r - k, y1, x, y1 - r + k, x, y1 - r);
+    pb.line_to(x, y + r);
+    pb.cubic_to(x, y + r - k, x + r - k, y, x + r, y);
+    pb.close();
+    pb.finish()
 }
 
 /// The logo as straight (unpremultiplied) RGBA bytes, for window icons.

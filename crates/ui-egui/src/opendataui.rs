@@ -60,7 +60,7 @@ pub fn poll(app: &mut RustGisApp, ctx: &egui::Context) {
     match r.and_then(|b| portal.parse(&url, &b, area)) {
         Ok(found) => {
             st.info = Some(if found.is_empty() {
-                tl!("No datasets with data RustGIS can add").to_string()
+                tl!("No datasets with data GeoGIS can add").to_string()
             } else {
                 crate::i18n::fmt("{n} datasets on {portal}", &[("n", &found.len().to_string()), ("portal", &portal.label())])
             });
