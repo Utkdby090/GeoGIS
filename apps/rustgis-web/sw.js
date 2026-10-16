@@ -14,15 +14,14 @@
 
 const VERSION = "__VERSION__";
 const SHELL = __SHELL__;
-// The icons and the loading logo, served from rustgis-assets: cached when reachable, but never
+// The icons and the loading logo, served beside the app: cached when reachable, but never
 // required for the install to succeed.
 const EXTRA = [
-  "https://assets.rustgis.app/images/favicon.png",
-  "https://assets.rustgis.app/images/logo.svg",
-  "https://assets.rustgis.app/images/icon-192.png",
-  "https://assets.rustgis.app/images/icon-512.png",
-  "https://assets.rustgis.app/images/icon-maskable-512.png",
-  "https://assets.rustgis.app/images/apple-touch-icon.png",
+  "icons/favicon.png",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "icons/apple-touch-icon.png",
 ];
 
 // Caches are per origin, and pull request previews share one: name them by scope so one build

@@ -545,7 +545,7 @@ mod native {
     pub(super) fn agent() -> ureq::Agent {
         ureq::Agent::config_builder()
             .timeout_global(Some(std::time::Duration::from_secs(30)))
-            .user_agent(concat!("RustGIS/", env!("CARGO_PKG_VERSION"), " (+https://rustgis.app)"))
+            .user_agent(concat!("GeoGIS/", env!("CARGO_PKG_VERSION"), " (+https://github.com/Utkdby090/GeoGIS)"))
             // Redirects are followed by `get`, which checks where each one leads.
             .max_redirects(0)
             .build()
@@ -556,7 +556,7 @@ mod native {
     pub(super) fn download_agent(timeout: std::time::Duration) -> ureq::Agent {
         ureq::Agent::config_builder()
             .timeout_global(Some(timeout))
-            .user_agent(concat!("RustGIS/", env!("CARGO_PKG_VERSION"), " (+https://rustgis.app)"))
+            .user_agent(concat!("GeoGIS/", env!("CARGO_PKG_VERSION"), " (+https://github.com/Utkdby090/GeoGIS)"))
             .max_redirects(0)
             .build()
             .into()

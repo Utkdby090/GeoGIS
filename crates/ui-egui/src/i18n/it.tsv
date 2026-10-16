@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	Apri la tabella degli attributi 
 Open the layer's attribute table.	Apri la tabella degli attributi del layer.
 Open the layer's table.	Apri la tabella del layer.
 Open the Release Page	Apri la pagina della release
-Open the RustGIS user guide.	Apri la guida utente di RustGIS.
 Open the selected layer's table.	Apri la tabella del layer selezionato.
 Open the Symbology pane.	Apri il pannello Simbologia.
 Open {code} on epsg.io	Apri {code} su epsg.io
@@ -1390,12 +1389,12 @@ GeoGIS presentation	Presentazione GeoGIS
 GeoGIS project	Progetto GeoGIS
 GeoGIS project template	Modello di progetto GeoGIS
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	L'ultima volta GeoGIS ha riscontrato un errore interno. I dettagli sono in {path}; allegali a una segnalazione di bug.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS ha riscontrato un errore interno elaborando la risposta del modello, quindi la richiesta è stata interrotta. Segnalalo su https://github.com/opengeos/RustGIS/issues.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS ha riscontrato un errore interno elaborando la risposta del modello, quindi la richiesta è stata interrotta. Segnalalo su https://github.com/Utkdby090/GeoGIS/issues.
 GeoGIS report or report template	Report o modello di report GeoGIS
 GeoGIS styles	Stili GeoGIS
 GeoGIS task	Attività GeoGIS
-RustGIS {latest} is available.	RustGIS {latest} è disponibile.
-RustGIS {version} is the latest version.	RustGIS {version} è la versione più recente.
+GeoGIS {latest} is available.	GeoGIS {latest} è disponibile.
+GeoGIS {version} is the latest version.	GeoGIS {version} è la versione più recente.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	Dati di esempio (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	Sezioni
 See and set the camera's position and scale.	Visualizza e imposta posizione e scala della fotocamera.
 See the map as people with colour vision deficiencies do.	Guarda la mappa come la vedono le persone con deficit della visione dei colori.
 See the tools you've run.	Vedi gli strumenti eseguiti.
-See whether a newer RustGIS has been released.	Controlla se è uscita una versione più recente di RustGIS.
+See whether a newer GeoGIS has been released.	Controlla se è uscita una versione più recente di GeoGIS.
 Select	Seleziona
 Select (click)	Seleziona (clic)
 Select (rectangle)	Seleziona (rettangolo)

@@ -1649,7 +1649,7 @@ impl RustGisApp {
             }
             "ui.learn" => {
                 // Only web pages: the URL can come from a script or command search.
-                let url = p.get("url").and_then(Value::as_str).unwrap_or("https://rustgis.app/user-guide/").to_string();
+                let url = p.get("url").and_then(Value::as_str).unwrap_or("https://github.com/Utkdby090/GeoGIS/tree/main/docs").to_string();
                 if !(url.starts_with("https://") || url.starts_with("http://")) {
                     return Err("ui.learn opens web pages (http or https) only".into());
                 }

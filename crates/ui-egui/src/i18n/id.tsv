@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	Buka tabel atribut layer terpili
 Open the layer's attribute table.	Buka tabel atribut layer.
 Open the layer's table.	Buka tabel layer.
 Open the Release Page	Buka Halaman Rilis
-Open the RustGIS user guide.	Buka panduan pengguna RustGIS.
 Open the selected layer's table.	Buka tabel layer terpilih.
 Open the Symbology pane.	Buka panel Simbologi.
 Open {code} on epsg.io	Buka {code} di epsg.io
@@ -1390,12 +1389,12 @@ GeoGIS presentation	Presentasi GeoGIS
 GeoGIS project	Proyek GeoGIS
 GeoGIS project template	Templat proyek GeoGIS
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS mengalami kesalahan internal terakhir kali. Detailnya ada di {path}; lampirkan ke laporan bug.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS mengalami kesalahan internal saat memproses balasan model, jadi permintaan dihentikan. Laporkan di https://github.com/opengeos/RustGIS/issues.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS mengalami kesalahan internal saat memproses balasan model, jadi permintaan dihentikan. Laporkan di https://github.com/Utkdby090/GeoGIS/issues.
 GeoGIS report or report template	Laporan atau templat laporan GeoGIS
 GeoGIS styles	Gaya GeoGIS
 GeoGIS task	Tugas GeoGIS
-RustGIS {latest} is available.	RustGIS {latest} tersedia.
-RustGIS {version} is the latest version.	RustGIS {version} adalah versi terbaru.
+GeoGIS {latest} is available.	GeoGIS {latest} tersedia.
+GeoGIS {version} is the latest version.	GeoGIS {version} adalah versi terbaru.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	Data contoh (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	Bagian
 See and set the camera's position and scale.	Lihat dan atur posisi serta skala kamera.
 See the map as people with colour vision deficiencies do.	Lihat peta seperti yang dilihat penyandang gangguan penglihatan warna.
 See the tools you've run.	Lihat alat yang telah Anda jalankan.
-See whether a newer RustGIS has been released.	Periksa apakah RustGIS yang lebih baru telah dirilis.
+See whether a newer GeoGIS has been released.	Periksa apakah GeoGIS yang lebih baru telah dirilis.
 Select	Pilih
 Select (click)	Pilih (klik)
 Select (rectangle)	Pilih (persegi)

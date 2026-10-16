@@ -49,7 +49,7 @@ enum State {
 }
 
 /// What the transcript says when RustGIS itself fails while handling a reply.
-pub const INTERNAL_ERROR: &str = "RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.";
+pub const INTERNAL_ERROR: &str = "GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.";
 
 pub struct Agent {
     pub config: Config,
@@ -272,7 +272,7 @@ impl Agent {
                     .unwrap_or_default();
                 self.halt(
                     Entry::Error(INTERNAL_ERROR.into()),
-                    "Not run: RustGIS ran into an internal error before this call.",
+                    "Not run: GeoGIS ran into an internal error before this call.",
                     "RustGIS failed while running this call, so it may have partly taken effect. Check before running it again.",
                 );
                 if !detail.is_empty() {

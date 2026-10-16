@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	Seçilmiş layın atribut cədv�
 Open the layer's attribute table.	Layın atribut cədvəlini açın.
 Open the layer's table.	Layın cədvəlini açın.
 Open the Release Page	Buraxılış səhifəsini aç
-Open the RustGIS user guide.	RustGIS istifadəçi təlimatını açın.
 Open the selected layer's table.	Seçilmiş layın cədvəlini açın.
 Open the Symbology pane.	Simvolika panelini açın.
 Open {code} on epsg.io	{code} kodunu epsg.io-da aç
@@ -1390,12 +1389,12 @@ GeoGIS presentation	GeoGIS təqdimatı
 GeoGIS project	GeoGIS layihəsi
 GeoGIS project template	GeoGIS layihə şablonu
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS ötən dəfə daxili xəta ilə qarşılaşdı. Təfərrüatlar {path} faylındadır; lütfən, onları xəta hesabatına əlavə edin.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS modelin cavabını emal edərkən daxili xəta ilə qarşılaşdı, ona görə sorğu dayandırıldı. Lütfən, bunu https://github.com/opengeos/RustGIS/issues ünvanında bildirin.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS modelin cavabını emal edərkən daxili xəta ilə qarşılaşdı, ona görə sorğu dayandırıldı. Lütfən, bunu https://github.com/Utkdby090/GeoGIS/issues ünvanında bildirin.
 GeoGIS report or report template	GeoGIS hesabatı və ya hesabat şablonu
 GeoGIS styles	GeoGIS üslubları
 GeoGIS task	GeoGIS tapşırığı
-RustGIS {latest} is available.	RustGIS {latest} mövcuddur.
-RustGIS {version} is the latest version.	RustGIS {version} ən son versiyadır.
+GeoGIS {latest} is available.	GeoGIS {latest} mövcuddur.
+GeoGIS {version} is the latest version.	GeoGIS {version} ən son versiyadır.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	Nümunə məlumat (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	Bölmələr
 See and set the camera's position and scale.	Kameranın mövqeyinə və miqyasına baxın və onları təyin edin.
 See the map as people with colour vision deficiencies do.	Xəritəni rəng görmə çatışmazlığı olan insanların gördüyü kimi görün.
 See the tools you've run.	İşə saldığınız alətlərə baxın.
-See whether a newer RustGIS has been released.	RustGIS-in daha yeni versiyasının buraxılıb-buraxılmadığını yoxla.
+See whether a newer GeoGIS has been released.	GeoGIS-in daha yeni versiyasının buraxılıb-buraxılmadığını yoxla.
 Select	Seç
 Select (click)	Seç (klik)
 Select (rectangle)	Seç (düzbucaqlı)

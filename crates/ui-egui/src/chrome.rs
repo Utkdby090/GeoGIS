@@ -457,7 +457,7 @@ pub fn command_search(app: &mut RustGisApp, ctx: &egui::Context) {
 /// (and its map) stays open.
 pub(crate) fn project_links(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.add(egui::Hyperlink::from_label_and_url(tl!("Website"), "https://rustgis.app").open_in_new_tab(true));
+        ui.add(egui::Hyperlink::from_label_and_url(tl!("GeoGIS on GitHub"), "https://github.com/Utkdby090/GeoGIS").open_in_new_tab(true));
         ui.label("·");
         ui.add(egui::Hyperlink::from_label_and_url(tl!("RustGIS on GitHub"), "https://github.com/opengeos/RustGIS").open_in_new_tab(true));
     });

@@ -1,4 +1,4 @@
-//! On Windows, embeds the app icon in `rustgis.exe`, so Explorer, shortcuts and pinned taskbar
+//! On Windows, embeds the app icon in `geogis.exe`, so Explorer, shortcuts and pinned taskbar
 //! entries show the logo. The icon is drawn by the same code as the window icon
 //! (`crates/render/src/logo.rs`), so there is no image file to keep in sync.
 
@@ -50,9 +50,9 @@ BEGIN
       VALUE "CompanyName", "GeoFlux"
       VALUE "FileDescription", "GeoGIS"
       VALUE "FileVersion", "{version}"
-      VALUE "InternalName", "rustgis"
+      VALUE "InternalName", "geogis"
       VALUE "LegalCopyright", "GeoGIS is built on RustGIS, copyright the RustGIS contributors. Apache-2.0."
-      VALUE "OriginalFilename", "rustgis.exe"
+      VALUE "OriginalFilename", "geogis.exe"
       VALUE "ProductName", "GeoGIS"
       VALUE "ProductVersion", "{version}"
     END
@@ -69,7 +69,7 @@ END
         // Without a resource compiler (rc.exe or windres) the exe just has no icon: warn rather
         // than fail a plain `cargo build`.
         if let Err(e) = embed_resource::compile(&rc, embed_resource::NONE).manifest_optional() {
-            println!("cargo:warning=rustgis.exe gets no icon: {e}");
+            println!("cargo:warning=geogis.exe gets no icon: {e}");
         }
         Ok(())
     }

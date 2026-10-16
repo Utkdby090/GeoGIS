@@ -21,7 +21,7 @@ mod tiles;
 pub use rustgis_tiles;
 pub use tiles::spec as tile_spec;
 
-/// Natural Earth 1:110m sample data (public domain), fetched by `build.rs` from rustgis-assets.
+/// Natural Earth 1:110m sample data (public domain), copied in by `build.rs` from `data/`.
 pub mod sample_data {
     pub const COUNTRIES: &str = include_str!(concat!(env!("OUT_DIR"), "/countries.geojson"));
     /// The countries as China sees its borders (Natural Earth's China point of view).

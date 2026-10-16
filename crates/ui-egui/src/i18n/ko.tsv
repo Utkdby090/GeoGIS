@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	선택한 레이어의 속성 �
 Open the layer's attribute table.	레이어의 속성 테이블을 엽니다.
 Open the layer's table.	레이어의 테이블을 엽니다.
 Open the Release Page	릴리스 페이지 열기
-Open the RustGIS user guide.	RustGIS 사용자 가이드를 엽니다.
 Open the selected layer's table.	선택한 레이어의 테이블을 엽니다.
 Open the Symbology pane.	심볼 창을 엽니다.
 Open {code} on epsg.io	epsg.io에서 {code} 열기
@@ -1390,12 +1389,12 @@ GeoGIS presentation	GeoGIS 프레젠테이션
 GeoGIS project	GeoGIS 프로젝트
 GeoGIS project template	GeoGIS 프로젝트 템플릿
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	지난번에 GeoGIS에서 내부 오류가 발생했습니다. 자세한 내용은 {path}에 있습니다. 버그 보고서에 첨부해 주세요.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	모델의 응답을 처리하는 중 RustGIS에서 내부 오류가 발생해 요청을 중지했습니다. https://github.com/opengeos/RustGIS/issues 에서 신고해 주세요.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	모델의 응답을 처리하는 중 GeoGIS에서 내부 오류가 발생해 요청을 중지했습니다. https://github.com/Utkdby090/GeoGIS/issues 에서 신고해 주세요.
 GeoGIS report or report template	GeoGIS 보고서 또는 보고서 템플릿
 GeoGIS styles	GeoGIS 스타일
 GeoGIS task	GeoGIS 태스크
-RustGIS {latest} is available.	RustGIS {latest}을(를) 사용할 수 있습니다.
-RustGIS {version} is the latest version.	RustGIS {version}이(가) 최신 버전입니다.
+GeoGIS {latest} is available.	GeoGIS {latest}을(를) 사용할 수 있습니다.
+GeoGIS {version} is the latest version.	GeoGIS {version}이(가) 최신 버전입니다.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	샘플 데이터(Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	섹션
 See and set the camera's position and scale.	카메라의 위치와 축척을 확인하고 설정합니다.
 See the map as people with colour vision deficiencies do.	색각 이상이 있는 사람이 보는 방식으로 지도를 봅니다.
 See the tools you've run.	실행한 도구를 확인합니다.
-See whether a newer RustGIS has been released.	새 RustGIS가 출시되었는지 확인합니다.
+See whether a newer GeoGIS has been released.	새 GeoGIS가 출시되었는지 확인합니다.
 Select	선택
 Select (click)	선택(클릭)
 Select (rectangle)	선택(사각형)

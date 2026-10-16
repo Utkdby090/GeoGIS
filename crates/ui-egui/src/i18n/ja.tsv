@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	選択したレイヤーの属�
 Open the layer's attribute table.	レイヤーの属性テーブルを開きます。
 Open the layer's table.	レイヤーのテーブルを開きます。
 Open the Release Page	リリース ページを開く
-Open the RustGIS user guide.	RustGIS ユーザー ガイドを開きます。
 Open the selected layer's table.	選択したレイヤーのテーブルを開きます。
 Open the Symbology pane.	シンボル ウィンドウを開きます。
 Open {code} on epsg.io	epsg.io で {code} を開く
@@ -1390,12 +1389,12 @@ GeoGIS presentation	GeoGIS プレゼンテーション
 GeoGIS project	GeoGIS プロジェクト
 GeoGIS project template	GeoGIS プロジェクト テンプレート
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	前回、GeoGIS で内部エラーが発生しました。詳細は {path} にあります。バグ報告に添付してください。
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	モデルの応答の処理中に RustGIS で内部エラーが発生したため、リクエストを停止しました。https://github.com/opengeos/RustGIS/issues で報告してください。
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	モデルの応答の処理中に GeoGIS で内部エラーが発生したため、リクエストを停止しました。https://github.com/Utkdby090/GeoGIS/issues で報告してください。
 GeoGIS report or report template	GeoGIS レポートまたはレポート テンプレート
 GeoGIS styles	GeoGIS スタイル
 GeoGIS task	GeoGIS タスク
-RustGIS {latest} is available.	RustGIS {latest} が利用できます。
-RustGIS {version} is the latest version.	RustGIS {version} が最新バージョンです。
+GeoGIS {latest} is available.	GeoGIS {latest} が利用できます。
+GeoGIS {version} is the latest version.	GeoGIS {version} が最新バージョンです。
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	サンプル データ（Natural Earth）
@@ -1464,7 +1463,7 @@ Sections	セクション
 See and set the camera's position and scale.	カメラの位置と縮尺を表示、設定します。
 See the map as people with colour vision deficiencies do.	色覚特性を持つ人の見え方でマップを表示します。
 See the tools you've run.	実行したツールを表示します。
-See whether a newer RustGIS has been released.	新しい RustGIS がリリースされているか確認します。
+See whether a newer GeoGIS has been released.	新しい GeoGIS がリリースされているか確認します。
 Select	選択
 Select (click)	選択（クリック）
 Select (rectangle)	選択（四角形）

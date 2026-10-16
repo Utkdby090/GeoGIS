@@ -3,8 +3,8 @@
 
 use serde_json::{Value, json};
 
-/// Where the published documentation lives.
-pub const SITE: &str = "https://rustgis.app/";
+/// Where the documentation is published: the `docs/` folder of the GeoGIS repository.
+pub const SITE: &str = "https://github.com/Utkdby090/GeoGIS/blob/main/docs/";
 
 /// One documentation page: its path under `docs/` and its Markdown.
 pub struct Page {
@@ -58,17 +58,20 @@ impl Page {
         sections(self.text).into_iter().find_map(|(h, _)| (!h.is_empty()).then_some(h)).unwrap_or(self.path)
     }
 
-    /// The page on the published site.
+    /// The page where it is published.
     pub fn url(&self) -> String {
-        let p = self.path.trim_end_matches(".md");
-        let p = p.strip_suffix("index").unwrap_or(p);
-        if p.is_empty() || p.ends_with('/') { format!("{SITE}{p}") } else { format!("{SITE}{p}/") }
+        format!("{SITE}{}", self.path)
     }
 }
 
 /// A page by its path (`cli.md`, `user-guide/maps`, `/user-guide/maps.md`, or its site URL).
 pub fn page(path: &str) -> Option<&'static Page> {
-    let p = path.trim().trim_start_matches(SITE).trim_start_matches("rustgis://docs/").trim_matches('/');
+    let p = path
+        .trim()
+        .trim_start_matches(SITE)
+        .trim_start_matches("https://rustgis.app/")
+        .trim_start_matches("rustgis://docs/")
+        .trim_matches('/');
     let p = p.strip_prefix("docs/").unwrap_or(p);
     let with_md = if p.ends_with(".md") {
         p.to_string()

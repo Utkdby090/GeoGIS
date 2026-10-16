@@ -23,7 +23,7 @@ pub fn commands() -> Vec<C> {
         C::new("plugin.enable", "Enable Plugin", "Plugins › Manage", enable).view().params(r#"{"id": plugin id, "enabled"?: bool}"#),
         C::new("plugin.registry", "Browse Plugins", "Plugins › Manage", browse)
             .view()
-            .params(r#"{"url"?: "registry.json (default: https://plugins.rustgis.app/registry.json)"}"#),
+            .params(r#"{"url"?: "registry.json (GeoGIS has no default registry)"}"#),
         C::new("plugin.installFromRegistry", "Install Plugin From Registry", "Plugins › Manage", install_from_registry)
             .view()
             .params(r#"{"id": plugin id, "url"?: registry.json}"#),
@@ -144,7 +144,8 @@ pub fn entry_status(e: &rustgis_plugins::registry::Entry) -> Value {
 }
 
 fn browse(_: &mut Session, p: &Value) -> CmdResult {
-    let url = ps(p, "url").map(str::trim).filter(|s| !s.is_empty()).unwrap_or(rustgis_plugins::registry::DEFAULT_URL);
+    let url =
+        ps(p, "url").map(str::trim).filter(|s| !s.is_empty()).ok_or("no plugin registry is set: pass url (a registry.json address)")?;
     #[cfg(not(target_arch = "wasm32"))]
     {
         Ok(Value::Array(fetch_registry(url)?.iter().map(entry_status).collect()))
@@ -171,7 +172,8 @@ pub fn install_checked(e: &rustgis_plugins::registry::Entry, bytes: &[u8]) -> Re
 
 fn install_from_registry(_: &mut Session, p: &Value) -> CmdResult {
     let id = ps(p, "id").ok_or("id is required")?;
-    let url = ps(p, "url").map(str::trim).filter(|s| !s.is_empty()).unwrap_or(rustgis_plugins::registry::DEFAULT_URL);
+    let url =
+        ps(p, "url").map(str::trim).filter(|s| !s.is_empty()).ok_or("no plugin registry is set: pass url (a registry.json address)")?;
     #[cfg(not(target_arch = "wasm32"))]
     {
         let entries = fetch_registry(url)?;

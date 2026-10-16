@@ -1768,6 +1768,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-report"
+version = "0.2.0"
+dependencies = [
+ "geoflux-domain",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "geoflux-thermal"
 version = "0.2.0"
 dependencies = [
