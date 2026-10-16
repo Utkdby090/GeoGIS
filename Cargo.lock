@@ -1760,6 +1760,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-thermal"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "geographiclib-rs"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
