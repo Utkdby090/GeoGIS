@@ -534,12 +534,7 @@ fn summary_text(r: &serde_json::Value, path: &str) -> String {
 }
 
 /// The markup of each of the asset's photos by (slot, photo), for drawing over the thumbnails.
-pub fn marks(
-    app: &RustGisApp,
-    layer: u32,
-    row: usize,
-    slots: &[gf::SlotPhotos],
-) -> Vec<(String, String, AnnotationSet)> {
+pub fn marks(app: &RustGisApp, layer: u32, row: usize, slots: &[gf::SlotPhotos]) -> Vec<(String, String, AnnotationSet)> {
     let label = gf::asset(&app.session, layer, row).map(|(schema, a)| a.property(schema.label_key()).to_string()).unwrap_or_default();
     let mut out = Vec::new();
     if app.session.project.geoflux.markup.is_empty() {
