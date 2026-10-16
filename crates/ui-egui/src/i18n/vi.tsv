@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	Mở bảng thuộc tính của 
 Open the layer's attribute table.	Mở bảng thuộc tính của lớp.
 Open the layer's table.	Mở bảng của lớp.
 Open the Release Page	Mở trang phát hành
-Open the RustGIS user guide.	Mở hướng dẫn sử dụng RustGIS.
 Open the selected layer's table.	Mở bảng của lớp được chọn.
 Open the Symbology pane.	Mở ngăn Ký hiệu.
 Open {code} on epsg.io	Mở {code} trên epsg.io
@@ -1390,12 +1389,12 @@ GeoGIS presentation	Bản trình bày GeoGIS
 GeoGIS project	Dự án GeoGIS
 GeoGIS project template	Mẫu dự án GeoGIS
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	Lần trước GeoGIS gặp lỗi nội bộ. Chi tiết nằm trong {path}; hãy đính kèm vào báo cáo lỗi.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS gặp lỗi nội bộ khi xử lý phản hồi của mô hình nên yêu cầu đã bị dừng. Hãy báo lỗi tại https://github.com/opengeos/RustGIS/issues.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS gặp lỗi nội bộ khi xử lý phản hồi của mô hình nên yêu cầu đã bị dừng. Hãy báo lỗi tại https://github.com/Utkdby090/GeoGIS/issues.
 GeoGIS report or report template	Báo cáo hoặc mẫu báo cáo GeoGIS
 GeoGIS styles	Kiểu GeoGIS
 GeoGIS task	Nhiệm vụ GeoGIS
-RustGIS {latest} is available.	Đã có RustGIS {latest}.
-RustGIS {version} is the latest version.	RustGIS {version} là phiên bản mới nhất.
+GeoGIS {latest} is available.	Đã có GeoGIS {latest}.
+GeoGIS {version} is the latest version.	GeoGIS {version} là phiên bản mới nhất.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	Dữ liệu mẫu (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	Phần
 See and set the camera's position and scale.	Xem và đặt vị trí và tỷ lệ của máy ảnh.
 See the map as people with colour vision deficiencies do.	Xem bản đồ như người bị khiếm khuyết thị giác màu.
 See the tools you've run.	Xem các công cụ bạn đã chạy.
-See whether a newer RustGIS has been released.	Kiểm tra xem đã có bản RustGIS mới hơn chưa.
+See whether a newer GeoGIS has been released.	Kiểm tra xem đã có bản GeoGIS mới hơn chưa.
 Select	Chọn
 Select (click)	Chọn (nhấp)
 Select (rectangle)	Chọn (hình chữ nhật)

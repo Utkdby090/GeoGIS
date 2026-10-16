@@ -146,7 +146,7 @@ pub fn temps_from_bytes(bytes: &[u8], count: u64) -> Option<Vec<f32>> {
     if bytes.len() as u64 != count.checked_mul(4)? {
         return None;
     }
-    Some(bytes.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
+    Some(bytes.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes(*c)).collect())
 }
 
 fn read_u32<R: Read>(r: &mut R) -> std::io::Result<u32> {

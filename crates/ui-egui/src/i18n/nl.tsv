@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	De attributentabel van de gesele
 Open the layer's attribute table.	De attributentabel van de laag openen.
 Open the layer's table.	De tabel van de laag openen.
 Open the Release Page	Releasepagina openen
-Open the RustGIS user guide.	De RustGIS-gebruikershandleiding openen.
 Open the selected layer's table.	De tabel van de geselecteerde laag openen.
 Open the Symbology pane.	Het symbologievenster openen.
 Open {code} on epsg.io	{code} openen op epsg.io
@@ -1390,12 +1389,12 @@ GeoGIS presentation	GeoGIS-presentatie
 GeoGIS project	GeoGIS-project
 GeoGIS project template	GeoGIS-projectsjabloon
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS liep de vorige keer tegen een interne fout aan. De details staan in {path}; voeg ze toe aan een foutmelding.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS liep tegen een interne fout aan bij het verwerken van het antwoord van het model, dus het verzoek is gestopt. Meld het op https://github.com/opengeos/RustGIS/issues.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS liep tegen een interne fout aan bij het verwerken van het antwoord van het model, dus het verzoek is gestopt. Meld het op https://github.com/Utkdby090/GeoGIS/issues.
 GeoGIS report or report template	GeoGIS-rapport of -rapportsjabloon
 GeoGIS styles	GeoGIS-stijlen
 GeoGIS task	GeoGIS-taak
-RustGIS {latest} is available.	RustGIS {latest} is beschikbaar.
-RustGIS {version} is the latest version.	RustGIS {version} is de nieuwste versie.
+GeoGIS {latest} is available.	GeoGIS {latest} is beschikbaar.
+GeoGIS {version} is the latest version.	GeoGIS {version} is de nieuwste versie.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	Voorbeeldgegevens (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	Secties
 See and set the camera's position and scale.	De positie en schaal van de camera bekijken en instellen.
 See the map as people with colour vision deficiencies do.	De kaart zien zoals mensen met een kleurenzichtstoornis.
 See the tools you've run.	De uitgevoerde gereedschappen bekijken.
-See whether a newer RustGIS has been released.	Controleren of er een nieuwere RustGIS is uitgebracht.
+See whether a newer GeoGIS has been released.	Controleren of er een nieuwere GeoGIS is uitgebracht.
 Select	Selecteren
 Select (click)	Selecteren (klik)
 Select (rectangle)	Selecteren (rechthoek)

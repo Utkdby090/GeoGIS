@@ -745,6 +745,8 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
 
 /// What a slot asked for: photos to add to it, or a picked photo to take out.
 enum SlotAction {
+    // The browser has no file picker for this yet.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Add(String, Vec<String>),
     Remove(String, String),
 }

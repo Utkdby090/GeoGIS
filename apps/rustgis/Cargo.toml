@@ -4,8 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-default-run = "rustgis"
-description = "RustGIS desktop app"
+default-run = "geogis"
+description = "GeoGIS desktop app"
+
+# The program is `geogis`; the package keeps RustGIS's name so merges from RustGIS stay simple.
+[[bin]]
+name = "geogis"
+path = "src/main.rs"
 
 [lints]
 workspace = true

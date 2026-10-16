@@ -9,7 +9,9 @@ use serde_json::Value;
 use crate::manifest::{Permission, valid_id, version_parts};
 
 /// The hosted registry.
-pub const DEFAULT_URL: &str = "https://plugins.rustgis.app/registry.json";
+/// GeoGIS has no hosted plugin registry: browsing plugins needs a registry address. (RustGIS's
+/// is `https://plugins.rustgis.app/registry.json`.)
+pub const DEFAULT_URL: &str = "";
 
 /// The most entries read from a registry (or a blocklist): room for tens of thousands of plugins.
 const MAX_ENTRIES: usize = 100_000;

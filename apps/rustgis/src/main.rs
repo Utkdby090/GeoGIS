@@ -19,14 +19,14 @@ mod prefs {
 
     pub fn dir() -> Option<PathBuf> {
         if cfg!(target_os = "windows") {
-            std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("RustGIS"))
+            std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("GeoGIS"))
         } else if cfg!(target_os = "macos") {
-            std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/RustGIS"))
+            std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/GeoGIS"))
         } else {
             std::env::var_os("XDG_CONFIG_HOME")
                 .map(PathBuf::from)
                 .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-                .map(|d| d.join("rustgis"))
+                .map(|d| d.join("geogis"))
         }
     }
 

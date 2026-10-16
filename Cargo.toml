@@ -8,7 +8,8 @@ version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
 rust-version = "1.90"
-repository = "https://github.com/opengeos/RustGIS"
+repository = "https://github.com/Utkdby090/GeoGIS"
+homepage = "https://github.com/Utkdby090/GeoGIS"
 
 [workspace.dependencies]
 # internal
@@ -26,6 +27,7 @@ rustgis-assistant = { path = "crates/assistant" }
 # GeoFlux Workstation components
 geoflux-domain = { path = "crates/geoflux-domain" }
 geoflux-thermal = { path = "crates/geoflux-thermal" }
+geoflux-report = { path = "crates/geoflux-report" }
 
 # foundation
 thiserror = "2"

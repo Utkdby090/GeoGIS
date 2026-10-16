@@ -2677,7 +2677,7 @@ fn plugins_tab(app: &mut RustGisApp, ui: &mut Ui) {
                 app,
                 "search",
                 "Browse Plugins",
-                "Find plugins in the RustGIS plugin registry.",
+                "Browse plugins from a plugin registry.",
                 "ui.plugins",
                 json!({"open": true, "tab": "browse"}),
                 false,
@@ -2887,7 +2887,7 @@ fn help_tab(app: &mut RustGisApp, ui: &mut Ui) {
         );
     });
     group(ui, "Learn", |ui| {
-        big(ui, app, "help", "Learning\nResources", "Open the RustGIS user guide.", "ui.learn", Value::Null, false, false);
+        big(ui, app, "help", "Learning\nResources", "Open the GeoGIS documentation.", "ui.learn", Value::Null, false, false);
     });
     group(ui, "Help", |ui| {
         big(ui, app, "help", "About", "About GeoGIS.", "ui.about", Value::Null, false, false);
@@ -2897,7 +2897,7 @@ fn help_tab(app: &mut RustGisApp, ui: &mut Ui) {
                 app,
                 "update",
                 "Check for\nUpdates",
-                "See whether a newer RustGIS has been released.",
+                "See whether a newer GeoGIS has been released.",
                 "ui.checkUpdate",
                 Value::Null,
                 false,

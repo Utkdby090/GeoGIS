@@ -1122,7 +1122,6 @@ Open the attribute table of the selected layer.	არჩეული ფენ�
 Open the layer's attribute table.	ფენის ატრიბუტების ცხრილის გახსნა.
 Open the layer's table.	ფენის ცხრილის გახსნა.
 Open the Release Page	რელიზის გვერდის გახსნა
-Open the RustGIS user guide.	RustGIS-ის მომხმარებლის სახელმძღვანელოს გახსნა.
 Open the selected layer's table.	არჩეული ფენის ცხრილის გახსნა.
 Open the Symbology pane.	სიმბოლიზაციის პანელის გახსნა.
 Open {code} on epsg.io	{code}-ის გახსნა epsg.io-ზე
@@ -1390,12 +1389,12 @@ GeoGIS presentation	GeoGIS-ის პრეზენტაცია
 GeoGIS project	GeoGIS-ის პროექტი
 GeoGIS project template	GeoGIS-ის პროექტის შაბლონი
 GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS-ს ბოლოს შიდა შეცდომა შეექმნა. დეტალები იხილეთ აქ: {path}; გთხოვთ, დაურთოთ ისინი შეცდომის შეტყობინებას.
-RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS-ს მოდელის პასუხის დამუშავებისას შიდა შეცდომა შეექმნა, ამიტომ მოთხოვნა შეწყდა. გთხოვთ, შეატყობინოთ აქ: https://github.com/opengeos/RustGIS/issues.
+GeoGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/Utkdby090/GeoGIS/issues.	GeoGIS-ს მოდელის პასუხის დამუშავებისას შიდა შეცდომა შეექმნა, ამიტომ მოთხოვნა შეწყდა. გთხოვთ, შეატყობინოთ აქ: https://github.com/Utkdby090/GeoGIS/issues.
 GeoGIS report or report template	GeoGIS-ის ანგარიში ან ანგარიშის შაბლონი
 GeoGIS styles	GeoGIS-ის სტილები
 GeoGIS task	GeoGIS-ის ამოცანა
-RustGIS {latest} is available.	ხელმისაწვდომია RustGIS {latest}.
-RustGIS {version} is the latest version.	RustGIS {version} უახლესი ვერსიაა.
+GeoGIS {latest} is available.	ხელმისაწვდომია GeoGIS {latest}.
+GeoGIS {version} is the latest version.	GeoGIS {version} უახლესი ვერსიაა.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
 RUSTGIS_ASSISTANT_PROVIDER	RUSTGIS_ASSISTANT_PROVIDER
 Sample data (Natural Earth)	სანიმუშო მონაცემები (Natural Earth)
@@ -1464,7 +1463,7 @@ Sections	სექციები
 See and set the camera's position and scale.	კამერის პოზიციისა და მასშტაბის ნახვა და დაყენება.
 See the map as people with colour vision deficiencies do.	რუკის ნახვა ისე, როგორც ფერთა აღქმის დარღვევის მქონე ადამიანები ხედავენ.
 See the tools you've run.	თქვენ მიერ გაშვებული ხელსაწყოების ნახვა.
-See whether a newer RustGIS has been released.	შემოწმება, გამოვიდა თუ არა RustGIS-ის უფრო ახალი ვერსია.
+See whether a newer GeoGIS has been released.	შემოწმება, გამოვიდა თუ არა GeoGIS-ის უფრო ახალი ვერსია.
 Select	მონიშვნა
 Select (click)	მონიშვნა (დაწკაპუნებით)
 Select (rectangle)	მონიშვნა (მართკუთხედით)

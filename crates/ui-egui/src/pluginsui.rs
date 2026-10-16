@@ -306,6 +306,9 @@ pub fn restore(app: &mut RustGisApp) {
     }
     // The blocklist, so a pulled plugin isn't loaded again.
     let registry = app.plugins.registry_url();
+    if registry.is_empty() {
+        return;
+    }
     let slot = fetch(app, &rp::registry::blocklist_url(&registry), 4 << 20, None);
     app.plugins.jobs.push(Job::Blocklist { registry, slot });
 }
@@ -440,6 +443,11 @@ fn set_enabled(app: &mut RustGisApp, id: &str, on: bool) {
 /// Fetches the registry (and its blocklist).
 fn refresh(app: &mut RustGisApp, ctx: &egui::Context) {
     let url = app.plugins.registry_url();
+    if url.is_empty() {
+        app.plugins.message =
+            Some((false, tl!("No plugin registry is set. Enter one in the Plugin registry box, or install a plugin file.").to_string()));
+        return;
+    }
     if app.plugins.jobs.iter().any(|j| matches!(j, Job::Registry { .. })) {
         return;
     }
@@ -808,13 +816,13 @@ fn settings_tab(app: &mut RustGisApp, ui: &mut egui::Ui, t: &Tokens) {
     card(ui, t, |ui| {
         ui.label(egui::RichText::new(tl!("Plugin registry")).font(semibold(13.0)));
         ui.label(
-            egui::RichText::new(tl!("The list of plugins to browse. Leave it empty for the RustGIS plugin registry."))
+            egui::RichText::new(tl!("The list of plugins to browse: the address of a registry.json. GeoGIS has none by default."))
                 .size(11.5)
                 .color(t.text_dim),
         );
         ui.add_space(4.0);
         let resp =
-            ui.add(egui::TextEdit::singleline(&mut app.plugins.url).hint_text(rp::registry::DEFAULT_URL).desired_width(f32::INFINITY));
+            ui.add(egui::TextEdit::singleline(&mut app.plugins.url).hint_text("https://…/registry.json").desired_width(f32::INFINITY));
         if resp.lost_focus() {
             if let Some(s) = &app.services.save_pref {
                 s("plugin_registry", app.plugins.url.trim());
@@ -845,7 +853,7 @@ fn settings_tab(app: &mut RustGisApp, ui: &mut egui::Ui, t: &Tokens) {
         ui.add(
             egui::Hyperlink::from_label_and_url(
                 egui::RichText::new(tl!("Write a plugin")).size(11.5),
-                "https://plugins.rustgis.app/develop/",
+                "https://github.com/Utkdby090/GeoGIS/blob/main/docs/plugins.md",
             )
             .open_in_new_tab(true),
         );

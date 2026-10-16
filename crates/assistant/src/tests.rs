@@ -764,8 +764,9 @@ fn docs_pages_and_addresses() {
     }
     assert_eq!(found.len(), docs::PAGES.len());
 
-    assert_eq!(docs::page("index.md").unwrap().url(), "https://rustgis.app/");
-    assert_eq!(docs::page("user-guide").unwrap().url(), "https://rustgis.app/user-guide/");
+    assert_eq!(docs::page("index.md").unwrap().url(), "https://github.com/Utkdby090/GeoGIS/blob/main/docs/index.md");
+    assert_eq!(docs::page("user-guide").unwrap().url(), "https://github.com/Utkdby090/GeoGIS/blob/main/docs/user-guide/index.md");
+    assert_eq!(docs::page("https://github.com/Utkdby090/GeoGIS/blob/main/docs/user-guide/maps.md").unwrap().path, "user-guide/maps.md");
     assert_eq!(docs::page("https://rustgis.app/user-guide/maps/").unwrap().path, "user-guide/maps.md");
     assert_eq!(docs::slug("Chaining commands"), "chaining-commands");
     assert_eq!(docs::slug("What the agent may do"), "what-the-agent-may-do");

@@ -213,7 +213,7 @@ pub fn decode(bytes: &[u8]) -> Cow<'_, str> {
 }
 
 fn utf16(bytes: &[u8], unit: fn([u8; 2]) -> u16) -> String {
-    let units = bytes.chunks_exact(2).filter_map(|c| <[u8; 2]>::try_from(c).ok()).map(unit);
+    let units = bytes.as_chunks::<2>().0.iter().copied().map(unit);
     char::decode_utf16(units).map(|r| r.unwrap_or(char::REPLACEMENT_CHARACTER)).collect()
 }
 

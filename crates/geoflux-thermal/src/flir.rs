@@ -270,7 +270,7 @@ fn raw_png(data: &[u8]) -> Result<(u32, u32, Vec<u16>), ThermalError> {
     // PNG stores 16-bit samples big-endian, rows padded to line_size.
     let mut raw = Vec::with_capacity(w as usize * h as usize);
     for row in buf.chunks(out.line_size).take(h as usize) {
-        raw.extend(row.chunks_exact(2).take(w as usize).map(|c| u16::from_be_bytes([c[0], c[1]])));
+        raw.extend(row.as_chunks::<2>().0.iter().take(w as usize).map(|c| u16::from_be_bytes(*c)));
     }
     if raw.len() != w as usize * h as usize {
         return Err(damaged("its raw PNG is cut short"));
