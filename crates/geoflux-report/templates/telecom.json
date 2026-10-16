@@ -1,0 +1,20 @@
+{
+  "schemaId": "com.geo.telecom",
+  "page": "a4",
+  "title": "Thermal Inspection Report",
+  "header": ["lineName", "towerNumber", "circuit"],
+  "photos": [
+    { "slot": "LOCATION", "caption": "Location" },
+    { "slot": "THERMAL", "caption": "Thermal Image" },
+    { "slot": "STRUCTURE", "caption": "Tower Image" },
+    { "slot": "RGB_ZOOM", "caption": "RGB Image" }
+  ],
+  "sections": [
+    { "title": "LOCATION & CAPTURE DETAILS", "fields": ["capturedDate", "capturedTime", "core.latitude", "core.longitude", "direction", "phase", "side"] },
+    { "title": "ENVIRONMENTAL & LOAD PARAMETERS", "fields": ["ambientTemp", "humidity", "emissivity"] },
+    { "title": "FAULT ANALYSIS", "fields": ["faultTemp", "riseTemp", "faultDescription"], "wide": ["faultDescription"] }
+  ],
+  "branding": { "company": "", "footer": "Report created by {company}" },
+  "fileName": "{status}_{reportType}_{label}_Report.pdf",
+  "folder": "{reportType}"
+}

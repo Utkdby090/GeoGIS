@@ -27,6 +27,7 @@ rustgis-assistant = { path = "crates/assistant" }
 # GeoFlux Workstation components
 geoflux-domain = { path = "crates/geoflux-domain" }
 geoflux-thermal = { path = "crates/geoflux-thermal" }
+geoflux-report = { path = "crates/geoflux-report" }
 
 # foundation
 thiserror = "2"
