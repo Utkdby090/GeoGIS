@@ -25,6 +25,9 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Bounds on a schema, so a hostile or broken file cannot make the app allocate without limit.
 pub const MAX_FIELDS: usize = 1_000;
 pub const MAX_OPTIONS: usize = 1_000;
+/// Most image slots, and most match words on one slot.
+pub const MAX_SLOTS: usize = 64;
+pub const MAX_MATCHES: usize = 64;
 pub const MAX_SCHEMA_BYTES: usize = 4 * 1024 * 1024;
 
 /// What kind of input a field takes.
@@ -78,13 +81,22 @@ pub struct FieldDef {
 }
 
 /// One image slot on the form and the report. `thermal` marks a slot for radiometric images.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+///
+/// A linked photo goes in the slot one of whose `matches` words is a whole part of its file
+/// name (split at `_`, `-`, `.`, spaces and case changes don't matter): `ir` matches
+/// `76_0_IR.jpg` but not `wire.jpg`. Thermal slots are tried first, then the rest in order. A
+/// photo no slot claims goes in the `fallback` slot, if there is one.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImageSlotDef {
     pub id: String,
     pub label: String,
     #[serde(default)]
     pub thermal: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub matches: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fallback: bool,
 }
 
 /// One CSV column read into a field. `default` fills a blank cell.
@@ -174,6 +186,10 @@ pub struct DomainSchema {
     pub version: String,
     #[serde(default)]
     pub description: String,
+    /// The field that names an asset (a tower number): the inspection pane's list, the order
+    /// assets are walked in, and the folder its photos are in. Blank: the first field.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label_field: String,
     pub fields: Vec<FieldDef>,
     #[serde(default)]
     pub image_slots: Vec<ImageSlotDef>,
@@ -200,6 +216,8 @@ pub enum SchemaError {
     DuplicateKey(String),
     #[error("image slot \"{0}\" appears more than once")]
     DuplicateSlot(String),
+    #[error("image slot \"{id}\": {problem}")]
+    BadSlot { id: String, problem: &'static str },
     #[error("field \"{key}\": {problem}")]
     BadField { key: String, problem: &'static str },
     #[error("the CSV mapping: {0}")]
@@ -284,6 +302,12 @@ impl DomainSchema {
                 return Err(bad("coordinate fields must be numbers"));
             }
         }
+        if !self.label_field.is_empty() && !keys.contains(self.label_field.as_str()) {
+            return Err(SchemaError::BadField { key: self.label_field.clone(), problem: "labelField names no field" });
+        }
+        if self.image_slots.len() > MAX_SLOTS {
+            return Err(SchemaError::TooMany { what: "image slots", limit: MAX_SLOTS });
+        }
         let mut slots = HashSet::new();
         for s in &self.image_slots {
             if s.id.trim().is_empty() {
@@ -292,6 +316,15 @@ impl DomainSchema {
             if !slots.insert(s.id.as_str()) {
                 return Err(SchemaError::DuplicateSlot(s.id.clone()));
             }
+            if s.matches.len() > MAX_MATCHES {
+                return Err(SchemaError::TooMany { what: "match words on an image slot", limit: MAX_MATCHES });
+            }
+            if s.matches.iter().any(|w| w.is_empty() || !w.chars().all(char::is_alphanumeric)) {
+                return Err(SchemaError::BadSlot { id: s.id.clone(), problem: "match words are letters and digits only" });
+            }
+        }
+        if self.image_slots.iter().filter(|s| s.fallback).count() > 1 {
+            return Err(SchemaError::BadSlot { id: String::new(), problem: "only one image slot can be the fallback" });
         }
         if let Some(csv) = &self.csv {
             check_csv(csv, &keys)?;
@@ -300,6 +333,11 @@ impl DomainSchema {
             check_severity(rule, &keys)?;
         }
         Ok(())
+    }
+
+    /// The key of the field that names an asset ([`DomainSchema::label_field`]).
+    pub fn label_key(&self) -> &str {
+        if self.label_field.is_empty() { self.fields.first().map_or("", |f| f.key.as_str()) } else { &self.label_field }
     }
 
     pub fn field(&self, key: &str) -> Option<&FieldDef> {

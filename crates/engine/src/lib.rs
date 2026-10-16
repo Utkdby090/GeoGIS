@@ -12,6 +12,7 @@ pub mod sources;
 #[cfg(test)]
 mod tests;
 
+pub use geoflux_domain;
 pub use project::Project;
 pub use rustgis_analysis as analysis;
 pub use rustgis_data as data;

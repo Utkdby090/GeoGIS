@@ -932,6 +932,46 @@ fn presentation_group(app: &mut RustGisApp, ui: &mut Ui) {
     });
 }
 
+/// GeoFlux › Inspection: survey CSVs, the Inspection pane, photo folders and severity.
+fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
+    group(ui, "Inspection", |ui| {
+        big(
+            ui,
+            app,
+            "identify",
+            "Inspection\nPane",
+            "Walk the towers one by one: their form, severity and photos.",
+            "ui.pane.inspection",
+            Value::Null,
+            app.ui.right == Some(RightPane::Inspection),
+            false,
+        );
+        col(ui, |ui| {
+            small(
+                ui,
+                app,
+                "add_data",
+                "Import Survey CSV",
+                "Read a survey sheet into a tower layer, rated by severity.",
+                "ui.geofluxImport",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
+                "add_folder",
+                "Link Photos",
+                "Link a folder of tower photos to the inspection layer.",
+                "ui.geofluxLinkPhotos",
+                Value::Null,
+                false,
+            );
+            small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
+        });
+    });
+}
+
 fn notebook_group(app: &mut RustGisApp, ui: &mut Ui) {
     group(ui, "Notebook", |ui| {
         big(ui, app, "python", "New\nNotebook", "A notebook of text and command cells.", "ui.newNotebook", Value::Null, false, false);
@@ -1826,6 +1866,7 @@ fn style_tab(app: &mut RustGisApp, ui: &mut Ui) {
 /// The Analyze tab: geoprocessing, workflows, imagery and notebooks.
 fn analyze_tab(app: &mut RustGisApp, ui: &mut Ui) {
     analysis_groups(app, ui);
+    inspection_group(app, ui);
     notebook_group(app, ui);
     imagery_groups(app, ui);
 }
