@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use geoflux_domain::annotation::AnnotationSet;
 use geoflux_domain::images::{self, AssetPhotos};
 use geoflux_domain::schema::core_fields;
 use geoflux_domain::{
@@ -36,6 +37,9 @@ const MAX_PHOTO_ASSETS: usize = 100_000;
 /// Most photos picked one by one in a project, and in one slot of one asset.
 const MAX_PICKED: usize = 20_000;
 const MAX_PICKED_PER_SLOT: usize = 100;
+/// Most photos with markup in one project.
+pub const MAX_MARKUP: usize = 20_000;
+
 /// The longest picked photo path kept.
 const MAX_PICKED_PATH: usize = 4_096;
 /// How deep below the linked folder photos are looked for (line / tower / photo).
@@ -114,6 +118,18 @@ pub struct PickedPhoto {
     pub path: String,
 }
 
+/// Markup on one photo (see [`geoflux_domain::annotation`]). Kept by the asset's label and the
+/// photo as its slot lists it (relative to the linked folder, or the picked path), so it survives
+/// a relink; markup whose photo is gone is kept until the project is saved without it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PhotoMarkup {
+    pub layer: u32,
+    pub label: String,
+    pub slot: String,
+    pub photo: String,
+    pub shapes: AnnotationSet,
+}
+
 /// What a project keeps for GeoFlux: schemas added to it (built-in ones are not copied), the
 /// layers that follow a schema, and their linked photos.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -126,11 +142,13 @@ pub struct GeoFlux {
     pub photos: Vec<PhotoLink>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub picked: Vec<PickedPhoto>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub markup: Vec<PhotoMarkup>,
 }
 
 impl GeoFlux {
     pub fn is_empty(&self) -> bool {
-        self.schemas.is_empty() && self.links.is_empty() && self.photos.is_empty() && self.picked.is_empty()
+        self.schemas.is_empty() && self.links.is_empty() && self.photos.is_empty() && self.picked.is_empty() && self.markup.is_empty()
     }
 
     /// Files skip the commands' checks: schemas that fail them are dropped, photo paths that
@@ -152,6 +170,15 @@ impl GeoFlux {
         }
         self.picked.retain(|p| !p.path.trim().is_empty() && p.path.len() <= MAX_PICKED_PATH && images::is_image(&p.path));
         self.picked.truncate(MAX_PICKED);
+        // Shapes are checked again, as a command would: one bad entry drops only its own photo's markup.
+        self.markup.retain_mut(|m| match AnnotationSet::from_shapes(std::mem::take(&mut m.shapes).into_shapes()) {
+            Ok(set) => {
+                m.shapes = set;
+                !m.shapes.is_empty() && m.photo.len() <= MAX_PICKED_PATH
+            }
+            Err(_) => false,
+        });
+        self.markup.truncate(MAX_MARKUP);
     }
 
     /// The photos linked to a layer.
@@ -974,6 +1001,21 @@ mod tests {
         assert!(saved.geoflux.photos[0].assets[0].slots[0].photos.iter().all(|p| !p.contains("..")));
         assert!(s.run("geoflux.linkPhotos", &json!({"layer": id, "folder": dir.join("readme.txt").to_string_lossy()})).is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn markup_from_a_project_file_is_checked_again() {
+        let text = r##"{"markup":[
+            {"layer":1,"label":"76/0","slot":"THERMAL","photo":"76_0/T.JPG","shapes":[{"kind":"rect","a":{"x":-1,"y":0.1},"b":{"x":0.5,"y":0.5},"color":"#ff0000","width":900}]},
+            {"layer":1,"label":"77/0","slot":"THERMAL","photo":"77_0/T.JPG","shapes":[{"kind":"pen","points":[{"x":0.2,"y":0.2}],"color":"#ff0000","width":4}]}
+        ]}"##;
+        let mut g: GeoFlux = serde_json::from_str(text).expect("parses");
+        g.clamp();
+        assert_eq!(g.markup.len(), 1, "the one-point stroke is dropped with its photo's markup");
+        let a = &g.markup[0].shapes.shapes()[0];
+        assert_eq!(a.width, geoflux_domain::annotation::WIDTH_RANGE.1);
+        assert!(matches!(a.shape, geoflux_domain::annotation::Shape::Rect { a, .. } if a.x == 0.0));
+        assert!(!g.is_empty());
     }
 
     #[test]
