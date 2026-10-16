@@ -12,12 +12,20 @@
 //! builds for the browser too.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod bulk;
 mod error;
+mod image;
 pub mod page;
+mod pdf;
 pub mod template;
 
+pub use bulk::{MAX_BULK_PAGES, write_bulk};
 pub use error::{PhotoIssue, ReportError};
-pub use page::{BulkEntry, Image, ImageInfo, ImageKind, Page, PagePhoto, PageRow, PageSection, PhotoSource, Progress, Summary};
+pub use image::slim_jpeg;
+pub use page::{
+    BulkEntry, Image, ImageInfo, ImageKind, Page, PagePhoto, PageRow, PageSection, PhotoSource, PlannedPage, Progress, Summary,
+};
+pub use pdf::write_pdf;
 pub use template::{Branding, FieldSection, PageSize, PhotoCell, ReportTemplate};
 
 #[cfg(test)]

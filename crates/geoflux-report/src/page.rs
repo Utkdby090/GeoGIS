@@ -17,6 +17,8 @@ pub const MAX_PHOTO_BYTES: usize = 40 * 1024 * 1024;
 pub const MAX_SMALL_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 /// Most pixels in an image (width × height), so a hostile header can't ask for a huge buffer.
 pub const MAX_PIXELS: u64 = 200_000_000;
+/// Most pixels in a PNG, which (unlike a JPEG) is decoded: 40 MP is 160 MB of RGBA.
+pub const MAX_PNG_PIXELS: u64 = 40_000_000;
 
 /// How an image's bytes go into the PDF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,6 +105,30 @@ pub struct BulkEntry {
     /// `folder/name.pdf`, already made safe.
     pub path: String,
     pub page: Page,
+}
+
+/// A page whose photos are still paths: the engine plans every page of an export up front (cheap:
+/// text only), and the export reads one page's photos at a time with [`PlannedPage::load`].
+#[derive(Clone, Debug)]
+pub struct PlannedPage {
+    /// Where the PDF goes in a bulk export (`folder/name.pdf`).
+    pub path: String,
+    /// The page, its photo cells still empty.
+    pub page: Page,
+    /// Each photo cell's file, in the order of `page.photos`; None when the slot has no photo.
+    pub photos: Vec<Option<String>>,
+}
+
+impl PlannedPage {
+    /// Reads the page's photos through `source`; one that can't be read becomes "No image".
+    pub fn load(mut self, source: &dyn PhotoSource) -> BulkEntry {
+        for (cell, path) in self.page.photos.iter_mut().zip(&self.photos) {
+            if let Some(path) = path {
+                cell.image = source.read(path, MAX_PHOTO_BYTES).and_then(Image::from_bytes).map(Some);
+            }
+        }
+        BulkEntry { path: self.path, page: self.page }
+    }
 }
 
 /// What a written report left out or changed, for the person to check.

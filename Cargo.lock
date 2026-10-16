@@ -1772,9 +1772,14 @@ name = "geoflux-report"
 version = "0.2.0"
 dependencies = [
  "geoflux-domain",
+ "image",
+ "miniz_oxide 0.8.9",
+ "pdf-writer",
+ "png",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -3214,6 +3219,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pdf-writer"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e456864a7a304047bff84977dc6fb162bd956475d40ba50b2dcecaada7f753"
+dependencies = [
+ "bitflags 2.13.2",
+ "itoa",
+ "memchr",
+ "ryu",
+]
+
+[[package]]
 name = "peniko"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3863,8 +3880,10 @@ version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "geoflux-domain",
+ "geoflux-report",
  "geoflux-thermal",
  "iana-time-zone",
+ "image",
  "log",
  "rusqlite",
  "rustgis-analysis",
@@ -3879,6 +3898,7 @@ dependencies = [
  "sys-locale",
  "tiny-skia",
  "web-time",
+ "zip 2.4.2",
 ]
 
 [[package]]

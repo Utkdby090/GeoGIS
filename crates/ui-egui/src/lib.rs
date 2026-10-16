@@ -22,6 +22,7 @@ mod geofluxpane;
 pub mod icons;
 mod layoutview;
 mod mapview;
+mod markupview;
 mod opendataui;
 mod panes;
 mod pluginsui;
@@ -1537,6 +1538,7 @@ impl RustGisApp {
             "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
             "ui.geofluxImport" => geofluxpane::import(self)?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
+            "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
             "ui.thermal.view" | "ui.thermal.palette" | "ui.thermal.tool" | "ui.thermal.record" | "ui.thermal.scan" => {
                 thermalview::command(self, id, p)?
             }
@@ -2056,6 +2058,7 @@ impl RustGisApp {
         i18n::set_current(self.lang());
         rustgis_engine::plugins::set_language(self.lang().code());
         panes::poll_geolibre(self, ctx);
+        markupview::poll(self);
         self.poll_downloads();
         sqlpane::poll(self, ctx);
         self.poll_service();
