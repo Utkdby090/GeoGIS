@@ -10,6 +10,7 @@
 //! - [`sequence`]: the natural order assets are walked in (`9_0` before `10_0`).
 //! - [`annotation`]: markup on a photo, kept as editable shapes (the photo is never changed).
 //! - [`images`]: a folder of inspection photos linked to assets and their image slots.
+//! - [`legacy`]: GeoFlux 1.x projects (`.geox`) mapped onto assets and image slots.
 //!
 //! Everything works on bytes and strings, so it builds for the browser too.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
@@ -20,6 +21,7 @@ pub mod coords;
 pub mod csv_import;
 pub mod form;
 pub mod images;
+pub mod legacy;
 pub mod schema;
 pub mod sequence;
 pub mod severity;
