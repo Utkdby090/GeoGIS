@@ -34,7 +34,7 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui) {
     }
     // The Inspection pane's photos are freed as soon as it closes.
     if app.ui.right != Some(RightPane::Inspection) {
-        app.inspection.release();
+        app.inspection.release(&app.session.thermal);
     }
     if let Some(right) = app.ui.right {
         egui::Panel::right("right_pane").resizable(true).default_size(320.0).size_range(260.0..=560.0).frame(frame).show(ui, |ui| {

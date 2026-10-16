@@ -188,19 +188,48 @@ pub struct InspectionState {
     viewer: Option<String>,
     folder: String,
     cache: PhotoCache,
+    /// The Thermal view of the tower's thermal photo.
+    pub thermal: crate::thermalview::ThermalState,
 }
 
 impl InspectionState {
-    fn dirty(&self) -> bool {
+    pub(crate) fn dirty(&self) -> bool {
         self.values != self.original
     }
 
-    /// Frees the photos when the pane is closed.
-    pub fn release(&mut self) {
+    /// Frees the photos (and the thermal frame, stopping the DJI helper) when the pane is closed.
+    pub fn release(&mut self, thermal: &rustgis_engine::cmd::thermal::Thermal) {
         if !self.cache.is_empty() {
             self.cache.clear();
         }
         self.viewer = None;
+        self.thermal.release(thermal);
+    }
+
+    /// The scene settings the form gives as typed, saved or not.
+    pub(crate) fn form_overrides(&self) -> rustgis_engine::geoflux_thermal::SceneOverrides {
+        rustgis_engine::geoflux_thermal::FormBinding::default().overrides(|k| self.values.get(k).filter(|v| !v.trim().is_empty()).cloned())
+    }
+
+    /// Types values into the form (unsaved), for fields it has.
+    pub(crate) fn enter_values(&mut self, values: Vec<(String, String)>) {
+        for (k, v) in values {
+            if self.fields.iter().any(|f| f.key == k) {
+                self.values.insert(k, v);
+            }
+        }
+        self.issues = form::validate(&self.fields, &self.values);
+    }
+
+    /// The photo picked in the asset's thermal slot, if its photos are read.
+    pub(crate) fn thermal_slot_photo(&self, layer: u32, row: usize) -> Option<String> {
+        let ((l, r, _), slots) = self.photos.as_ref()?;
+        if (*l, *r) != (layer, row) {
+            return None;
+        }
+        let slot = slots.iter().find(|s| s.slot.thermal)?;
+        let i = self.shown.get(&slot.slot.id).copied().unwrap_or(0).min(slot.photos.len().saturating_sub(1));
+        slot.photos.get(i).cloned()
     }
 }
 
@@ -245,6 +274,7 @@ fn issue_text(k: IssueKind) -> &'static str {
 pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     let ctx = ui.ctx().clone();
     app.inspection.cache.poll(&ctx);
+    crate::thermalview::poll_scan(app);
     let layers = inspection_layers(app);
     if layers.is_empty() {
         ui.label(RichText::new(tl!("No inspection layer yet. Import a survey CSV to start.")).weak());
@@ -692,6 +722,11 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     }
     st.photos = Some(((layer, row, rev), slots));
     viewer(st, ctx, t);
+    if app.inspection.thermal.on {
+        crate::thermalview::show(app, ui, t, layer, row);
+    } else {
+        app.inspection.thermal.release_idle(&app.session.thermal);
+    }
 }
 
 fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos, w: f32) {

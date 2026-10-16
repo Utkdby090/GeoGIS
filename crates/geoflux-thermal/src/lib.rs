@@ -16,18 +16,25 @@
 //! desktop helper).
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod calibration;
 pub mod decoder;
 pub mod dji;
 pub mod error;
 pub mod findings;
+pub mod flir;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod helper;
 pub mod model;
 pub mod palette;
 pub mod protocol;
+#[doc(hidden)]
+pub mod testing;
 
 pub use decoder::{Decoders, Sniff, ThermalDecoder};
 pub use dji::{DjiBackend, DjiMeasurement};
 pub use error::ThermalError;
 pub use findings::{FormBinding, ThermalFinding};
+pub use flir::FlirDecoder;
 pub use model::{
     MAX_PIXELS, Pixel, PlanckConstants, Region, SceneOverrides, SceneParams, SceneSetting, ThermalFrame, ThermalStats, Vendor,
 };

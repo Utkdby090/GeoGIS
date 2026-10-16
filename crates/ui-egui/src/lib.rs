@@ -34,6 +34,7 @@ mod sqlpane;
 mod stacui;
 mod table;
 pub mod theme;
+mod thermalview;
 mod update;
 mod widgets;
 mod workspacepanes;
@@ -1536,6 +1537,9 @@ impl RustGisApp {
             "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
             "ui.geofluxImport" => geofluxpane::import(self)?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
+            "ui.thermal.view" | "ui.thermal.palette" | "ui.thermal.tool" | "ui.thermal.record" | "ui.thermal.scan" => {
+                thermalview::command(self, id, p)?
+            }
             // Share As: to a file (recorded under Status › Jobs), or a download in the browser.
             "ui.share" => {
                 let kind = p.get("kind").and_then(Value::as_str).ok_or("kind is required")?;

@@ -19,10 +19,21 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.goTo` | Selects an asset and centres the map on it. |
 | `geoflux.linkPhotos` | Links a folder of photos (`folder`) to the layer's assets: one sub-folder per tower (`76_0/…`), or files named after the tower (`76_0_thermal.jpg`). Each photo goes in the image slot whose words its file name has; files that fit nowhere are listed with the reason. Paths are kept relative to the folder, inside the project. |
 | `geoflux.photos` | One asset's image slots and their photos. |
+| `geoflux.thermal.measure` | Temperatures of a tower's thermal photo (`row`, `photo` index): min, max and mean over the whole photo or a `region` (`[x0, y0, x1, y1]` in pixels), the reference (a `reference` box, else the ambient temperature) and the rise. The form's emissivity, ambient temperature and humidity are used, and any the camera's library refused are listed. |
+| `geoflux.thermal.record` | Writes the hottest pixel (Fault Temp) and its rise over the reference (Rise Temp) into the form as one undoable edit. |
+| `geoflux.thermal.scan` | Measures every tower's thermal photo and records each, all as one undoable edit. Towers without a thermal photo are skipped; photos that can't be read are counted and listed. |
 
 **Analyze › Inspection** opens the Inspection pane: the asset's form laid out from its schema,
 previous and next (Page Up and Page Down) through the towers, a flagged-only filter, and the
 photos by slot (click one for the full view).
+
+**Analyze › Thermal** turns on the Thermal view under the photos: the tower's thermal photo as
+temperatures (Iron, Rainbow, White Hot or Black Hot), a colour bar, the hottest pixel marked, and
+the temperature under the mouse. **Spot** reads one pixel, **Box** measures a component (its
+hottest pixel is the finding), and **Reference** boxes a healthy, similar component to compare
+with instead of the ambient temperature. **Fixed range** keeps one scale while walking a line.
+**Record Finding** writes Fault Temp and Rise Temp into the form, and **Scan Line** measures
+every tower in the background (with Cancel) and records them all as one undoable edit.
 
 ```sh
 rustgis-cli run --cmd 'geoflux.importCsv={"path":"line.csv"}' \
@@ -49,3 +60,28 @@ included); thermal slots are tried first, and one slot can be the `fallback`.
 Severity is rated from `rise`, or from `measured − reference` when `rise` is blank, against
 `thresholds` (low, medium, high, critical). An asset matching every `flaggedWhen` entry is never
 rated below low, and is rated medium when it has no usable numbers.
+
+## Thermal photos
+
+FLIR radiometric JPEGs are read inside GeoGIS, in pure Rust (the raw sensor values and FLIR's
+Planck and atmosphere constants, as ExifTool and Thermimage read them). Thermal photos show in
+the desktop app; the web app can't read photo folders yet.
+
+DJI R-JPEGs (H20T, H30T, M30T, M3T, M4T, XT S and others) need DJI's Thermal SDK, which GeoGIS
+never loads itself: a small helper program, `geoflux-dirp`, loads it and reads photos sent over a
+pipe. A photo that crashes DJI's library ends the helper, not GeoGIS; that photo fails and the
+next one starts a fresh helper. Each photo has 20 seconds. The helper keeps GeoFlux's handling of
+the SDK: settings are clamped to the range the camera reports, and when the camera refuses a
+combination each setting is tried alone; the view says which were refused. The helper starts on
+the first DJI photo and stops when the Inspection pane closes.
+
+To read DJI photos on the desktop, put next to the GeoGIS program:
+
+- `geoflux-dirp` (`geoflux-dirp.exe` on Windows), built with `cargo build --release -p geoflux-dirp`;
+- a `dji-sdk` folder with DJI's library set for that system, from DJI's Thermal SDK
+  (`utility/bin/windows/release_x64` or `utility/bin/linux/release_x64`): `libdirp` and its
+  `libv_*` libraries.
+
+For development, the `GEOFLUX_DIRP` and `GEOFLUX_DJI_SDK` environment variables name the helper and
+the SDK folder instead. Without them, FLIR photos still work and DJI photos say the helper isn't
+installed.

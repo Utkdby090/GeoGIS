@@ -710,6 +710,34 @@ pub fn paint(painter: &Painter, r: Rect, name: &str, ink: Color32, accent: Color
             p.circle(15.0, 9.5, 5.0, Some(green.gamma_multiply(0.75)), None);
             p.circle(12.0, 14.5, 5.0, Some(Color32::from_rgb(0x2E, 0x6F, 0xD8).gamma_multiply(0.75)), None);
         }
+        // A thermometer over an iron-palette patch.
+        "thermal" => {
+            for (i, c) in [(0x20u8, 0x00u8, 0x6E), (0x7A, 0x0A, 0x8C), (0xC8, 0x32, 0x1E), (0xF0, 0x8C, 0x00), (0xFF, 0xD2, 0x3C)]
+                .into_iter()
+                .enumerate()
+            {
+                p.rect(2.0, 18.0 - i as f32 * 3.2, 11.0, 3.2, Some(Color32::from_rgb(c.0, c.1, c.2)), None, 0.0);
+            }
+            p.rect(2.0, 2.0, 11.0, 19.2, None, Some((1.1, ink)), 1.0);
+            p.rect(15.5, 3.0, 4.0, 13.0, Some(Color32::WHITE), Some((1.2, ink)), 2.0);
+            p.rect(16.6, 8.0, 1.8, 9.0, Some(red), None, 0.0);
+            p.circle(17.5, 18.5, 3.2, Some(red), Some((1.2, ink)));
+        }
+        // Cross hairs on a hot spot.
+        "hotspot" => {
+            p.circle(12.0, 12.0, 3.0, Some(Color32::from_rgb(0xF0, 0x8C, 0x00)), None);
+            p.circle(12.0, 12.0, 7.0, None, Some((1.3, ink)));
+            for (a, b) in
+                [((12.0, 2.0), (12.0, 7.0)), ((12.0, 17.0), (12.0, 22.0)), ((2.0, 12.0), (7.0, 12.0)), ((17.0, 12.0), (22.0, 12.0))]
+            {
+                p.line(&[a, b], 1.4, ink);
+            }
+        }
+        // A dashed box around a healthy (cool) part.
+        "ref_box" => {
+            p.rect(7.0, 7.0, 10.0, 10.0, Some(Color32::from_rgb(0x00, 0x64, 0xFF).gamma_multiply(0.6)), None, 1.0);
+            p.dashed_rect(3.0, 3.0, 18.0, 18.0, teal);
+        }
         "classify" => {
             for (i, a) in [0.25f32, 0.5, 0.75, 1.0].into_iter().enumerate() {
                 p.rect(3.0 + i as f32 * 4.6, 6.0, 4.6, 12.0, Some(amber.gamma_multiply(a)), None, 0.0);
@@ -1045,6 +1073,9 @@ pub const ALL: &[&str] = &[
     "stretch",
     "rgb",
     "classify",
+    "thermal",
+    "hotspot",
+    "ref_box",
     "relief",
     "dra",
     "bands",
