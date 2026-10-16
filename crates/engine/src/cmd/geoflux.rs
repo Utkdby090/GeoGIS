@@ -33,6 +33,11 @@ const MAX_LISTED: usize = 200;
 /// Most photo links a project keeps (one per layer), and most assets with photos in one.
 const MAX_PHOTO_LINKS: usize = 256;
 const MAX_PHOTO_ASSETS: usize = 100_000;
+/// Most photos picked one by one in a project, and in one slot of one asset.
+const MAX_PICKED: usize = 20_000;
+const MAX_PICKED_PER_SLOT: usize = 100;
+/// The longest picked photo path kept.
+const MAX_PICKED_PATH: usize = 4_096;
 /// How deep below the linked folder photos are looked for (line / tower / photo).
 #[cfg(not(target_arch = "wasm32"))]
 const PHOTO_DEPTH: usize = 3;
@@ -73,6 +78,12 @@ pub fn commands() -> Vec<C> {
             .view()
             .when(need_feature_layer)
             .params(r#"{"layer"?, "row": number}"#),
+        C::new("geoflux.addPhotos", "Add Tower Photos", "GeoFlux › Inspection", add_photos)
+            .when(need_feature_layer)
+            .params(r#"{"layer"?, "row": number, "slot": "an image slot id", "paths": ["photo files"]}"#),
+        C::new("geoflux.removePhoto", "Remove Tower Photo", "GeoFlux › Inspection", remove_photo)
+            .when(need_feature_layer)
+            .params(r#"{"layer"?, "row": number, "slot": "an image slot id", "path": "a photo added with geoflux.addPhotos"}"#),
     ]
 }
 
@@ -93,6 +104,16 @@ pub struct PhotoLink {
     pub assets: Vec<AssetPhotos>,
 }
 
+/// A photo picked for one slot of one asset, outside any folder link. Kept by the asset's label,
+/// like linked photos, and as the full path picked.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PickedPhoto {
+    pub layer: u32,
+    pub label: String,
+    pub slot: String,
+    pub path: String,
+}
+
 /// What a project keeps for GeoFlux: schemas added to it (built-in ones are not copied), the
 /// layers that follow a schema, and their linked photos.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -103,11 +124,13 @@ pub struct GeoFlux {
     pub links: Vec<LayerLink>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub photos: Vec<PhotoLink>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub picked: Vec<PickedPhoto>,
 }
 
 impl GeoFlux {
     pub fn is_empty(&self) -> bool {
-        self.schemas.is_empty() && self.links.is_empty() && self.photos.is_empty()
+        self.schemas.is_empty() && self.links.is_empty() && self.photos.is_empty() && self.picked.is_empty()
     }
 
     /// Files skip the commands' checks: schemas that fail them are dropped, photo paths that
@@ -127,6 +150,8 @@ impl GeoFlux {
                 }
             }
         }
+        self.picked.retain(|p| !p.path.trim().is_empty() && p.path.len() <= MAX_PICKED_PATH && images::is_image(&p.path));
+        self.picked.truncate(MAX_PICKED);
     }
 
     /// The photos linked to a layer.
@@ -608,19 +633,104 @@ pub fn photos(s: &Session, layer: u32, row: usize) -> Result<Vec<SlotPhotos>, St
     // Compared lowercase without allocating per asset.
     let found = link.and_then(|l| l.assets.iter().find(|a| a.label.trim().chars().flat_map(char::to_lowercase).eq(label.chars())));
     let folder = std::path::Path::new(link.map_or("", |l| l.folder.as_str()));
+    let picked: Vec<&PickedPhoto> = s
+        .project
+        .geoflux
+        .picked
+        .iter()
+        .filter(|p| p.layer == layer && p.label.trim().chars().flat_map(char::to_lowercase).eq(label.chars()))
+        .collect();
     Ok(schema
         .image_slots
         .iter()
-        .map(|slot| SlotPhotos {
-            slot: slot.clone(),
-            photos: found
+        .map(|slot| {
+            let mut photos: Vec<String> = found
                 .map(|a| a.slot(&slot.id))
                 .unwrap_or_default()
                 .iter()
                 .map(|rel| rel.split('/').fold(folder.to_path_buf(), |p, part| p.join(part)).to_string_lossy().into_owned())
-                .collect(),
+                .collect();
+            // Picked photos come after the folder's, once each.
+            for p in picked.iter().filter(|p| p.slot == slot.id) {
+                if !photos.contains(&p.path) {
+                    photos.push(p.path.clone());
+                }
+            }
+            SlotPhotos { slot: slot.clone(), photos }
         })
         .collect())
+}
+
+/// The asset's label and the slot named by `slot`, for the photo-picking commands.
+fn picked_target(s: &Session, layer: u32, row: usize, p: &Value) -> Result<(String, String), String> {
+    let (schema, asset) = asset(s, layer, row)?;
+    let slot = ps(p, "slot").ok_or("slot is required")?;
+    let slot =
+        schema.image_slots.iter().find(|d| d.id == slot).ok_or_else(|| format!("schema '{}' has no image slot '{slot}'", schema.id))?;
+    let label = asset.property(schema.label_key()).trim().to_string();
+    if label.is_empty() {
+        return Err(format!("this asset has no {} to keep its photos by", schema.label_key()));
+    }
+    Ok((label, slot.id.clone()))
+}
+
+/// Adds photo files to one slot of one asset, wherever they are.
+fn add_photos(s: &mut Session, p: &Value) -> CmdResult {
+    let id = s.layer_id(p)?;
+    let row = row_param(p)?;
+    let (label, slot) = picked_target(s, id, row, p)?;
+    let paths: Vec<String> = p
+        .get("paths")
+        .and_then(Value::as_array)
+        .ok_or("paths is required (a list of photo files)")?
+        .iter()
+        .map(|v| v.as_str().map(|s| s.trim().to_string()).ok_or("paths must be text"))
+        .collect::<Result<_, _>>()?;
+    if paths.is_empty() || paths.len() > MAX_PICKED_PER_SLOT {
+        return Err(format!("paths lists 1 to {MAX_PICKED_PER_SLOT} photos"));
+    }
+    for path in &paths {
+        if path.is_empty() || path.len() > MAX_PICKED_PATH || !images::is_image(path) {
+            return Err(format!("{path}: not a photo (.jpg, .jpeg or .png)"));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if !std::path::Path::new(path).is_file() {
+            return Err(format!("{path}: no such file"));
+        }
+    }
+    let shown = photos(s, id, row)?;
+    let have = shown.iter().find(|sp| sp.slot.id == slot).map(|sp| sp.photos.clone()).unwrap_or_default();
+    let g = &mut s.project.geoflux;
+    let in_slot = g.picked.iter().filter(|q| q.layer == id && q.slot == slot && q.label.eq_ignore_ascii_case(&label)).count();
+    let mut new: Vec<&String> = Vec::new();
+    for p in &paths {
+        if !have.contains(p) && !new.contains(&p) {
+            new.push(p);
+        }
+    }
+    if in_slot + new.len() > MAX_PICKED_PER_SLOT || g.picked.len() + new.len() > MAX_PICKED {
+        return Err(format!("a slot holds at most {MAX_PICKED_PER_SLOT} added photos"));
+    }
+    let added = new.len();
+    for path in new {
+        g.picked.push(PickedPhoto { layer: id, label: label.clone(), slot: slot.clone(), path: path.clone() });
+    }
+    Ok(json!({"layer": id, "row": row, "slot": slot, "added": added, "slots": photos(s, id, row)?}))
+}
+
+/// Takes a picked photo out of its slot (the file stays where it is).
+fn remove_photo(s: &mut Session, p: &Value) -> CmdResult {
+    let id = s.layer_id(p)?;
+    let row = row_param(p)?;
+    let (label, slot) = picked_target(s, id, row, p)?;
+    let path = ps(p, "path").map(str::trim).ok_or("path is required")?.to_string();
+    let g = &mut s.project.geoflux;
+    let before = g.picked.len();
+    g.picked.retain(|q| !(q.layer == id && q.slot == slot && q.path == path && q.label.eq_ignore_ascii_case(&label)));
+    if g.picked.len() == before {
+        return Err(format!("{path} was not added to this slot (photos from the linked folder change with Relink)"));
+    }
+    Ok(json!({"layer": id, "row": row, "slot": slot, "slots": photos(s, id, row)?}))
 }
 
 fn photos_cmd(s: &mut Session, p: &Value) -> CmdResult {
@@ -647,7 +757,9 @@ fn link_photos(s: &mut Session, p: &Value) -> CmdResult {
         })
         .collect();
     let refs: Vec<&str> = labels.iter().map(String::as_str).collect();
-    let report = images::link(&schema.image_slots, &refs, &files);
+    // The folder's own name counts too, so a single tower's folder links to that tower.
+    let root = std::path::Path::new(&folder).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let report = images::link(&schema.image_slots, &refs, &root, &files);
     drop(files);
     let towers = report.assets.len();
     let mut assets = report.assets;
@@ -861,6 +973,49 @@ mod tests {
         saved.geoflux.clamp();
         assert!(saved.geoflux.photos[0].assets[0].slots[0].photos.iter().all(|p| !p.contains("..")));
         assert!(s.run("geoflux.linkPhotos", &json!({"layer": id, "folder": dir.join("readme.txt").to_string_lossy()})).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_towers_own_folder_and_picked_photos_fill_its_slots() {
+        let dir = std::env::temp_dir().join(format!("geoflux-picked-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("76_0")).expect("dir");
+        for f in ["76_0/DJI_0001_T.JPG", "elsewhere.png", "notes.txt"] {
+            std::fs::write(dir.join(f), b"x").expect("write");
+        }
+        let mut s = session();
+        let id = import(&mut s);
+        // The tower's own folder, picked on its own, links to that tower.
+        let r = s.run("geoflux.linkPhotos", &json!({"layer": id, "folder": dir.join("76_0").to_string_lossy()})).expect("link");
+        assert_eq!(r["linked"], 1);
+        let slot = |s: &Session, sid: &str| photos(s, id, 0).expect("photos").into_iter().find(|x| x.slot.id == sid).expect("slot").photos;
+        assert_eq!(slot(&s, "THERMAL").len(), 1);
+
+        let png = dir.join("elsewhere.png").to_string_lossy().into_owned();
+        let add = json!({"layer": id, "row": 0, "slot": "LOCATION", "paths": [png, png]});
+        assert_eq!(s.run("geoflux.addPhotos", &add).expect("add")["added"], 1, "once each");
+        assert_eq!(s.run("geoflux.addPhotos", &add).expect("again")["added"], 0);
+        assert_eq!(slot(&s, "LOCATION"), std::slice::from_ref(&png));
+        // Picked photos survive a relink and a save.
+        s.run("geoflux.linkPhotos", &json!({"layer": id, "folder": dir.join("76_0").to_string_lossy()})).expect("relink");
+        let saved: Project = serde_json::from_str(&serde_json::to_string(&s.project).expect("save")).expect("load");
+        assert_eq!(saved.geoflux.picked.len(), 1);
+        assert_eq!(slot(&s, "LOCATION"), std::slice::from_ref(&png));
+
+        let bad = |slot: &str, path: &str| json!({"layer": id, "row": 0, "slot": slot, "paths": [path]});
+        assert!(s.run("geoflux.addPhotos", &bad("LOCATION", &dir.join("notes.txt").to_string_lossy())).is_err());
+        assert!(s.run("geoflux.addPhotos", &bad("LOCATION", &dir.join("gone.jpg").to_string_lossy())).is_err());
+        assert!(s.run("geoflux.addPhotos", &bad("NOPE", &png)).is_err());
+
+        let linked = slot(&s, "THERMAL")[0].clone();
+        assert!(
+            s.run("geoflux.removePhoto", &json!({"layer": id, "row": 0, "slot": "THERMAL", "path": linked})).is_err(),
+            "folder photos stay"
+        );
+        s.run("geoflux.removePhoto", &json!({"layer": id, "row": 0, "slot": "LOCATION", "path": png})).expect("remove");
+        assert!(slot(&s, "LOCATION").is_empty());
+        assert!(std::path::Path::new(&png).is_file(), "the file is kept");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

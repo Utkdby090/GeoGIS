@@ -115,8 +115,10 @@ pub fn is_safe_path(path: &str) -> bool {
         && path.split('/').all(|p| !p.is_empty() && p != "." && p != "..")
 }
 
-/// Links `files` (paths relative to the folder) to the assets labelled `labels`.
-pub fn link(slots: &[ImageSlotDef], labels: &[&str], files: &[String]) -> LinkReport {
+/// Links `files` (paths relative to the folder named `root`) to the assets labelled `labels`.
+/// A photo goes to the asset named by its deepest folder, else by the start of its file name,
+/// else by `root` itself (a single tower's folder picked on its own).
+pub fn link(slots: &[ImageSlotDef], labels: &[&str], root: &str, files: &[String]) -> LinkReport {
     // Label (trimmed, lowercase) → the label as written. The first spelling wins.
     let mut by_key: HashMap<String, &str> = HashMap::new();
     for l in labels {
@@ -126,6 +128,7 @@ pub fn link(slots: &[ImageSlotDef], labels: &[&str], files: &[String]) -> LinkRe
         }
     }
     // Longest labels first, so `76_0` wins over `76` for `76_0_T.jpg`.
+    let from_root = by_key.get(&root.trim().to_lowercase()).copied();
     let mut prefixes: Vec<&String> = by_key.keys().collect();
     prefixes.sort_by(|a, b| b.len().cmp(&a.len()).then(a.cmp(b)));
 
@@ -156,7 +159,7 @@ pub fn link(slots: &[ImageSlotDef], labels: &[&str], files: &[String]) -> LinkRe
                 .iter()
                 .find(|p| lower.strip_prefix(p.as_str()).is_some_and(|rest| rest.chars().next().is_none_or(|c| !c.is_alphanumeric())))
         };
-        let Some(label) = from_dir.or_else(|| from_name().and_then(|p| by_key.get(p.as_str()).copied())) else {
+        let Some(label) = from_dir.or_else(|| from_name().and_then(|p| by_key.get(p.as_str()).copied())).or(from_root) else {
             unplaced(path, Unplaced::NoAsset, &mut report);
             continue;
         };
@@ -237,7 +240,7 @@ mod tests {
         .iter()
         .map(|s| s.to_string())
         .collect();
-        let r = link(&slots(), &["76_0", "77_0", " 76_0 "], &files);
+        let r = link(&slots(), &["76_0", "77_0", " 76_0 "], "photos", &files);
         assert_eq!(r.linked, 4);
         let labels: Vec<&str> = r.assets.iter().map(|a| a.label.as_str()).collect();
         assert_eq!(labels, ["76_0", "77_0"]);
@@ -262,19 +265,32 @@ mod tests {
 
     #[test]
     fn a_short_label_is_used_when_no_longer_one_fits() {
-        let r = link(&slots(), &["76", "76_0"], &["76_9_t.jpg".to_string(), "76.jpg".to_string()]);
+        let r = link(&slots(), &["76", "76_0"], "", &["76_9_t.jpg".to_string(), "76.jpg".to_string()]);
         assert_eq!(r.assets.len(), 1);
         assert_eq!(r.assets[0].label, "76");
         assert_eq!(r.linked, 2);
     }
 
     #[test]
+    fn a_single_towers_folder_links_to_that_tower() {
+        let files: Vec<String> =
+            ["DJI_0001_T.JPG", "DJI_0001_Z.JPG", "77_0_thermal.jpg", "sub/77_0/x_w.jpg"].iter().map(|s| s.to_string()).collect();
+        let r = link(&slots(), &["76_0", "77_0"], "76_0", &files);
+        assert_eq!(r.linked, 4);
+        assert_eq!(r.assets[0].slot("THERMAL"), ["DJI_0001_T.JPG"]);
+        assert_eq!(r.assets[0].slot("RGB_ZOOM"), ["DJI_0001_Z.JPG"]);
+        assert_eq!(r.assets[1].slot("THERMAL"), ["77_0_thermal.jpg"], "a file's own tower still wins");
+        assert_eq!(r.assets[1].slot("STRUCTURE"), ["sub/77_0/x_w.jpg"]);
+        assert_eq!(link(&slots(), &["76_0"], "76_2", &files[..1]).unplaced_count, 1, "a folder named for no tower links nothing");
+    }
+
+    #[test]
     fn lists_are_bounded() {
         let files: Vec<String> = (0..MAX_FILES + 10).map(|i| format!("x{i}.jpg")).collect();
-        let r = link(&slots(), &["1"], &files);
+        let r = link(&slots(), &["1"], "", &files);
         assert!(r.truncated);
         assert_eq!(r.unplaced_count, MAX_FILES);
         assert_eq!(r.unplaced.len(), MAX_UNMATCHED_LISTED);
-        assert!(link(&slots(), &[], &[]).assets.is_empty());
+        assert!(link(&slots(), &[], "", &[]).assets.is_empty());
     }
 }

@@ -17,15 +17,17 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.setValues` | Saves an inspection form's values for one asset (`row`, `values`: field key → text) as one undoable edit. Every field is checked first; nothing changes if one is invalid. The asset is rated again. |
 | `geoflux.sequence` | The layer's assets in natural order of their label (`9_0` before `10_0`); `flaggedOnly` keeps those rated above none. |
 | `geoflux.goTo` | Selects an asset and centres the map on it. |
-| `geoflux.linkPhotos` | Links a folder of photos (`folder`) to the layer's assets: one sub-folder per tower (`76_0/…`), or files named after the tower (`76_0_thermal.jpg`). Each photo goes in the image slot whose words its file name has; files that fit nowhere are listed with the reason. Paths are kept relative to the folder, inside the project. |
+| `geoflux.linkPhotos` | Links a folder of photos (`folder`) to the layer's assets: one sub-folder per tower (`76_0/…`), or files named after the tower (`76_0_thermal.jpg`). Each photo goes in the image slot whose words its file name has; files that fit nowhere are listed with the reason. A single tower's own folder (`…/76_0`) links to that tower. Paths are kept relative to the folder, inside the project. |
 | `geoflux.photos` | One asset's image slots and their photos. |
+| `geoflux.addPhotos` | Adds photo files from anywhere (`paths`) to one slot (`slot`) of one asset (`row`). They show after the linked folder's photos and stay through a relink. |
+| `geoflux.removePhoto` | Takes an added photo out of its slot; the file is kept. |
 | `geoflux.thermal.measure` | Temperatures of a tower's thermal photo (`row`, `photo` index): min, max and mean over the whole photo or a `region` (`[x0, y0, x1, y1]` in pixels), the reference (a `reference` box, else the ambient temperature) and the rise. The form's emissivity, ambient temperature and humidity are used, and any the camera's library refused are listed. |
 | `geoflux.thermal.record` | Writes the hottest pixel (Fault Temp) and its rise over the reference (Rise Temp) into the form as one undoable edit. |
 | `geoflux.thermal.scan` | Measures every tower's thermal photo and records each, all as one undoable edit. Towers without a thermal photo are skipped; photos that can't be read are counted and listed. |
 
 **Analyze › Inspection** opens the Inspection pane: the asset's form laid out from its schema,
 previous and next (Page Up and Page Down) through the towers, a flagged-only filter, and the
-photos by slot (click one for the full view).
+photos by slot (click one for the full view). Press **+** in a slot to add photos to it from anywhere, and **×** to take an added one out.
 
 **Analyze › Thermal** turns on the Thermal view under the photos: the tower's thermal photo as
 temperatures (Iron, Rainbow, White Hot or Black Hot), a colour bar, the hottest pixel marked, and

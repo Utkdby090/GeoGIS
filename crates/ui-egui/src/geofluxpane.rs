@@ -187,6 +187,8 @@ pub struct InspectionState {
     /// The photo open in the full view.
     viewer: Option<String>,
     folder: String,
+    /// What the last link or photo change did, shown under the Photos buttons.
+    photo_note: Option<(String, bool)>,
     cache: PhotoCache,
     /// The Thermal view of the tower's thermal photo.
     pub thermal: crate::thermalview::ThermalState,
@@ -684,25 +686,31 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
         let folder = app.inspection.folder.trim().to_string();
         match app.run("geoflux.linkPhotos", json!({"layer": layer, "folder": folder})) {
             Ok(r) => {
-                let text = crate::i18n::fmt(
-                    "{linked} photos linked to {towers} towers; {unplaced} files not linked",
-                    &[
-                        ("linked", &r["linked"].to_string()),
-                        ("towers", &r["towersWithPhotos"].to_string()),
-                        ("unplaced", &r["unplaced"].to_string()),
-                    ],
-                );
-                app.inspection.message = Some((text, false));
+                let none = r["linked"].as_u64() == Some(0);
+                let text = if none {
+                    tl!("No photo in that folder matched a tower. Pick the folder that holds one sub-folder per tower (76_0), a tower's own folder, or name the files after the tower (76_0_thermal.jpg). Or press + in a slot to add a photo.").to_string()
+                } else {
+                    crate::i18n::fmt(
+                        "{linked} photos linked to {towers} towers; {unplaced} files not linked",
+                        &[
+                            ("linked", &r["linked"].to_string()),
+                            ("towers", &r["towersWithPhotos"].to_string()),
+                            ("unplaced", &r["unplaced"].to_string()),
+                        ],
+                    )
+                };
+                app.inspection.photo_note = Some((text, none));
+                app.inspection.photos = None;
                 app.inspection.cache.clear();
             }
-            Err(e) => app.inspection.message = Some((e, true)),
+            Err(e) => app.inspection.photo_note = Some((e, true)),
         }
         return;
     }
-    if linked.is_none() {
-        ui.label(RichText::new(tl!("No photos linked to this layer yet.")).small().weak());
-        return;
+    if let Some((m, err)) = &app.inspection.photo_note {
+        ui.label(RichText::new(m.as_str()).small().color(if *err { t.amber } else { t.text_dim }));
     }
+    let picked: Vec<String> = app.session.project.geoflux.picked.iter().filter(|p| p.layer == layer).map(|p| p.path.clone()).collect();
     let st = &mut app.inspection;
     if st.photos.as_ref().is_none_or(|(k, _)| *k != (layer, row, rev)) {
         let slots = gf::photos(&app.session, layer, row).unwrap_or_default();
@@ -710,18 +718,24 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     }
     let Some((_, slots)) = st.photos.take() else { return };
     let cell = ((ui.available_width() - ui.spacing().item_spacing.x) / 2.0).max(80.0);
+    let mut action = None;
     for pair in slots.chunks(2) {
         ui.horizontal_top(|ui| {
             for slot in pair {
                 ui.vertical(|ui| {
                     ui.set_width(cell);
-                    slot_ui(st, ui, t, slot, cell);
+                    if let Some(a) = slot_ui(st, ui, t, slot, cell, &picked) {
+                        action = Some(a);
+                    }
                 });
             }
         });
     }
     st.photos = Some(((layer, row, rev), slots));
     viewer(st, ctx, t);
+    if let Some(a) = action {
+        slot_action(app, layer, row, a);
+    }
     if app.inspection.thermal.on {
         crate::thermalview::show(app, ui, t, layer, row);
     } else {
@@ -729,11 +743,58 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     }
 }
 
-fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos, w: f32) {
+/// What a slot asked for: photos to add to it, or a picked photo to take out.
+enum SlotAction {
+    Add(String, Vec<String>),
+    Remove(String, String),
+}
+
+/// Asks for photo files to add to a slot.
+#[cfg(not(target_arch = "wasm32"))]
+fn pick_photos(slot: &str, label: &str) -> Option<SlotAction> {
+    let title = crate::i18n::fmt("Photos for {slot}", &[("slot", label)]);
+    let files =
+        rfd::FileDialog::new().set_title(title).add_filter(tl!("Photos"), &["jpg", "jpeg", "png", "JPG", "JPEG", "PNG"]).pick_files()?;
+    (!files.is_empty()).then(|| SlotAction::Add(slot.to_string(), files.iter().map(|f| f.display().to_string()).collect()))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn pick_photos(_: &str, _: &str) -> Option<SlotAction> {
+    None
+}
+
+/// Runs a slot's request and shows what it did.
+fn slot_action(app: &mut RustGisApp, layer: u32, row: usize, action: SlotAction) {
+    let result = match action {
+        SlotAction::Add(slot, paths) => app
+            .run("geoflux.addPhotos", json!({"layer": layer, "row": row, "slot": slot, "paths": paths}))
+            .map(|r| crate::i18n::fmt("{n} photos added.", &[("n", &r["added"].to_string())])),
+        SlotAction::Remove(slot, path) => app
+            .run("geoflux.removePhoto", json!({"layer": layer, "row": row, "slot": slot, "path": path}))
+            .map(|_| tl!("Photo taken out of the slot (the file is kept).").to_string()),
+    };
+    let st = &mut app.inspection;
+    st.photo_note = Some(match result {
+        Ok(m) => (m, false),
+        Err(e) => (e, true),
+    });
+    st.photos = None;
+}
+
+fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos, w: f32, picked: &[String]) -> Option<SlotAction> {
     let n = slot.photos.len();
     let i = st.shown.get(&slot.slot.id).copied().unwrap_or(0).min(n.saturating_sub(1));
+    let mut action = None;
     ui.horizontal(|ui| {
         ui.label(RichText::new(slot.slot.label.as_str()).small().color(t.text_dim));
+        if n > 0 && !cfg!(target_arch = "wasm32") && ui.small_button("+").on_hover_text(tl!("Add photos to this slot")).clicked() {
+            action = pick_photos(&slot.slot.id, &slot.slot.label);
+        }
+        if let Some(p) = slot.photos.get(i).filter(|p| picked.contains(p))
+            && ui.small_button("×").on_hover_text(tl!("Take this photo out of the slot (the file is kept)")).clicked()
+        {
+            action = Some(SlotAction::Remove(slot.slot.id.clone(), p.clone()));
+        }
         if n > 1 {
             if ui.small_button("‹").clicked() {
                 st.shown.insert(slot.slot.id.clone(), i.checked_sub(1).unwrap_or(n - 1));
@@ -746,10 +807,32 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
     });
     let size = vec2(w, w * 0.75);
     let Some(path) = slot.photos.get(i) else {
-        let (r, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-        ui.painter().rect_stroke(r, 4.0, egui::Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
-        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, tl!("No photo"), egui::FontId::proportional(11.0), t.text_disabled);
-        return;
+        // An empty slot is one big + that picks its photos.
+        let web = cfg!(target_arch = "wasm32");
+        let (r, resp) = ui.allocate_exact_size(size, if web { egui::Sense::hover() } else { egui::Sense::click() });
+        let hot = resp.hovered() && !web;
+        let line = if hot { t.accent } else { t.border };
+        ui.painter().rect_stroke(r, 4.0, egui::Stroke::new(1.0, line), egui::StrokeKind::Inside);
+        if web {
+            ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, tl!("No photo"), egui::FontId::proportional(11.0), t.text_disabled);
+        } else {
+            let c = r.center();
+            let arm = (r.height() * 0.12).clamp(8.0, 18.0);
+            let ink = egui::Stroke::new(2.0, if hot { t.accent } else { t.text_dim });
+            ui.painter().line_segment([c - vec2(arm, 0.0), c + vec2(arm, 0.0)], ink);
+            ui.painter().line_segment([c - vec2(0.0, arm), c + vec2(0.0, arm)], ink);
+            ui.painter().text(
+                c + vec2(0.0, arm + 12.0),
+                egui::Align2::CENTER_CENTER,
+                tl!("Add photo"),
+                egui::FontId::proportional(11.0),
+                t.text_disabled,
+            );
+            if resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(tl!("Pick photos for this slot")).clicked() {
+                action = pick_photos(&slot.slot.id, &slot.slot.label);
+            }
+        }
+        return action;
     };
     match st.cache.get(path, THUMB_SIDE) {
         Some(Ok(tex)) => {
@@ -766,6 +849,7 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
             ui.put(r, egui::Spinner::new());
         }
     }
+    action
 }
 
 /// The full view of one photo, in its own window.
