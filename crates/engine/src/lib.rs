@@ -13,6 +13,7 @@ pub mod sources;
 mod tests;
 
 pub use geoflux_domain;
+pub use geoflux_thermal;
 pub use project::Project;
 pub use rustgis_analysis as analysis;
 pub use rustgis_data as data;
@@ -310,6 +311,8 @@ pub struct Session {
     pub keep_tool: bool,
     /// Copied features (Edit › Clipboard).
     pub clipboard: Option<cmd::clipboard::Clipboard>,
+    /// Thermal photo decoders, shared with the app's background threads (GeoFlux › Thermal).
+    pub thermal: cmd::thermal::Thermal,
     undo: Vec<(Project, &'static str)>,
     redo: Vec<(Project, &'static str)>,
     back: Vec<Camera>,
@@ -402,6 +405,7 @@ impl Session {
             table_layer: None,
             table_standalone: None,
             clipboard: None,
+            thermal: cmd::thermal::Thermal::default(),
             keep_tool: false,
             active_layout: None,
             trusted_tasks: Default::default(),

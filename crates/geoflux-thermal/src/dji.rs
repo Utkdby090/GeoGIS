@@ -75,3 +75,10 @@ impl<B: DjiBackend> ThermalDecoder for DjiDecoder<B> {
         Ok(ThermalFrame::new(m.width, m.height, m.temps, Vendor::Dji, m.applied)?.with_refused(m.refused))
     }
 }
+
+/// A shared backend, so its owner can stop it while decoders hold it.
+impl<B: DjiBackend + ?Sized> DjiBackend for std::sync::Arc<B> {
+    fn measure(&self, jpeg: &[u8], overrides: &SceneOverrides) -> Result<DjiMeasurement, ThermalError> {
+        (**self).measure(jpeg, overrides)
+    }
+}

@@ -487,7 +487,7 @@ fn go_to(s: &mut Session, p: &Value) -> CmdResult {
 
 /// Applies an inspection form's values to one asset, as one undoable edit: every field is
 /// checked first and nothing changes if any is invalid. The asset is rated again afterwards.
-fn set_values(s: &mut Session, p: &Value) -> CmdResult {
+pub(crate) fn set_values(s: &mut Session, p: &Value) -> CmdResult {
     let id = s.layer_id(p)?;
     let row = row_param(p)?;
     let given = p.get("values").and_then(Value::as_object).ok_or("values is required ({field key: text})")?;

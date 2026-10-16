@@ -1750,6 +1750,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-dirp"
+version = "0.2.0"
+dependencies = [
+ "geoflux-thermal",
+ "libloading",
+]
+
+[[package]]
 name = "geoflux-domain"
 version = "0.2.0"
 dependencies = [
@@ -1763,9 +1771,11 @@ dependencies = [
 name = "geoflux-thermal"
 version = "0.2.0"
 dependencies = [
+ "png",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "tiff",
 ]
 
 [[package]]
@@ -3843,6 +3853,7 @@ version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "geoflux-domain",
+ "geoflux-thermal",
  "iana-time-zone",
  "log",
  "rusqlite",

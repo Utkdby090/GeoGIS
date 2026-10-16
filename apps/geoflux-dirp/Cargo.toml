@@ -1,0 +1,22 @@
+[package]
+name = "geoflux-dirp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "GeoFlux thermal helper: the one program that loads DJI's Thermal SDK, so a damaged DJI photo can't close GeoGIS"
+
+# Not `workspace = true`: this is the only crate in the workspace that may use `unsafe`, and only
+# in `sdk.rs` (every other module denies it). Clippy settings follow the workspace's.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[dependencies]
+geoflux-thermal = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+libloading = "0.8"

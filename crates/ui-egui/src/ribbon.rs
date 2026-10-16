@@ -972,6 +972,89 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
     });
 }
 
+/// GeoFlux › Thermal: temperatures from the towers' thermal photos.
+fn thermal_group(app: &mut RustGisApp, ui: &mut Ui) {
+    use crate::thermalview::{Tool as ThermalTool, palette_code, palette_label};
+    let viewing = app.inspection.thermal.on && app.ui.right == Some(RightPane::Inspection);
+    let tool = app.inspection.thermal.tool;
+    group(ui, "Thermal", |ui| {
+        big(
+            ui,
+            app,
+            "thermal",
+            "Thermal\nView",
+            "Show the tower's thermal photo as temperatures in the Inspection pane.",
+            "ui.thermal.view",
+            Value::Null,
+            viewing,
+            false,
+        );
+        col(ui, |ui| {
+            let current = app.inspection.thermal.palette;
+            small_menu(ui, app, "symbology", "Palette", "Colour the temperatures.", move |ui, app| {
+                for p in rustgis_engine::geoflux_thermal::Palette::ALL {
+                    if ui.radio(current == p, palette_label(p)).clicked() {
+                        let _ = app.run("ui.thermal.palette", json!({"palette": palette_code(p)}));
+                        ui.close();
+                    }
+                }
+            });
+            small(
+                ui,
+                app,
+                "hotspot",
+                "Spot",
+                "Click the photo to read one pixel.",
+                "ui.thermal.tool",
+                json!({"tool": "spot"}),
+                viewing && tool == ThermalTool::Spot,
+            );
+            small(
+                ui,
+                app,
+                "zoom_box",
+                "Box",
+                "Drag a box around the component to measure; its hottest pixel is the finding.",
+                "ui.thermal.tool",
+                json!({"tool": "box"}),
+                viewing && tool == ThermalTool::Box,
+            );
+        });
+        col(ui, |ui| {
+            small(
+                ui,
+                app,
+                "ref_box",
+                "Reference",
+                "Drag a box around a healthy, similar component; the rise is measured over it instead of the ambient temperature.",
+                "ui.thermal.tool",
+                json!({"tool": "reference"}),
+                viewing && tool == ThermalTool::Reference,
+            );
+            small(
+                ui,
+                app,
+                "save",
+                "Record Finding",
+                "Write the fault and rise temperatures into this tower's form.",
+                "ui.thermal.record",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
+                "run",
+                "Scan Line",
+                "Measure every tower's thermal photo and record its hottest pixel and rise, as one undoable edit.",
+                "ui.thermal.scan",
+                Value::Null,
+                false,
+            );
+        });
+    });
+}
+
 fn notebook_group(app: &mut RustGisApp, ui: &mut Ui) {
     group(ui, "Notebook", |ui| {
         big(ui, app, "python", "New\nNotebook", "A notebook of text and command cells.", "ui.newNotebook", Value::Null, false, false);
@@ -1867,6 +1950,7 @@ fn style_tab(app: &mut RustGisApp, ui: &mut Ui) {
 fn analyze_tab(app: &mut RustGisApp, ui: &mut Ui) {
     analysis_groups(app, ui);
     inspection_group(app, ui);
+    thermal_group(app, ui);
     notebook_group(app, ui);
     imagery_groups(app, ui);
 }

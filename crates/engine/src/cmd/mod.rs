@@ -31,6 +31,7 @@ pub mod sharing;
 pub mod sources;
 pub mod sql;
 pub mod stac;
+pub mod thermal;
 pub mod tiles;
 pub mod view;
 pub mod workflows;
@@ -79,6 +80,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(portals::commands());
     v.extend(catalogs::commands());
     v.extend(geoflux::commands());
+    v.extend(thermal::commands());
     v
 }
 
