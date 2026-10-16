@@ -32,6 +32,10 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui) {
             }
         });
     }
+    // The Inspection pane's photos are freed as soon as it closes.
+    if app.ui.right != Some(RightPane::Inspection) {
+        app.inspection.release();
+    }
     if let Some(right) = app.ui.right {
         egui::Panel::right("right_pane").resizable(true).default_size(320.0).size_range(260.0..=560.0).frame(frame).show(ui, |ui| {
             let (title, close) = match right {
@@ -54,6 +58,7 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui) {
                 RightPane::Assistant => ("AI Assistant", "ui.pane.assistant"),
                 RightPane::Shares => ("Shared Items", "ui.pane.shares"),
                 RightPane::Sql => ("SQL", "ui.pane.sql"),
+                RightPane::Inspection => ("Inspection", "ui.pane.inspection"),
             };
             pane_header(app, ui, tl!(title), close, &t);
             // The chat lays out its own scrolling, with the message box kept at the bottom.
@@ -86,6 +91,7 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui) {
                     RightPane::Notebook => crate::docpanes::notebook(app, ui, &t),
                     RightPane::Assistant | RightPane::Sql => {}
                     RightPane::Shares => crate::docpanes::shares(app, ui, &t),
+                    RightPane::Inspection => crate::geofluxpane::show(app, ui, &t),
                 });
             });
         });

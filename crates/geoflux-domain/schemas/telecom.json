@@ -4,6 +4,7 @@
   "name": "Electric Grid Inspection",
   "version": "1.0.0",
   "description": "Process 765kV transmission lines, mid-spans, and hardware fittings.",
+  "labelField": "towerNumber",
   "fields": [
     { "key": "lineName", "label": "Line Name", "type": "text", "required": true, "group": "Location & Temporal Data", "row": 0 },
     { "key": "towerNumber", "label": "Tower No", "type": "text", "required": true, "group": "Location & Temporal Data", "row": 0, "weight": 0.5 },
@@ -23,10 +24,10 @@
     { "key": "riseTemp", "label": "Rise Temp (°C)", "type": "text", "group": "Fault Analysis", "row": 1 }
   ],
   "imageSlots": [
-    { "id": "LOCATION", "label": "Location" },
-    { "id": "THERMAL", "label": "Thermal Image", "thermal": true },
-    { "id": "STRUCTURE", "label": "Structure Image" },
-    { "id": "RGB_ZOOM", "label": "RGB Image" }
+    { "id": "LOCATION", "label": "Location", "matches": ["location", "v"], "fallback": true },
+    { "id": "THERMAL", "label": "Thermal Image", "thermal": true, "matches": ["thermal", "ir", "radiometric", "t"] },
+    { "id": "STRUCTURE", "label": "Structure Image", "matches": ["tower", "structure", "wide", "w", "span", "mid", "midspan", "sleeve", "repair", "earth", "joint"] },
+    { "id": "RGB_ZOOM", "label": "RGB Image", "matches": ["zoom", "rgb", "visual", "supp", "z"] }
   ],
   "csv": {
     "columns": [

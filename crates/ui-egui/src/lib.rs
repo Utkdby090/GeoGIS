@@ -18,6 +18,7 @@ mod dialogs;
 mod docpanes;
 mod editpanes;
 mod geocodeui;
+mod geofluxpane;
 pub mod icons;
 mod layoutview;
 mod mapview;
@@ -230,6 +231,8 @@ pub enum RightPane {
     Assistant,
     Shares,
     Sql,
+    /// GeoFlux: one asset's inspection form, the tower walk and its photos.
+    Inspection,
 }
 
 pub struct UiState {
@@ -400,6 +403,8 @@ pub struct RustGisApp {
     /// Help › Check for Updates.
     pub update: update::UpdateState,
     pub reports: reportpane::ReportState,
+    /// GeoFlux › the Inspection pane.
+    pub inspection: geofluxpane::InspectionState,
     pub docs: docpanes::DocState,
     /// The AI Assistant's conversation and settings.
     pub assistant: assistantpane::AssistantState,
@@ -446,6 +451,7 @@ impl RustGisApp {
             plugins: pluginsui::PluginsState::default(),
             update: update::UpdateState::default(),
             reports: reportpane::ReportState::default(),
+            inspection: geofluxpane::InspectionState::default(),
             docs: docpanes::DocState::default(),
             assistant: assistantpane::AssistantState::default(),
             fonts_frames: 0,
@@ -1527,6 +1533,9 @@ impl RustGisApp {
                 None => toggle_right(&mut self.ui, RightPane::Assistant),
             },
             "ui.pane.shares" => toggle_right(&mut self.ui, RightPane::Shares),
+            "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
+            "ui.geofluxImport" => geofluxpane::import(self)?,
+            "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
             // Share As: to a file (recorded under Status › Jobs), or a download in the browser.
             "ui.share" => {
                 let kind = p.get("kind").and_then(Value::as_str).ok_or("kind is required")?;
