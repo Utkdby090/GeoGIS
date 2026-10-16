@@ -11,6 +11,7 @@ pub mod geoflux;
 pub mod gp;
 pub mod graphics;
 pub mod imagery;
+pub mod inspection_report;
 pub mod items;
 pub mod labels;
 pub mod layer;
@@ -80,6 +81,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(portals::commands());
     v.extend(catalogs::commands());
     v.extend(geoflux::commands());
+    v.extend(inspection_report::commands());
     v.extend(thermal::commands());
     v
 }

@@ -107,6 +107,30 @@ pub struct BulkEntry {
     pub page: Page,
 }
 
+/// A page whose photos are still paths: the engine plans every page of an export up front (cheap:
+/// text only), and the export reads one page's photos at a time with [`PlannedPage::load`].
+#[derive(Clone, Debug)]
+pub struct PlannedPage {
+    /// Where the PDF goes in a bulk export (`folder/name.pdf`).
+    pub path: String,
+    /// The page, its photo cells still empty.
+    pub page: Page,
+    /// Each photo cell's file, in the order of `page.photos`; None when the slot has no photo.
+    pub photos: Vec<Option<String>>,
+}
+
+impl PlannedPage {
+    /// Reads the page's photos through `source`; one that can't be read becomes "No image".
+    pub fn load(mut self, source: &dyn PhotoSource) -> BulkEntry {
+        for (cell, path) in self.page.photos.iter_mut().zip(&self.photos) {
+            if let Some(path) = path {
+                cell.image = source.read(path, MAX_PHOTO_BYTES).and_then(Image::from_bytes).map(Some);
+            }
+        }
+        BulkEntry { path: self.path, page: self.page }
+    }
+}
+
 /// What a written report left out or changed, for the person to check.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Summary {

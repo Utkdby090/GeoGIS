@@ -22,7 +22,9 @@ pub mod template;
 pub use bulk::{MAX_BULK_PAGES, write_bulk};
 pub use error::{PhotoIssue, ReportError};
 pub use image::slim_jpeg;
-pub use page::{BulkEntry, Image, ImageInfo, ImageKind, Page, PagePhoto, PageRow, PageSection, PhotoSource, Progress, Summary};
+pub use page::{
+    BulkEntry, Image, ImageInfo, ImageKind, Page, PagePhoto, PageRow, PageSection, PhotoSource, PlannedPage, Progress, Summary,
+};
 pub use pdf::write_pdf;
 pub use template::{Branding, FieldSection, PageSize, PhotoCell, ReportTemplate};
 

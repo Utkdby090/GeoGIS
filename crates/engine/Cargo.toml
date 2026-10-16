@@ -15,6 +15,8 @@ rustgis-map = { workspace = true }
 rustgis-analysis = { workspace = true }
 rustgis-render = { workspace = true }
 tiny-skia = { workspace = true }
+image = { workspace = true, features = ["jpeg"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
@@ -22,6 +24,7 @@ web-time = { workspace = true }
 base64 = { workspace = true }
 rustgis-plugins = { workspace = true }
 geoflux-domain = { workspace = true }
+geoflux-report = { workspace = true }
 geoflux-thermal = { workspace = true }
 # The system's time zone and locales, to pick the worldview of the built-in countries.
 iana-time-zone = { version = "0.1", features = ["fallback"] }
@@ -37,3 +40,5 @@ geolibre = ["dep:rustgis-geolibre"]
 rusqlite = { workspace = true }
 rustgis-plugins = { workspace = true, features = ["testing"] }
 tiny-skia = { workspace = true }
+image = { workspace = true, features = ["jpeg"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }

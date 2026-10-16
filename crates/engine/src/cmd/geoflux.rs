@@ -464,7 +464,7 @@ fn validate(s: &mut Session, p: &Value) -> CmdResult {
 }
 
 /// Row `row` of a layer's table as an asset of `schema`.
-fn asset_of(ds: &Dataset, schema: &DomainSchema, row: usize) -> Asset {
+pub(crate) fn asset_of(ds: &Dataset, schema: &DomainSchema, row: usize) -> Asset {
     let mut asset = Asset::from_draft("", &schema.id, row as u32, AssetDraft { location: None, properties: properties(ds, row) });
     if let Some(Geometry::Point(c)) = ds.features.get(row).and_then(|f| f.geometry.as_ref()) {
         asset.location = Some(GeoPoint { lat: c.y, lon: c.x });
@@ -667,7 +667,12 @@ pub fn photos(s: &Session, layer: u32, row: usize) -> Result<Vec<SlotPhotos>, St
         .iter()
         .filter(|p| p.layer == layer && p.label.trim().chars().flat_map(char::to_lowercase).eq(label.chars()))
         .collect();
-    Ok(schema
+    Ok(slot_photos(&schema, folder, found, &picked))
+}
+
+/// The slots of an asset with its folder photos (full paths), then its picked ones, once each.
+fn slot_photos(schema: &DomainSchema, folder: &std::path::Path, found: Option<&AssetPhotos>, picked: &[&PickedPhoto]) -> Vec<SlotPhotos> {
+    schema
         .image_slots
         .iter()
         .map(|slot| {
@@ -685,7 +690,37 @@ pub fn photos(s: &Session, layer: u32, row: usize) -> Result<Vec<SlotPhotos>, St
             }
             SlotPhotos { slot: slot.clone(), photos }
         })
-        .collect())
+        .collect()
+}
+
+/// A layer's photos by lowercase asset label, for reading every asset's photos in one pass
+/// (a report of a whole line) without searching the links once per asset.
+pub struct PhotoIndex<'a> {
+    folder: &'a std::path::Path,
+    assets: std::collections::HashMap<String, &'a AssetPhotos>,
+    picked: std::collections::HashMap<String, Vec<&'a PickedPhoto>>,
+}
+
+impl<'a> PhotoIndex<'a> {
+    pub fn new(g: &'a GeoFlux, layer: u32) -> Self {
+        let link = g.photos_of(layer);
+        let mut assets = std::collections::HashMap::new();
+        for a in link.map_or(&[][..], |l| l.assets.as_slice()) {
+            assets.entry(a.label.trim().to_lowercase()).or_insert(a);
+        }
+        let mut picked: std::collections::HashMap<String, Vec<&PickedPhoto>> = std::collections::HashMap::new();
+        for p in g.picked.iter().filter(|p| p.layer == layer) {
+            picked.entry(p.label.trim().to_lowercase()).or_default().push(p);
+        }
+        Self { folder: std::path::Path::new(link.map_or("", |l| l.folder.as_str())), assets, picked }
+    }
+
+    /// The slots of the asset labelled `label`, as [`photos`] gives them.
+    pub fn slots(&self, schema: &DomainSchema, label: &str) -> Vec<SlotPhotos> {
+        let key = label.trim().to_lowercase();
+        let picked = self.picked.get(&key).map_or(&[][..], Vec::as_slice);
+        slot_photos(schema, self.folder, self.assets.get(&key).copied(), picked)
+    }
 }
 
 /// The asset's label and the slot named by `slot`, for the photo-picking commands.

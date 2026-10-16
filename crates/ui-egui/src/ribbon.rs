@@ -1003,6 +1003,28 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             );
             small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
         });
+        col(ui, |ui| {
+            small(
+                ui,
+                app,
+                "export",
+                "Tower Report",
+                "This tower's inspection report as a PDF, with its photos and markup.",
+                "ui.geofluxReport",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
+                "export",
+                "Line Reports",
+                "One PDF per tower whose form is complete, in a ZIP.",
+                "ui.geofluxReportBulk",
+                Value::Null,
+                false,
+            );
+        });
     });
 }
 

@@ -107,12 +107,12 @@ pub(crate) fn render(page: &Page, summary: &mut Summary) -> Vec<u8> {
 
     // Footers, now that the page count is known.
     let total = layout.pages.len();
-    let footer = page.footer.trim();
+    let footer = Text::default().clip(page.footer.trim(), false, TEXT, w - 2.0 * MARGIN - 70.0);
     let mut text = Text::default();
     for (i, c) in layout.pages.iter_mut().enumerate() {
         let y = h - MARGIN + 4.0;
         c.rule(MARGIN, y - 12.0, w - MARGIN, y - 12.0, 0.5, RULE);
-        c.text_centered(&mut text, footer, w / 2.0, y, TEXT, false, GREY);
+        c.text_centered(&mut text, &footer, w / 2.0, y, TEXT, false, GREY);
         if total > 1 {
             let n = format!("Page {} of {total}", i + 1);
             c.text_right(&mut text, &n, w - MARGIN, y, TEXT - 1.0, false, GREY);
@@ -366,6 +366,8 @@ impl Text {
     /// `s` broken into lines of at most `max` points, at spaces where it can, at most `limit`
     /// lines (the last cut with "…").
     fn wrap(&self, s: &str, bold: bool, size: f32, max: f32, limit: usize) -> Vec<String> {
+        // `limit` lines never hold more than this many characters; the rest would only cost time.
+        let s: String = s.chars().take(limit.saturating_mul(300).max(1)).collect();
         let mut lines: Vec<String> = Vec::new();
         let mut cur = String::new();
         for word in s.split_whitespace() {

@@ -217,26 +217,32 @@ pub(crate) fn decode_png(bytes: &[u8]) -> Result<DecodedPng, PhotoIssue> {
     buf.truncate(frame.buffer_size());
     let (w, h) = (frame.width, frame.height);
     let px = w as usize * h as usize;
-    let (mut rgb, mut alpha) = (Vec::with_capacity(px * 3), Vec::new());
-    match frame.color_type {
-        png::ColorType::Rgb => rgb = buf,
-        png::ColorType::Rgba => {
+    let mut alpha = Vec::new();
+    // The decoded buffer moves into the match and is freed there, before compressing: it is the
+    // largest one here.
+    let rgb = match (frame.color_type, buf) {
+        (png::ColorType::Rgb, buf) => buf,
+        (png::ColorType::Rgba, buf) => {
+            let mut rgb = Vec::with_capacity(px * 3);
             alpha.reserve(px);
             for p in buf.as_chunks::<4>().0 {
                 rgb.extend_from_slice(&p[..3]);
                 alpha.push(p[3]);
             }
+            rgb
         }
-        png::ColorType::Grayscale => buf.iter().for_each(|&g| rgb.extend_from_slice(&[g, g, g])),
-        png::ColorType::GrayscaleAlpha => {
+        (png::ColorType::Grayscale, buf) => buf.iter().flat_map(|&g| [g, g, g]).collect(),
+        (png::ColorType::GrayscaleAlpha, buf) => {
+            let mut rgb = Vec::with_capacity(px * 3);
             alpha.reserve(px);
             for p in buf.as_chunks::<2>().0 {
                 rgb.extend_from_slice(&[p[0], p[0], p[0]]);
                 alpha.push(p[1]);
             }
+            rgb
         }
-        png::ColorType::Indexed => return Err(PhotoIssue::Damaged("the PNG palette could not be expanded".into())),
-    }
+        (png::ColorType::Indexed, _) => return Err(PhotoIssue::Damaged("the PNG palette could not be expanded".into())),
+    };
     if rgb.len() != px * 3 {
         return Err(PhotoIssue::Damaged("the PNG has fewer pixels than its header says".into()));
     }

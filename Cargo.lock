@@ -3880,8 +3880,10 @@ version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "geoflux-domain",
+ "geoflux-report",
  "geoflux-thermal",
  "iana-time-zone",
+ "image",
  "log",
  "rusqlite",
  "rustgis-analysis",
@@ -3896,6 +3898,7 @@ dependencies = [
  "sys-locale",
  "tiny-skia",
  "web-time",
+ "zip 2.4.2",
 ]
 
 [[package]]

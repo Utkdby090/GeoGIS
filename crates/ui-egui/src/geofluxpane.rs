@@ -13,6 +13,7 @@ use serde_json::{Map, Value, json};
 use crate::theme::{Tokens, semibold};
 use crate::{RustGisApp, Slot};
 use rustgis_engine::cmd::geoflux::{self as gf, SlotPhotos, Stop};
+use rustgis_engine::geoflux_domain::annotation::AnnotationSet;
 use rustgis_engine::geoflux_domain::{FieldDef, FieldIssue, FieldType, IssueKind, Severity, form};
 
 /// The longest side of a slot's thumbnail and of the full view, in pixels.
@@ -155,7 +156,11 @@ fn decode(path: &str, side: u32) -> Decoded {
     limits.max_image_height = Some(16_384);
     limits.max_alloc = Some(256 << 20);
     reader.limits(limits);
-    let img = reader.decode().map_err(|e| e.to_string())?;
+    // Shown the way the camera held it (EXIF orientation), as markup positions and the PDF assume.
+    let mut decoder = reader.into_decoder().map_err(|e| e.to_string())?;
+    let orientation = image::ImageDecoder::orientation(&mut decoder).unwrap_or(image::metadata::Orientation::NoTransforms);
+    let mut img = image::DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?;
+    img.apply_orientation(orientation);
     let img = if img.width() > side || img.height() > side { img.thumbnail(side, side) } else { img };
     let rgba = img.to_rgba8();
     let size = [rgba.width() as usize, rgba.height() as usize];
@@ -192,9 +197,21 @@ pub struct InspectionState {
     cache: PhotoCache,
     /// The Thermal view of the tower's thermal photo.
     pub thermal: crate::thermalview::ThermalState,
+    /// The shown asset's photo markup by (slot, photo), read with `photos`.
+    marks: Vec<(String, String, AnnotationSet)>,
+    /// The markup editor, while open (kept when the pane closes, so unsaved shapes aren't lost).
+    pub(crate) markup: Option<crate::markupview::Editor>,
+    /// A line's report ZIP being written, and what the last report did.
+    pub(crate) reports: Option<crate::markupview::ReportJob>,
+    pub(crate) report_note: Option<(String, bool)>,
 }
 
 impl InspectionState {
+    /// Reads the photos and their markup again on the next frame.
+    pub(crate) fn forget_marks(&mut self) {
+        self.photos = None;
+    }
+
     pub(crate) fn dirty(&self) -> bool {
         self.values != self.original
     }
@@ -372,6 +389,8 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     }
     ui.add_space(8.0);
     photos_ui(app, ui, t, &ctx, layer, row, rev);
+    ui.add_space(8.0);
+    crate::markupview::reports_ui(app, ui, t, layer, row);
 }
 
 /// Reads the asset at `row` into the form.
@@ -714,8 +733,12 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     let st = &mut app.inspection;
     if st.photos.as_ref().is_none_or(|(k, _)| *k != (layer, row, rev)) {
         let slots = gf::photos(&app.session, layer, row).unwrap_or_default();
+        let marks = crate::markupview::marks(app, layer, row, &slots);
+        let st = &mut app.inspection;
+        st.marks = marks;
         st.photos = Some(((layer, row, rev), slots));
     }
+    let st = &mut app.inspection;
     let Some((_, slots)) = st.photos.take() else { return };
     let cell = ((ui.available_width() - ui.spacing().item_spacing.x) / 2.0).max(80.0);
     let mut action = None;
@@ -733,6 +756,8 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     }
     st.photos = Some(((layer, row, rev), slots));
     viewer(st, ctx, t);
+    let texture = st.markup.as_ref().and_then(|e| st.cache.get(e.photo(), VIEW_SIDE).cloned());
+    crate::markupview::show(app, ctx, t, texture);
     if let Some(a) = action {
         slot_action(app, layer, row, a);
     }
@@ -749,6 +774,8 @@ enum SlotAction {
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Add(String, Vec<String>),
     Remove(String, String),
+    /// Open the markup editor on a photo of the slot.
+    Markup(String, String),
 }
 
 /// Asks for photo files to add to a slot.
@@ -774,6 +801,10 @@ fn slot_action(app: &mut RustGisApp, layer: u32, row: usize, action: SlotAction)
         SlotAction::Remove(slot, path) => app
             .run("geoflux.removePhoto", json!({"layer": layer, "row": row, "slot": slot, "path": path}))
             .map(|_| tl!("Photo taken out of the slot (the file is kept).").to_string()),
+        SlotAction::Markup(slot, path) => {
+            crate::markupview::open(app, layer, row, &slot, &path);
+            return;
+        }
     };
     let st = &mut app.inspection;
     st.photo_note = Some(match result {
@@ -791,6 +822,12 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
         ui.label(RichText::new(slot.slot.label.as_str()).small().color(t.text_dim));
         if n > 0 && !cfg!(target_arch = "wasm32") && ui.small_button("+").on_hover_text(tl!("Add photos to this slot")).clicked() {
             action = pick_photos(&slot.slot.id, &slot.slot.label);
+        }
+        if let Some(p) = slot.photos.get(i)
+            && !cfg!(target_arch = "wasm32")
+            && ui.small_button("✎").on_hover_text(tl!("Mark up this photo for the report")).clicked()
+        {
+            action = Some(SlotAction::Markup(slot.slot.id.clone(), p.clone()));
         }
         if let Some(p) = slot.photos.get(i).filter(|p| picked.contains(p))
             && ui.small_button("×").on_hover_text(tl!("Take this photo out of the slot (the file is kept)")).clicked()
@@ -839,6 +876,9 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
     match st.cache.get(path, THUMB_SIDE) {
         Some(Ok(tex)) => {
             let resp = ui.add(egui::Image::from_texture(tex).max_size(size).sense(egui::Sense::click())).on_hover_text(path.as_str());
+            if let Some((_, _, set)) = st.marks.iter().find(|(s, p, _)| *s == slot.slot.id && p == path) {
+                crate::markupview::paint(ui.painter(), resp.rect, set.shapes());
+            }
             if resp.clicked() {
                 st.viewer = Some(path.clone());
             }

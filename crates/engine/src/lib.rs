@@ -13,6 +13,7 @@ pub mod sources;
 mod tests;
 
 pub use geoflux_domain;
+pub use geoflux_report;
 pub use geoflux_thermal;
 pub use project::Project;
 pub use rustgis_analysis as analysis;
