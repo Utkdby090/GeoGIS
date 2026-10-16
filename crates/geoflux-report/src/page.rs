@@ -17,6 +17,8 @@ pub const MAX_PHOTO_BYTES: usize = 40 * 1024 * 1024;
 pub const MAX_SMALL_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 /// Most pixels in an image (width × height), so a hostile header can't ask for a huge buffer.
 pub const MAX_PIXELS: u64 = 200_000_000;
+/// Most pixels in a PNG, which (unlike a JPEG) is decoded: 40 MP is 160 MB of RGBA.
+pub const MAX_PNG_PIXELS: u64 = 40_000_000;
 
 /// How an image's bytes go into the PDF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

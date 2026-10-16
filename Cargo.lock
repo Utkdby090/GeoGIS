@@ -1772,9 +1772,14 @@ name = "geoflux-report"
 version = "0.2.0"
 dependencies = [
  "geoflux-domain",
+ "image",
+ "miniz_oxide 0.8.9",
+ "pdf-writer",
+ "png",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -3211,6 +3216,18 @@ dependencies = [
  "snap",
  "twox-hash",
  "zstd 0.14.2",
+]
+
+[[package]]
+name = "pdf-writer"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e456864a7a304047bff84977dc6fb162bd956475d40ba50b2dcecaada7f753"
+dependencies = [
+ "bitflags 2.13.2",
+ "itoa",
+ "memchr",
+ "ryu",
 ]
 
 [[package]]
