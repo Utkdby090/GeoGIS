@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	Een waarde, een veld of twee daarvan verbonden door + − × ÷. Geldt voor de geselecteerde rijen, of voor alle rijen als er geen geselecteerd zijn.
 About	Over
 About plugins	Over plugins
-About RustGIS	Over RustGIS
-About RustGIS.	Over RustGIS.
+About GeoGIS	Over GeoGIS
+About GeoGIS.	Over GeoGIS.
 Above	Boven
 Above Left	Linksboven
 Above Right	Rechtsboven
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	Toepassingsgebied: binnen {r}�
 Area of use: within {r}° of {lon}°, {lat}°	Toepassingsgebied: binnen {r}° van {lon}°, {lat}°
 Area {area}   ·   Perimeter {perimeter}	Oppervlakte {area}   ·   Omtrek {perimeter}
 Areas (name, land use, area)	Gebieden (naam, landgebruik, oppervlakte)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	Stel een vraag over je gegevens, of beschrijf wat er met de kaart moet gebeuren. De assistent voert RustGIS-opdrachten voor je uit; elke wijziging kan ongedaan worden gemaakt.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	Stel een vraag over je gegevens, of beschrijf wat er met de kaart moet gebeuren. De assistent voert GeoGIS-opdrachten voor je uit; elke wijziging kan ongedaan worden gemaakt.
 Ask about the map, or tell it what to do…	Stel een vraag over de kaart, of zeg wat er moet gebeuren…
 Ask about your data, or tell the assistant what to do with the map.	Stel een vraag over je gegevens, of vertel de assistent wat er met de kaart moet gebeuren.
 Assistant settings	Instellingen van de assistent
@@ -778,7 +778,7 @@ Import Thumbnail	Miniatuur importeren
 Import Web Tool	Webtool importeren
 In Beyond	Ingezoomd voorbij
 In Progress	Bezig
-In RustGIS, it can:	In RustGIS kan hij:
+In GeoGIS, it can:	In GeoGIS kan hij:
 in progress	bezig
 In project	In project
 In use	In gebruik
@@ -1075,7 +1075,7 @@ North	Noord
 North\nArrow	Noord-\npijl
 North Polar Stereographic	Polair stereografisch noord
 Not sandboxed	Niet in sandbox
-not a RustGIS layout	geen RustGIS-lay-out
+not a GeoGIS layout	geen GeoGIS-lay-out
 not needed	niet nodig
 Not saved yet	Nog niet opgeslagen
 Notebook	Notebook
@@ -1104,8 +1104,8 @@ Opacity	Dekking
 Open	Openen
 Open a .rgis project	Een .rgis-project openen
 open a layout first	open eerst een lay-out
-Open a RustGIS or Jupyter notebook.	Een RustGIS- of Jupyter-notebook openen.
-Open a RustGIS project.	Een RustGIS-project openen.
+Open a GeoGIS or Jupyter notebook.	Een GeoGIS- of Jupyter-notebook openen.
+Open a GeoGIS project.	Een GeoGIS-project openen.
 Open an offline area to edit.	Een offline gebied openen om te bewerken.
 Open Custom Template	Aangepast sjabloon openen
 Open Custom Template…	Aangepast sjabloon openen…
@@ -1201,7 +1201,7 @@ Plugin Manager…	Pluginbeheer…
 Plugin registry	Pluginregister
 Plugins	Plugins
 Plugins are .rgplugin files. Install only plugins from people you trust.	Plugins zijn .rgplugin-bestanden. Installeer alleen plugins van mensen die je vertrouwt.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	Plugins draaien in een sandbox: ze kunnen niet bij je bestanden of het netwerk, en ze wijzigen het project alleen via de eigen opdrachten van RustGIS, binnen de rechten die je accepteert.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	Plugins draaien in een sandbox: ze kunnen niet bij je bestanden of het netwerk, en ze wijzigen het project alleen via de eigen opdrachten van GeoGIS, binnen de rechten die je accepteert.
 PMTiles archive	PMTiles-archief
 PMTiles File…	PMTiles-bestand…
 PNG frames (zip)	PNG-frames (zip)
@@ -1377,23 +1377,23 @@ Run the task	De taak uitvoeren
 Run Tool	Gereedschap uitvoeren
 Run {name}	{name} uitvoeren
 Running…	Bezig…
-RustGIS	RustGIS
-RustGIS deep learning package	RustGIS-deep learning-pakket
+GeoGIS	GeoGIS
+GeoGIS deep learning package	GeoGIS-deep learning-pakket
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS is een vrij en opensource GIS in puur Rust. Het draait op de desktop en in de browser, en elke actie is een opdracht die u ook vanaf de opdrachtregel kunt uitvoeren.
-RustGIS layer file	RustGIS-laagbestand
-RustGIS layers, maps and projects	RustGIS-lagen, -kaarten en -projecten
-RustGIS layout	RustGIS-lay-out
-RustGIS maps and projects	RustGIS-kaarten en -projecten
-RustGIS or Jupyter notebook	RustGIS- of Jupyter-notebook
-RustGIS plugin	RustGIS-plugin
-RustGIS presentation	RustGIS-presentatie
-RustGIS project	RustGIS-project
-RustGIS project template	RustGIS-projectsjabloon
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	RustGIS liep de vorige keer tegen een interne fout aan. De details staan in {path}; voeg ze toe aan een foutmelding.
+GeoGIS layer file	GeoGIS-laagbestand
+GeoGIS layers, maps and projects	GeoGIS-lagen, -kaarten en -projecten
+GeoGIS layout	GeoGIS-lay-out
+GeoGIS maps and projects	GeoGIS-kaarten en -projecten
+GeoGIS or Jupyter notebook	GeoGIS- of Jupyter-notebook
+GeoGIS plugin	GeoGIS-plugin
+GeoGIS presentation	GeoGIS-presentatie
+GeoGIS project	GeoGIS-project
+GeoGIS project template	GeoGIS-projectsjabloon
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS liep de vorige keer tegen een interne fout aan. De details staan in {path}; voeg ze toe aan een foutmelding.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS liep tegen een interne fout aan bij het verwerken van het antwoord van het model, dus het verzoek is gestopt. Meld het op https://github.com/opengeos/RustGIS/issues.
-RustGIS report or report template	RustGIS-rapport of -rapportsjabloon
-RustGIS styles	RustGIS-stijlen
-RustGIS task	RustGIS-taak
+GeoGIS report or report template	GeoGIS-rapport of -rapportsjabloon
+GeoGIS styles	GeoGIS-stijlen
+GeoGIS task	GeoGIS-taak
 RustGIS {latest} is available.	RustGIS {latest} is beschikbaar.
 RustGIS {version} is the latest version.	RustGIS {version} is de nieuwste versie.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	Tekst
 Text Symbol	Tekstsymbool
 The assistant is busy; stop it or wait for it to finish.	De assistent is bezig; stop hem of wacht tot hij klaar is.
 The assistant wants to run this, and {why}:	De assistent wil het volgende uitvoeren, en {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Deze plugin draait als programma op je computer, buiten de sandbox van RustGIS. Hij kan alles wat jij kunt: je bestanden lezen en wijzigen, het netwerk gebruiken en andere programma's starten. Installeer hem alleen als je de maker vertrouwt.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Deze plugin draait als programma op je computer, buiten de sandbox van GeoGIS. Hij kan alles wat jij kunt: je bestanden lezen en wijzigen, het netwerk gebruiken en andere programma's starten. Installeer hem alleen als je de maker vertrouwt.
 the capture failed unexpectedly	het vastleggen is onverwacht mislukt
 the Help tab always shows	het tabblad Help wordt altijd getoond
 The job covers the map view	De job beslaat de kaartweergave
@@ -1787,11 +1787,11 @@ Web Tile Layers	Webtegellagen
 Web Tool	Webtool
 Website	Website
 Weights	Gewichten
-Welcome to RustGIS	Welkom bij RustGIS
+Welcome to GeoGIS	Welkom bij GeoGIS
 West	West
 WGS 84 / Globe	WGS 84 / Wereldbol
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	Waarmee RustGIS opent: het voorbeeld World Atlas of een lege kaart.
+What GeoGIS opens with: the World Atlas sample or a blank map.	Waarmee GeoGIS opent: het voorbeeld World Atlas of een lege kaart.
 What's near a point	Wat er bij een punt in de buurt is
 Where	Waar
 Where Clause	Where-clausule

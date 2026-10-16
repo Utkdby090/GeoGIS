@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	Một giá trị, một trường, hoặc hai trong số đó nối bằng + − × ÷. Áp dụng cho các hàng được chọn, hoặc mọi hàng nếu không có hàng nào được chọn.
 About	Giới thiệu
 About plugins	Giới thiệu về plugin
-About RustGIS	Giới thiệu RustGIS
-About RustGIS.	Giới thiệu RustGIS.
+About GeoGIS	Giới thiệu GeoGIS
+About GeoGIS.	Giới thiệu GeoGIS.
 Above	Trên
 Above Left	Trên trái
 Above Right	Trên phải
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	Phạm vi sử dụng: trong v
 Area of use: within {r}° of {lon}°, {lat}°	Phạm vi sử dụng: trong vòng {r}° quanh {lon}°, {lat}°
 Area {area}   ·   Perimeter {perimeter}	Diện tích {area}   ·   Chu vi {perimeter}
 Areas (name, land use, area)	Vùng (tên, sử dụng đất, diện tích)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	Đặt câu hỏi về dữ liệu của bạn, hoặc mô tả việc cần làm với bản đồ. Trợ lý sẽ chạy các lệnh RustGIS cho bạn; mọi thay đổi đều có thể hoàn tác.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	Đặt câu hỏi về dữ liệu của bạn, hoặc mô tả việc cần làm với bản đồ. Trợ lý sẽ chạy các lệnh GeoGIS cho bạn; mọi thay đổi đều có thể hoàn tác.
 Ask about the map, or tell it what to do…	Hỏi về bản đồ, hoặc bảo nó cần làm gì…
 Ask about your data, or tell the assistant what to do with the map.	Hỏi về dữ liệu của bạn, hoặc bảo trợ lý cần làm gì với bản đồ.
 Assistant settings	Cài đặt trợ lý
@@ -778,7 +778,7 @@ Import Thumbnail	Nhập ảnh thu nhỏ
 Import Web Tool	Nhập công cụ web
 In Beyond	Khi phóng to hơn
 In Progress	Đang thực hiện
-In RustGIS, it can:	Trong RustGIS, nó có thể:
+In GeoGIS, it can:	Trong GeoGIS, nó có thể:
 in progress	đang thực hiện
 In project	Trong dự án
 In use	Đang dùng
@@ -1075,7 +1075,7 @@ North	Bắc
 North\nArrow	Mũi tên\nchỉ bắc
 North Polar Stereographic	Phép chiếu nổi cực Bắc
 Not sandboxed	Không có hộp cát
-not a RustGIS layout	không phải bố cục RustGIS
+not a GeoGIS layout	không phải bố cục GeoGIS
 not needed	không cần
 Not saved yet	Chưa lưu
 Notebook	Sổ tay
@@ -1104,8 +1104,8 @@ Opacity	Độ mờ đục
 Open	Mở
 Open a .rgis project	Mở dự án .rgis
 open a layout first	hãy mở một bố cục trước
-Open a RustGIS or Jupyter notebook.	Mở sổ tay RustGIS hoặc Jupyter.
-Open a RustGIS project.	Mở một dự án RustGIS.
+Open a GeoGIS or Jupyter notebook.	Mở sổ tay GeoGIS hoặc Jupyter.
+Open a GeoGIS project.	Mở một dự án GeoGIS.
 Open an offline area to edit.	Mở một khu vực ngoại tuyến để chỉnh sửa.
 Open Custom Template	Mở mẫu tùy chỉnh
 Open Custom Template…	Mở mẫu tùy chỉnh…
@@ -1201,7 +1201,7 @@ Plugin Manager…	Trình quản lý plugin…
 Plugin registry	Kho plugin
 Plugins	Plugin
 Plugins are .rgplugin files. Install only plugins from people you trust.	Plugin là các tệp .rgplugin. Chỉ cài đặt plugin từ những người bạn tin tưởng.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	Plugin chạy trong hộp cát: chúng không thể truy cập tệp của bạn hay mạng, và chỉ thay đổi dự án thông qua các lệnh của chính RustGIS, trong phạm vi quyền bạn chấp nhận.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	Plugin chạy trong hộp cát: chúng không thể truy cập tệp của bạn hay mạng, và chỉ thay đổi dự án thông qua các lệnh của chính GeoGIS, trong phạm vi quyền bạn chấp nhận.
 PMTiles archive	Kho PMTiles
 PMTiles File…	Tệp PMTiles…
 PNG frames (zip)	Khung hình PNG (zip)
@@ -1377,23 +1377,23 @@ Run the task	Chạy nhiệm vụ
 Run Tool	Chạy công cụ
 Run {name}	Chạy {name}
 Running…	Đang chạy…
-RustGIS	RustGIS
-RustGIS deep learning package	Gói học sâu RustGIS
+GeoGIS	GeoGIS
+GeoGIS deep learning package	Gói học sâu GeoGIS
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS là một GIS miễn phí và mã nguồn mở viết bằng Rust thuần. Nó chạy trên máy tính và trong trình duyệt, và mọi thao tác đều là một lệnh mà bạn cũng có thể chạy từ dòng lệnh.
-RustGIS layer file	Tệp lớp RustGIS
-RustGIS layers, maps and projects	Lớp, bản đồ và dự án RustGIS
-RustGIS layout	Bố cục RustGIS
-RustGIS maps and projects	Bản đồ và dự án RustGIS
-RustGIS or Jupyter notebook	Sổ tay RustGIS hoặc Jupyter
-RustGIS plugin	Plugin RustGIS
-RustGIS presentation	Bản trình bày RustGIS
-RustGIS project	Dự án RustGIS
-RustGIS project template	Mẫu dự án RustGIS
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	Lần trước RustGIS gặp lỗi nội bộ. Chi tiết nằm trong {path}; hãy đính kèm vào báo cáo lỗi.
+GeoGIS layer file	Tệp lớp GeoGIS
+GeoGIS layers, maps and projects	Lớp, bản đồ và dự án GeoGIS
+GeoGIS layout	Bố cục GeoGIS
+GeoGIS maps and projects	Bản đồ và dự án GeoGIS
+GeoGIS or Jupyter notebook	Sổ tay GeoGIS hoặc Jupyter
+GeoGIS plugin	Plugin GeoGIS
+GeoGIS presentation	Bản trình bày GeoGIS
+GeoGIS project	Dự án GeoGIS
+GeoGIS project template	Mẫu dự án GeoGIS
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	Lần trước GeoGIS gặp lỗi nội bộ. Chi tiết nằm trong {path}; hãy đính kèm vào báo cáo lỗi.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS gặp lỗi nội bộ khi xử lý phản hồi của mô hình nên yêu cầu đã bị dừng. Hãy báo lỗi tại https://github.com/opengeos/RustGIS/issues.
-RustGIS report or report template	Báo cáo hoặc mẫu báo cáo RustGIS
-RustGIS styles	Kiểu RustGIS
-RustGIS task	Nhiệm vụ RustGIS
+GeoGIS report or report template	Báo cáo hoặc mẫu báo cáo GeoGIS
+GeoGIS styles	Kiểu GeoGIS
+GeoGIS task	Nhiệm vụ GeoGIS
 RustGIS {latest} is available.	Đã có RustGIS {latest}.
 RustGIS {version} is the latest version.	RustGIS {version} là phiên bản mới nhất.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	Văn bản
 Text Symbol	Ký hiệu văn bản
 The assistant is busy; stop it or wait for it to finish.	Trợ lý đang bận; hãy dừng nó hoặc đợi nó hoàn tất.
 The assistant wants to run this, and {why}:	Trợ lý muốn chạy thao tác sau, cần bạn cho phép vì {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Plugin này chạy như một chương trình trên máy tính của bạn, bên ngoài hộp cát của RustGIS. Nó có thể làm mọi việc bạn làm được: đọc và thay đổi tệp của bạn, dùng mạng và chạy các chương trình khác. Chỉ cài đặt nếu bạn tin tưởng tác giả của nó.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Plugin này chạy như một chương trình trên máy tính của bạn, bên ngoài hộp cát của GeoGIS. Nó có thể làm mọi việc bạn làm được: đọc và thay đổi tệp của bạn, dùng mạng và chạy các chương trình khác. Chỉ cài đặt nếu bạn tin tưởng tác giả của nó.
 the capture failed unexpectedly	chụp thất bại ngoài dự kiến
 the Help tab always shows	thẻ Trợ giúp luôn hiển thị
 The job covers the map view	Tác vụ bao phủ khung nhìn bản đồ
@@ -1787,11 +1787,11 @@ Web Tile Layers	Lớp ô bản đồ web
 Web Tool	Công cụ web
 Website	Trang web
 Weights	Trọng số
-Welcome to RustGIS	Chào mừng đến với RustGIS
+Welcome to GeoGIS	Chào mừng đến với GeoGIS
 West	Tây
 WGS 84 / Globe	WGS 84 / Quả địa cầu
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	RustGIS mở với gì: mẫu World Atlas hoặc một bản đồ trống.
+What GeoGIS opens with: the World Atlas sample or a blank map.	GeoGIS mở với gì: mẫu World Atlas hoặc một bản đồ trống.
 What's near a point	Những gì gần một điểm
 Where	Điều kiện
 Where Clause	Mệnh đề WHERE

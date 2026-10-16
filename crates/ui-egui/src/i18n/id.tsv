@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	Sebuah nilai, kolom, atau dua di antaranya yang digabung dengan + − × ÷. Berlaku untuk baris terpilih, atau semua baris jika tidak ada yang dipilih.
 About	Tentang
 About plugins	Tentang plugin
-About RustGIS	Tentang RustGIS
-About RustGIS.	Tentang RustGIS.
+About GeoGIS	Tentang GeoGIS
+About GeoGIS.	Tentang GeoGIS.
 Above	Atas
 Above Left	Kiri Atas
 Above Right	Kanan Atas
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	Area penggunaan: dalam {r}° d
 Area of use: within {r}° of {lon}°, {lat}°	Area penggunaan: dalam {r}° dari {lon}°, {lat}°
 Area {area}   ·   Perimeter {perimeter}	Luas {area}   ·   Keliling {perimeter}
 Areas (name, land use, area)	Area (nama, penggunaan lahan, luas)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	Ajukan pertanyaan tentang data Anda, atau jelaskan apa yang harus dilakukan pada peta. Asisten menjalankan perintah RustGIS untuk Anda; setiap perubahan dapat diurungkan.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	Ajukan pertanyaan tentang data Anda, atau jelaskan apa yang harus dilakukan pada peta. Asisten menjalankan perintah GeoGIS untuk Anda; setiap perubahan dapat diurungkan.
 Ask about the map, or tell it what to do…	Tanyakan tentang peta, atau beri tahu apa yang harus dilakukan…
 Ask about your data, or tell the assistant what to do with the map.	Tanyakan tentang data Anda, atau beri tahu asisten apa yang harus dilakukan pada peta.
 Assistant settings	Pengaturan asisten
@@ -778,7 +778,7 @@ Import Thumbnail	Impor Thumbnail
 Import Web Tool	Impor Alat Web
 In Beyond	Perbesar Melewati
 In Progress	Sedang Berjalan
-In RustGIS, it can:	Di RustGIS, plugin ini dapat:
+In GeoGIS, it can:	Di GeoGIS, plugin ini dapat:
 in progress	sedang berjalan
 In project	Dalam proyek
 In use	Digunakan
@@ -1075,7 +1075,7 @@ North	Utara
 North\nArrow	Panah\nUtara
 North Polar Stereographic	Stereografis Kutub Utara
 Not sandboxed	Tanpa sandbox
-not a RustGIS layout	bukan tata letak RustGIS
+not a GeoGIS layout	bukan tata letak GeoGIS
 not needed	tidak diperlukan
 Not saved yet	Belum disimpan
 Notebook	Notebook
@@ -1104,8 +1104,8 @@ Opacity	Opasitas
 Open	Buka
 Open a .rgis project	Buka proyek .rgis
 open a layout first	buka tata letak terlebih dahulu
-Open a RustGIS or Jupyter notebook.	Buka notebook RustGIS atau Jupyter.
-Open a RustGIS project.	Buka proyek RustGIS.
+Open a GeoGIS or Jupyter notebook.	Buka notebook GeoGIS atau Jupyter.
+Open a GeoGIS project.	Buka proyek GeoGIS.
 Open an offline area to edit.	Buka area offline untuk disunting.
 Open Custom Template	Buka Templat Kustom
 Open Custom Template…	Buka Templat Kustom…
@@ -1201,7 +1201,7 @@ Plugin Manager…	Pengelola Plugin…
 Plugin registry	Registri plugin
 Plugins	Plugin
 Plugins are .rgplugin files. Install only plugins from people you trust.	Plugin adalah file .rgplugin. Pasang hanya plugin dari orang yang Anda percaya.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	Plugin berjalan di sandbox: plugin tidak dapat mengakses file Anda atau jaringan, dan hanya mengubah proyek melalui perintah RustGIS sendiri, dalam batas izin yang Anda setujui.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	Plugin berjalan di sandbox: plugin tidak dapat mengakses file Anda atau jaringan, dan hanya mengubah proyek melalui perintah GeoGIS sendiri, dalam batas izin yang Anda setujui.
 PMTiles archive	Arsip PMTiles
 PMTiles File…	Berkas PMTiles…
 PNG frames (zip)	Bingkai PNG (zip)
@@ -1377,23 +1377,23 @@ Run the task	Jalankan tugas
 Run Tool	Jalankan Alat
 Run {name}	Jalankan {name}
 Running…	Berjalan…
-RustGIS	RustGIS
-RustGIS deep learning package	Paket deep learning RustGIS
+GeoGIS	GeoGIS
+GeoGIS deep learning package	Paket deep learning GeoGIS
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS adalah SIG bebas dan sumber terbuka yang ditulis dalam Rust murni. Aplikasi ini berjalan di desktop dan di peramban, dan setiap tindakan adalah perintah yang juga dapat Anda jalankan dari baris perintah.
-RustGIS layer file	File layer RustGIS
-RustGIS layers, maps and projects	Layer, peta, dan proyek RustGIS
-RustGIS layout	Tata letak RustGIS
-RustGIS maps and projects	Peta dan proyek RustGIS
-RustGIS or Jupyter notebook	Notebook RustGIS atau Jupyter
-RustGIS plugin	Plugin RustGIS
-RustGIS presentation	Presentasi RustGIS
-RustGIS project	Proyek RustGIS
-RustGIS project template	Templat proyek RustGIS
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	RustGIS mengalami kesalahan internal terakhir kali. Detailnya ada di {path}; lampirkan ke laporan bug.
+GeoGIS layer file	File layer GeoGIS
+GeoGIS layers, maps and projects	Layer, peta, dan proyek GeoGIS
+GeoGIS layout	Tata letak GeoGIS
+GeoGIS maps and projects	Peta dan proyek GeoGIS
+GeoGIS or Jupyter notebook	Notebook GeoGIS atau Jupyter
+GeoGIS plugin	Plugin GeoGIS
+GeoGIS presentation	Presentasi GeoGIS
+GeoGIS project	Proyek GeoGIS
+GeoGIS project template	Templat proyek GeoGIS
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS mengalami kesalahan internal terakhir kali. Detailnya ada di {path}; lampirkan ke laporan bug.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS mengalami kesalahan internal saat memproses balasan model, jadi permintaan dihentikan. Laporkan di https://github.com/opengeos/RustGIS/issues.
-RustGIS report or report template	Laporan atau templat laporan RustGIS
-RustGIS styles	Gaya RustGIS
-RustGIS task	Tugas RustGIS
+GeoGIS report or report template	Laporan atau templat laporan GeoGIS
+GeoGIS styles	Gaya GeoGIS
+GeoGIS task	Tugas GeoGIS
 RustGIS {latest} is available.	RustGIS {latest} tersedia.
 RustGIS {version} is the latest version.	RustGIS {version} adalah versi terbaru.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	Teks
 Text Symbol	Simbol Teks
 The assistant is busy; stop it or wait for it to finish.	Asisten sedang sibuk; hentikan atau tunggu hingga selesai.
 The assistant wants to run this, and {why}:	Asisten ingin menjalankan tindakan berikut, yang {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Plugin ini berjalan sebagai program di komputer Anda, di luar sandbox RustGIS. Plugin ini dapat melakukan apa pun yang dapat Anda lakukan: membaca dan mengubah file Anda, menggunakan jaringan, dan menjalankan program lain. Pasang hanya jika Anda memercayai pembuatnya.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Plugin ini berjalan sebagai program di komputer Anda, di luar sandbox GeoGIS. Plugin ini dapat melakukan apa pun yang dapat Anda lakukan: membaca dan mengubah file Anda, menggunakan jaringan, dan menjalankan program lain. Pasang hanya jika Anda memercayai pembuatnya.
 the capture failed unexpectedly	penangkapan gagal secara tak terduga
 the Help tab always shows	tab Bantuan selalu ditampilkan
 The job covers the map view	Pekerjaan mencakup tampilan peta
@@ -1787,11 +1787,11 @@ Web Tile Layers	Layer Ubin Web
 Web Tool	Alat Web
 Website	Situs web
 Weights	Bobot
-Welcome to RustGIS	Selamat datang di RustGIS
+Welcome to GeoGIS	Selamat datang di GeoGIS
 West	Barat
 WGS 84 / Globe	WGS 84 / Globe
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	Apa yang dibuka RustGIS: contoh World Atlas atau peta kosong.
+What GeoGIS opens with: the World Atlas sample or a blank map.	Apa yang dibuka GeoGIS: contoh World Atlas atau peta kosong.
 What's near a point	Apa yang ada di dekat suatu titik
 Where	Where
 Where Clause	Klausa Where

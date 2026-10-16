@@ -201,7 +201,7 @@ fn main() -> eframe::Result {
     }
     app.session.dirty = false;
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("RustGIS")
+        .with_title("GeoGIS")
         .with_app_id("org.rustgis.RustGIS")
         .with_inner_size([1480.0, 920.0])
         .with_min_inner_size([900.0, 560.0])
@@ -210,7 +210,7 @@ fn main() -> eframe::Result {
         viewport = viewport.with_icon(egui::IconData { rgba, width: size, height: size });
     }
     let options = eframe::NativeOptions { viewport, ..Default::default() };
-    eframe::run_native("RustGIS", options, Box::new(move |_cc| Ok(Box::new(App(app)))))
+    eframe::run_native("GeoGIS", options, Box::new(move |_cc| Ok(Box::new(App(app)))))
 }
 
 #[cfg(test)]

@@ -472,7 +472,7 @@ pub fn install_from_file(app: &mut RustGisApp, path: Option<&str>) {
     }
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(path) =
-        rfd::FileDialog::new().set_title(tl!("Install a plugin")).add_filter(tl!("RustGIS plugin"), &["rgplugin"]).pick_file()
+        rfd::FileDialog::new().set_title(tl!("Install a plugin")).add_filter(tl!("GeoGIS plugin"), &["rgplugin"]).pick_file()
     {
         match std::fs::read(&path) {
             Ok(bytes) => received(app, bytes, None),
@@ -827,7 +827,7 @@ fn settings_tab(app: &mut RustGisApp, ui: &mut egui::Ui, t: &Tokens) {
         ui.label(egui::RichText::new(tl!("About plugins")).font(semibold(13.0)));
         ui.label(
             egui::RichText::new(tl!(
-                "Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept."
+                "Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept."
             ))
             .size(11.5),
         );
@@ -882,7 +882,7 @@ fn confirm(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens) {
                     ui.set_width(ui.available_width());
                     ui.label(egui::RichText::new(tl!("Not sandboxed")).font(semibold(12.5)).color(t.red));
                     ui.label(tl!(
-                        "This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author."
+                        "This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author."
                     ));
                     if let Some(py) = &m.python {
                         ui.label(crate::i18n::fmt(
@@ -896,7 +896,7 @@ fn confirm(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens) {
                 });
             ui.add_space(6.0);
         }
-        ui.label(egui::RichText::new(if native { tl!("In RustGIS, it can:") } else { tl!("This plugin can:") }).font(semibold(12.5)));
+        ui.label(egui::RichText::new(if native { tl!("In GeoGIS, it can:") } else { tl!("This plugin can:") }).font(semibold(12.5)));
         ui.label(format!("• {}", tl!("Read the map's layers and features")));
         for p in &m.permissions {
             ui.label(format!("• {}", tl!(p.describe())));

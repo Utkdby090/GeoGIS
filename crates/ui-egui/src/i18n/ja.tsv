@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	値、フィールド、またはそれらを + − × ÷ で結合したもの。選択した行に適用され、何も選択されていない場合はすべての行に適用されます。
 About	バージョン情報
 About plugins	プラグインについて
-About RustGIS	RustGIS について
-About RustGIS.	RustGIS について。
+About GeoGIS	GeoGIS について
+About GeoGIS.	GeoGIS について。
 Above	上
 Above Left	左上
 Above Right	右上
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	使用範囲: {lon}° の経�
 Area of use: within {r}° of {lon}°, {lat}°	使用範囲: {lon}°, {lat}° から {r}° 以内
 Area {area}   ·   Perimeter {perimeter}	面積 {area}   ·   周長 {perimeter}
 Areas (name, land use, area)	エリア (名前、土地利用、面積)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	データについて質問するか、マップで行いたいことを説明してください。アシスタントが RustGIS のコマンドを代わりに実行します。変更はすべて元に戻せます。
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	データについて質問するか、マップで行いたいことを説明してください。アシスタントが GeoGIS のコマンドを代わりに実行します。変更はすべて元に戻せます。
 Ask about the map, or tell it what to do…	マップについて質問するか、操作を指示してください…
 Ask about your data, or tell the assistant what to do with the map.	データについて質問するか、マップで行うことをアシスタントに指示してください。
 Assistant settings	アシスタントの設定
@@ -778,7 +778,7 @@ Import Thumbnail	サムネイルのインポート
 Import Web Tool	Web ツールのインポート
 In Beyond	拡大の限界
 In Progress	進行中
-In RustGIS, it can:	RustGIS 内でできること:
+In GeoGIS, it can:	GeoGIS 内でできること:
 in progress	進行中
 In project	プロジェクト内
 In use	使用中
@@ -1075,7 +1075,7 @@ North	北
 North\nArrow	方位\n記号
 North Polar Stereographic	北極ステレオ図法
 Not sandboxed	サンドボックス外
-not a RustGIS layout	RustGIS レイアウトではありません
+not a GeoGIS layout	GeoGIS レイアウトではありません
 not needed	不要
 Not saved yet	未保存
 Notebook	ノートブック
@@ -1104,8 +1104,8 @@ Opacity	不透明度
 Open	開く
 Open a .rgis project	.rgis プロジェクトを開く
 open a layout first	先にレイアウトを開いてください
-Open a RustGIS or Jupyter notebook.	RustGIS または Jupyter のノートブックを開きます。
-Open a RustGIS project.	RustGIS プロジェクトを開きます。
+Open a GeoGIS or Jupyter notebook.	GeoGIS または Jupyter のノートブックを開きます。
+Open a GeoGIS project.	GeoGIS プロジェクトを開きます。
 Open an offline area to edit.	編集するオフライン エリアを開きます。
 Open Custom Template	カスタム テンプレートを開く
 Open Custom Template…	カスタム テンプレートを開く…
@@ -1201,7 +1201,7 @@ Plugin Manager…	プラグイン マネージャー…
 Plugin registry	プラグイン レジストリ
 Plugins	プラグイン
 Plugins are .rgplugin files. Install only plugins from people you trust.	プラグインは .rgplugin ファイルです。信頼できる相手のプラグインのみインストールしてください。
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	プラグインはサンドボックス内で実行されます。ファイルやネットワークにはアクセスできず、プロジェクトの変更は、許可した権限の範囲内で RustGIS 自身のコマンドを通じてのみ行います。
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	プラグインはサンドボックス内で実行されます。ファイルやネットワークにはアクセスできず、プロジェクトの変更は、許可した権限の範囲内で GeoGIS 自身のコマンドを通じてのみ行います。
 PMTiles archive	PMTiles アーカイブ
 PMTiles File…	PMTiles ファイル…
 PNG frames (zip)	PNG フレーム (zip)
@@ -1377,23 +1377,23 @@ Run the task	タスクを実行
 Run Tool	ツールの実行
 Run {name}	{name} を実行
 Running…	実行中…
-RustGIS	RustGIS
-RustGIS deep learning package	RustGIS ディープ ラーニング パッケージ
+GeoGIS	GeoGIS
+GeoGIS deep learning package	GeoGIS ディープ ラーニング パッケージ
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS は純粋な Rust で書かれた無料のオープンソース GIS です。デスクトップとブラウザーで動作し、すべての操作はコマンドであり、コマンド ラインからも実行できます。
-RustGIS layer file	RustGIS レイヤー ファイル
-RustGIS layers, maps and projects	RustGIS のレイヤー、マップ、プロジェクト
-RustGIS layout	RustGIS レイアウト
-RustGIS maps and projects	RustGIS のマップとプロジェクト
-RustGIS or Jupyter notebook	RustGIS または Jupyter のノートブック
-RustGIS plugin	RustGIS プラグイン
-RustGIS presentation	RustGIS プレゼンテーション
-RustGIS project	RustGIS プロジェクト
-RustGIS project template	RustGIS プロジェクト テンプレート
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	前回、RustGIS で内部エラーが発生しました。詳細は {path} にあります。バグ報告に添付してください。
+GeoGIS layer file	GeoGIS レイヤー ファイル
+GeoGIS layers, maps and projects	GeoGIS のレイヤー、マップ、プロジェクト
+GeoGIS layout	GeoGIS レイアウト
+GeoGIS maps and projects	GeoGIS のマップとプロジェクト
+GeoGIS or Jupyter notebook	GeoGIS または Jupyter のノートブック
+GeoGIS plugin	GeoGIS プラグイン
+GeoGIS presentation	GeoGIS プレゼンテーション
+GeoGIS project	GeoGIS プロジェクト
+GeoGIS project template	GeoGIS プロジェクト テンプレート
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	前回、GeoGIS で内部エラーが発生しました。詳細は {path} にあります。バグ報告に添付してください。
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	モデルの応答の処理中に RustGIS で内部エラーが発生したため、リクエストを停止しました。https://github.com/opengeos/RustGIS/issues で報告してください。
-RustGIS report or report template	RustGIS レポートまたはレポート テンプレート
-RustGIS styles	RustGIS スタイル
-RustGIS task	RustGIS タスク
+GeoGIS report or report template	GeoGIS レポートまたはレポート テンプレート
+GeoGIS styles	GeoGIS スタイル
+GeoGIS task	GeoGIS タスク
 RustGIS {latest} is available.	RustGIS {latest} が利用できます。
 RustGIS {version} is the latest version.	RustGIS {version} が最新バージョンです。
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	テキスト
 Text Symbol	テキスト シンボル
 The assistant is busy; stop it or wait for it to finish.	アシスタントは処理中です。停止するか、完了するまでお待ちください。
 The assistant wants to run this, and {why}:	アシスタントが次の操作を実行しようとしています（{why}ため、確認が必要です）:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	このプラグインは RustGIS のサンドボックスの外で、コンピューター上のプログラムとして実行されます。ファイルの読み取りや変更、ネットワークの使用、他のプログラムの実行など、あなたができることは何でもできます。作者を信頼できる場合にのみインストールしてください。
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	このプラグインは GeoGIS のサンドボックスの外で、コンピューター上のプログラムとして実行されます。ファイルの読み取りや変更、ネットワークの使用、他のプログラムの実行など、あなたができることは何でもできます。作者を信頼できる場合にのみインストールしてください。
 the capture failed unexpectedly	キャプチャが予期せず失敗しました
 the Help tab always shows	[ヘルプ] タブは常に表示されます
 The job covers the map view	ジョブはマップ ビューを対象とします
@@ -1787,11 +1787,11 @@ Web Tile Layers	Web タイル レイヤー
 Web Tool	Web ツール
 Website	ウェブサイト
 Weights	重み
-Welcome to RustGIS	RustGIS へようこそ
+Welcome to GeoGIS	GeoGIS へようこそ
 West	西
 WGS 84 / Globe	WGS 84 / 地球儀
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	RustGIS の起動時に開くもの: World Atlas サンプルまたは空白のマップ。
+What GeoGIS opens with: the World Atlas sample or a blank map.	GeoGIS の起動時に開くもの: World Atlas サンプルまたは空白のマップ。
 What's near a point	ポイントの近くにあるもの
 Where	条件
 Where Clause	WHERE 句

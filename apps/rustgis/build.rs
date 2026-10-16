@@ -47,13 +47,13 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "CompanyName", "The RustGIS contributors"
-      VALUE "FileDescription", "RustGIS"
+      VALUE "CompanyName", "GeoFlux"
+      VALUE "FileDescription", "GeoGIS"
       VALUE "FileVersion", "{version}"
       VALUE "InternalName", "rustgis"
-      VALUE "LegalCopyright", "Copyright the RustGIS contributors. Apache-2.0."
+      VALUE "LegalCopyright", "GeoGIS is built on RustGIS, copyright the RustGIS contributors. Apache-2.0."
       VALUE "OriginalFilename", "rustgis.exe"
-      VALUE "ProductName", "RustGIS"
+      VALUE "ProductName", "GeoGIS"
       VALUE "ProductVersion", "{version}"
     END
   END

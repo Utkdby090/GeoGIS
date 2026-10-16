@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	Bir değer, bir alan veya + − × ÷ ile birleştirilmiş iki tanesi. Seçili satırlara, hiçbiri seçili değilse tüm satırlara uygulanır.
 About	Hakkında
 About plugins	Eklentiler hakkında
-About RustGIS	RustGIS Hakkında
-About RustGIS.	RustGIS hakkında.
+About GeoGIS	GeoGIS Hakkında
+About GeoGIS.	GeoGIS hakkında.
 Above	Üst
 Above Left	Sol Üst
 Above Right	Sağ Üst
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	Kullanım alanı: {lon}° meri
 Area of use: within {r}° of {lon}°, {lat}°	Kullanım alanı: {lon}°, {lat}° noktasının {r}° yakını
 Area {area}   ·   Perimeter {perimeter}	Alan {area}   ·   Çevre {perimeter}
 Areas (name, land use, area)	Alanlar (ad, arazi kullanımı, alan)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	Verileriniz hakkında bir soru sorun ya da haritayla ne yapılacağını anlatın. Asistan RustGIS komutlarını sizin için çalıştırır; her değişiklik geri alınabilir.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	Verileriniz hakkında bir soru sorun ya da haritayla ne yapılacağını anlatın. Asistan GeoGIS komutlarını sizin için çalıştırır; her değişiklik geri alınabilir.
 Ask about the map, or tell it what to do…	Harita hakkında sorun ya da ne yapacağını söyleyin…
 Ask about your data, or tell the assistant what to do with the map.	Verileriniz hakkında sorun ya da asistana haritayla ne yapacağını söyleyin.
 Assistant settings	Asistan ayarları
@@ -778,7 +778,7 @@ Import Thumbnail	Küçük Resmi İçe Aktar
 Import Web Tool	Web Aracını İçe Aktar
 In Beyond	Ötesinde Açık
 In Progress	Devam Ediyor
-In RustGIS, it can:	RustGIS'te şunları yapabilir:
+In GeoGIS, it can:	GeoGIS'te şunları yapabilir:
 in progress	devam ediyor
 In project	Projede
 In use	Kullanımda
@@ -1075,7 +1075,7 @@ North	Kuzey
 North\nArrow	Kuzey\nOku
 North Polar Stereographic	Kuzey Kutup Stereografik
 Not sandboxed	Korumalı alan dışında
-not a RustGIS layout	bir RustGIS sayfa düzeni değil
+not a GeoGIS layout	bir GeoGIS sayfa düzeni değil
 not needed	gerekmiyor
 Not saved yet	Henüz kaydedilmedi
 Notebook	Not Defteri
@@ -1104,8 +1104,8 @@ Opacity	Opaklık
 Open	Aç
 Open a .rgis project	Bir .rgis projesi aç
 open a layout first	önce bir sayfa düzeni açın
-Open a RustGIS or Jupyter notebook.	Bir RustGIS veya Jupyter not defteri aç.
-Open a RustGIS project.	Bir RustGIS projesi aç.
+Open a GeoGIS or Jupyter notebook.	Bir GeoGIS veya Jupyter not defteri aç.
+Open a GeoGIS project.	Bir GeoGIS projesi aç.
 Open an offline area to edit.	Düzenlemek için bir çevrimdışı alan aç.
 Open Custom Template	Özel Şablon Aç
 Open Custom Template…	Özel Şablon Aç…
@@ -1201,7 +1201,7 @@ Plugin Manager…	Eklenti Yöneticisi…
 Plugin registry	Eklenti kayıt defteri
 Plugins	Eklentiler
 Plugins are .rgplugin files. Install only plugins from people you trust.	Eklentiler .rgplugin dosyalarıdır. Yalnızca güvendiğiniz kişilerin eklentilerini yükleyin.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	Eklentiler bir korumalı alanda çalışır: dosyalarınıza veya ağa erişemezler ve projeyi yalnızca RustGIS'in kendi komutlarıyla, kabul ettiğiniz izinler dahilinde değiştirirler.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	Eklentiler bir korumalı alanda çalışır: dosyalarınıza veya ağa erişemezler ve projeyi yalnızca GeoGIS'in kendi komutlarıyla, kabul ettiğiniz izinler dahilinde değiştirirler.
 PMTiles archive	PMTiles arşivi
 PMTiles File…	PMTiles Dosyası…
 PNG frames (zip)	PNG kareleri (zip)
@@ -1377,23 +1377,23 @@ Run the task	Görevi çalıştır
 Run Tool	Aracı Çalıştır
 Run {name}	Çalıştır: {name}
 Running…	Çalışıyor…
-RustGIS	RustGIS
-RustGIS deep learning package	RustGIS derin öğrenme paketi
+GeoGIS	GeoGIS
+GeoGIS deep learning package	GeoGIS derin öğrenme paketi
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS, saf Rust ile yazılmış özgür ve açık kaynaklı bir CBS'dir. Masaüstünde ve tarayıcıda çalışır ve her işlem komut satırından da çalıştırabileceğiniz bir komuttur.
-RustGIS layer file	RustGIS katman dosyası
-RustGIS layers, maps and projects	RustGIS katmanları, haritaları ve projeleri
-RustGIS layout	RustGIS sayfa düzeni
-RustGIS maps and projects	RustGIS haritaları ve projeleri
-RustGIS or Jupyter notebook	RustGIS veya Jupyter not defteri
-RustGIS plugin	RustGIS eklentisi
-RustGIS presentation	RustGIS sunumu
-RustGIS project	RustGIS projesi
-RustGIS project template	RustGIS proje şablonu
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	RustGIS son seferde dahili bir hatayla karşılaştı. Ayrıntılar {path} dosyasında; lütfen bir hata raporuna ekleyin.
+GeoGIS layer file	GeoGIS katman dosyası
+GeoGIS layers, maps and projects	GeoGIS katmanları, haritaları ve projeleri
+GeoGIS layout	GeoGIS sayfa düzeni
+GeoGIS maps and projects	GeoGIS haritaları ve projeleri
+GeoGIS or Jupyter notebook	GeoGIS veya Jupyter not defteri
+GeoGIS plugin	GeoGIS eklentisi
+GeoGIS presentation	GeoGIS sunumu
+GeoGIS project	GeoGIS projesi
+GeoGIS project template	GeoGIS proje şablonu
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS son seferde dahili bir hatayla karşılaştı. Ayrıntılar {path} dosyasında; lütfen bir hata raporuna ekleyin.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS modelin yanıtını işlerken dahili bir hatayla karşılaştı, bu yüzden istek durduruldu. Lütfen https://github.com/opengeos/RustGIS/issues adresinden bildirin.
-RustGIS report or report template	RustGIS raporu veya rapor şablonu
-RustGIS styles	RustGIS stilleri
-RustGIS task	RustGIS görevi
+GeoGIS report or report template	GeoGIS raporu veya rapor şablonu
+GeoGIS styles	GeoGIS stilleri
+GeoGIS task	GeoGIS görevi
 RustGIS {latest} is available.	RustGIS {latest} kullanılabilir.
 RustGIS {version} is the latest version.	RustGIS {version} en son sürüm.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	Metin
 Text Symbol	Metin Sembolü
 The assistant is busy; stop it or wait for it to finish.	Asistan meşgul; durdurun veya bitirmesini bekleyin.
 The assistant wants to run this, and {why}:	Asistan şunu çalıştırmak istiyor; bu işlem {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Bu eklenti, RustGIS'in korumalı alanının dışında, bilgisayarınızda bir program olarak çalışır. Sizin yapabildiğiniz her şeyi yapabilir: dosyalarınızı okuyup değiştirebilir, ağı kullanabilir ve başka programlar çalıştırabilir. Yalnızca yazarına güveniyorsanız yükleyin.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Bu eklenti, GeoGIS'in korumalı alanının dışında, bilgisayarınızda bir program olarak çalışır. Sizin yapabildiğiniz her şeyi yapabilir: dosyalarınızı okuyup değiştirebilir, ağı kullanabilir ve başka programlar çalıştırabilir. Yalnızca yazarına güveniyorsanız yükleyin.
 the capture failed unexpectedly	yakalama beklenmedik şekilde başarısız oldu
 the Help tab always shows	Yardım sekmesi her zaman görünür
 The job covers the map view	İş harita görünümünü kapsar
@@ -1787,11 +1787,11 @@ Web Tile Layers	Web Karo Katmanları
 Web Tool	Web Aracı
 Website	Web sitesi
 Weights	Ağırlıklar
-Welcome to RustGIS	RustGIS'e hoş geldiniz
+Welcome to GeoGIS	GeoGIS'e hoş geldiniz
 West	Batı
 WGS 84 / Globe	WGS 84 / Küre
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	RustGIS'in neyle açılacağı: World Atlas örneği ya da boş bir harita.
+What GeoGIS opens with: the World Atlas sample or a blank map.	GeoGIS'in neyle açılacağı: World Atlas örneği ya da boş bir harita.
 What's near a point	Bir noktanın yakınında ne var
 Where	Koşul
 Where Clause	Where Yan Tümcesi

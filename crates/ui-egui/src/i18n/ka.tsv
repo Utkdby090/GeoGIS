@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	მნიშვნელობა, ველი ან ორი მათგანი, შეერთებული + − × ÷ ნიშნებით. ვრცელდება მონიშნულ სტრიქონებზე, მონიშვნის გარეშე კი ყველა სტრიქონზე.
 About	შესახებ
 About plugins	დანამატების შესახებ
-About RustGIS	RustGIS-ის შესახებ
-About RustGIS.	RustGIS-ის შესახებ.
+About GeoGIS	GeoGIS-ის შესახებ
+About GeoGIS.	GeoGIS-ის შესახებ.
 Above	ზემოთ
 Above Left	ზემოთ მარცხნივ
 Above Right	ზემოთ მარჯვნივ
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	გამოყენები
 Area of use: within {r}° of {lon}°, {lat}°	გამოყენების არეალი: {lon}°, {lat}°-დან {r}°-ის ფარგლებში
 Area {area}   ·   Perimeter {perimeter}	ფართობი {area}   ·   პერიმეტრი {perimeter}
 Areas (name, land use, area)	არეები (სახელი, მიწის გამოყენება, ფართობი)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	დასვით შეკითხვა თქვენი მონაცემების შესახებ ან აღწერეთ, რა უნდა გაკეთდეს რუკაზე. ასისტენტი RustGIS-ის ბრძანებებს თავად გაუშვებს; ყველა ცვლილების გაუქმება შესაძლებელია.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	დასვით შეკითხვა თქვენი მონაცემების შესახებ ან აღწერეთ, რა უნდა გაკეთდეს რუკაზე. ასისტენტი GeoGIS-ის ბრძანებებს თავად გაუშვებს; ყველა ცვლილების გაუქმება შესაძლებელია.
 Ask about the map, or tell it what to do…	დასვით შეკითხვა რუკის შესახებ ან მიუთითეთ, რა გააკეთოს…
 Ask about your data, or tell the assistant what to do with the map.	დასვით შეკითხვა თქვენი მონაცემების შესახებ ან უთხარით ასისტენტს, რა გააკეთოს რუკაზე.
 Assistant settings	ასისტენტის პარამეტრები
@@ -778,7 +778,7 @@ Import Thumbnail	მინიატურის იმპორტი
 Import Web Tool	ვებ ხელსაწყოს იმპორტი
 In Beyond	შორს, მის მიღმა
 In Progress	მიმდინარეობს
-In RustGIS, it can:	RustGIS-ში მას შეუძლია:
+In GeoGIS, it can:	GeoGIS-ში მას შეუძლია:
 in progress	მიმდინარეობს
 In project	პროექტში
 In use	გამოიყენება
@@ -1075,7 +1075,7 @@ North	ჩრდილოეთი
 North\nArrow	ჩრდილოეთის\nისარი
 North Polar Stereographic	ჩრდილოეთის პოლარული სტერეოგრაფიული
 Not sandboxed	იზოლაციის გარეშე
-not a RustGIS layout	ეს RustGIS-ის განლაგება არ არის
+not a GeoGIS layout	ეს GeoGIS-ის განლაგება არ არის
 not needed	საჭირო არ არის
 Not saved yet	ჯერ არ არის შენახული
 Notebook	რვეული
@@ -1104,8 +1104,8 @@ Opacity	გამჭვირვალობა
 Open	გახსნა
 Open a .rgis project	.rgis პროექტის გახსნა
 open a layout first	ჯერ გახსენით განლაგება
-Open a RustGIS or Jupyter notebook.	RustGIS-ის ან Jupyter-ის რვეულის გახსნა.
-Open a RustGIS project.	RustGIS-ის პროექტის გახსნა.
+Open a GeoGIS or Jupyter notebook.	GeoGIS-ის ან Jupyter-ის რვეულის გახსნა.
+Open a GeoGIS project.	GeoGIS-ის პროექტის გახსნა.
 Open an offline area to edit.	ოფლაინ არეალის გახსნა სარედაქტიროდ.
 Open Custom Template	მორგებული შაბლონის გახსნა
 Open Custom Template…	მორგებული შაბლონის გახსნა…
@@ -1201,7 +1201,7 @@ Plugin Manager…	დანამატების მენეჯერი…
 Plugin registry	დანამატების რეესტრი
 Plugins	დანამატები
 Plugins are .rgplugin files. Install only plugins from people you trust.	დანამატები .rgplugin ფაილებია. დააყენეთ მხოლოდ იმ ადამიანების დანამატები, ვისაც ენდობით.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	დანამატები იზოლირებულ გარემოში მუშაობს: ისინი ვერ წვდებიან თქვენს ფაილებსა და ქსელს. პროექტს ცვლიან მხოლოდ RustGIS-ის საკუთარი ბრძანებებით, თქვენ მიერ მიღებული ნებართვების ფარგლებში.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	დანამატები იზოლირებულ გარემოში მუშაობს: ისინი ვერ წვდებიან თქვენს ფაილებსა და ქსელს. პროექტს ცვლიან მხოლოდ GeoGIS-ის საკუთარი ბრძანებებით, თქვენ მიერ მიღებული ნებართვების ფარგლებში.
 PMTiles archive	PMTiles არქივი
 PMTiles File…	PMTiles ფაილი…
 PNG frames (zip)	PNG კადრები (zip)
@@ -1377,23 +1377,23 @@ Run the task	ამოცანის გაშვება
 Run Tool	ხელსაწყოს გაშვება
 Run {name}	{name}-ის გაშვება
 Running…	მიმდინარეობს გაშვება…
-RustGIS	RustGIS
-RustGIS deep learning package	RustGIS-ის ღრმა სწავლების პაკეტი
+GeoGIS	GeoGIS
+GeoGIS deep learning package	GeoGIS-ის ღრმა სწავლების პაკეტი
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS არის უფასო, ღია კოდის GIS, სუფთა Rust-ზე დაწერილი. ის მუშაობს დესკტოპზე და ბრაუზერში. ყოველი მოქმედება ბრძანებაა, რომლის გაშვებაც ბრძანებათა ხაზიდანაც შეიძლება.
-RustGIS layer file	RustGIS-ის ფენის ფაილი
-RustGIS layers, maps and projects	RustGIS-ის ფენები, რუკები და პროექტები
-RustGIS layout	RustGIS-ის განლაგება
-RustGIS maps and projects	RustGIS-ის რუკები და პროექტები
-RustGIS or Jupyter notebook	RustGIS-ის ან Jupyter-ის რვეული
-RustGIS plugin	RustGIS-ის დანამატი
-RustGIS presentation	RustGIS-ის პრეზენტაცია
-RustGIS project	RustGIS-ის პროექტი
-RustGIS project template	RustGIS-ის პროექტის შაბლონი
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	RustGIS-ს ბოლოს შიდა შეცდომა შეექმნა. დეტალები იხილეთ აქ: {path}; გთხოვთ, დაურთოთ ისინი შეცდომის შეტყობინებას.
+GeoGIS layer file	GeoGIS-ის ფენის ფაილი
+GeoGIS layers, maps and projects	GeoGIS-ის ფენები, რუკები და პროექტები
+GeoGIS layout	GeoGIS-ის განლაგება
+GeoGIS maps and projects	GeoGIS-ის რუკები და პროექტები
+GeoGIS or Jupyter notebook	GeoGIS-ის ან Jupyter-ის რვეული
+GeoGIS plugin	GeoGIS-ის დანამატი
+GeoGIS presentation	GeoGIS-ის პრეზენტაცია
+GeoGIS project	GeoGIS-ის პროექტი
+GeoGIS project template	GeoGIS-ის პროექტის შაბლონი
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	GeoGIS-ს ბოლოს შიდა შეცდომა შეექმნა. დეტალები იხილეთ აქ: {path}; გთხოვთ, დაურთოთ ისინი შეცდომის შეტყობინებას.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	RustGIS-ს მოდელის პასუხის დამუშავებისას შიდა შეცდომა შეექმნა, ამიტომ მოთხოვნა შეწყდა. გთხოვთ, შეატყობინოთ აქ: https://github.com/opengeos/RustGIS/issues.
-RustGIS report or report template	RustGIS-ის ანგარიში ან ანგარიშის შაბლონი
-RustGIS styles	RustGIS-ის სტილები
-RustGIS task	RustGIS-ის ამოცანა
+GeoGIS report or report template	GeoGIS-ის ანგარიში ან ანგარიშის შაბლონი
+GeoGIS styles	GeoGIS-ის სტილები
+GeoGIS task	GeoGIS-ის ამოცანა
 RustGIS {latest} is available.	ხელმისაწვდომია RustGIS {latest}.
 RustGIS {version} is the latest version.	RustGIS {version} უახლესი ვერსიაა.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	ტექსტი
 Text Symbol	ტექსტის სიმბოლო
 The assistant is busy; stop it or wait for it to finish.	ასისტენტი დაკავებულია; შეაჩერეთ ან დაელოდეთ დასრულებას.
 The assistant wants to run this, and {why}:	ასისტენტს სურს ამის გაშვება და მიზეზი ასეთია: {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	ეს დანამატი მუშაობს როგორც პროგრამა თქვენს კომპიუტერზე, RustGIS-ის იზოლირებული გარემოს გარეთ. მას შეუძლია ყველაფერი, რაც თქვენ შეგიძლიათ: თქვენი ფაილების წაკითხვა და შეცვლა, ქსელის გამოყენება და სხვა პროგრამების გაშვება. დააინსტალირეთ მხოლოდ მაშინ, თუ მის ავტორს ენდობით.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	ეს დანამატი მუშაობს როგორც პროგრამა თქვენს კომპიუტერზე, GeoGIS-ის იზოლირებული გარემოს გარეთ. მას შეუძლია ყველაფერი, რაც თქვენ შეგიძლიათ: თქვენი ფაილების წაკითხვა და შეცვლა, ქსელის გამოყენება და სხვა პროგრამების გაშვება. დააინსტალირეთ მხოლოდ მაშინ, თუ მის ავტორს ენდობით.
 the capture failed unexpectedly	გადაღება მოულოდნელად ჩავარდა
 the Help tab always shows	დახმარების ჩანართი ყოველთვის ჩანს
 The job covers the map view	სამუშაო მოიცავს რუკის ხედს
@@ -1787,11 +1787,11 @@ Web Tile Layers	ვებ ფილების ფენები
 Web Tool	ვებ ხელსაწყო
 Website	ვებსაიტი
 Weights	წონები
-Welcome to RustGIS	მოგესალმებით RustGIS-ში
+Welcome to GeoGIS	მოგესალმებით GeoGIS-ში
 West	დასავლეთი
 WGS 84 / Globe	WGS 84 / გლობუსი
 WGS 84 / Web Mercator	WGS 84 / ვებ მერკატორი
-What RustGIS opens with: the World Atlas sample or a blank map.	რას გახსნის RustGIS გაშვებისას: World Atlas-ის ნიმუშს ან ცარიელ რუკას.
+What GeoGIS opens with: the World Atlas sample or a blank map.	რას გახსნის GeoGIS გაშვებისას: World Atlas-ის ნიმუშს ან ცარიელ რუკას.
 What's near a point	რა არის წერტილის ახლოს
 Where	სად
 Where Clause	Where პირობა

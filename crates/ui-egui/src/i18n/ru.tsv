@@ -22,8 +22,8 @@ A tile service's address: raster tiles with {z}/{x}/{y} (or {-y}, {q}, {bbox-eps
 A value, a field, or two of them joined by + − × ÷. Applies to the selected rows, or every row when none is selected.	Значение, поле или два из них, соединённые знаком + − × ÷. Применяется к выбранным строкам или ко всем строкам, если ничего не выбрано.
 About	О программе
 About plugins	О модулях
-About RustGIS	О RustGIS
-About RustGIS.	О RustGIS.
+About GeoGIS	О GeoGIS
+About GeoGIS.	О GeoGIS.
 Above	Сверху
 Above Left	Сверху слева
 Above Right	Сверху справа
@@ -135,7 +135,7 @@ Area of use: within {r}° of the {lon}° meridian	Область примене�
 Area of use: within {r}° of {lon}°, {lat}°	Область применения: в пределах {r}° от {lon}°, {lat}°
 Area {area}   ·   Perimeter {perimeter}	Площадь {area}   ·   Периметр {perimeter}
 Areas (name, land use, area)	Территории (название, землепользование, площадь)
-Ask a question about your data, or describe what to do with the map. The assistant runs RustGIS commands for you; every change can be undone.	Задайте вопрос о своих данных или опишите, что сделать с картой. Помощник выполняет команды RustGIS за вас; любое изменение можно отменить.
+Ask a question about your data, or describe what to do with the map. The assistant runs GeoGIS commands for you; every change can be undone.	Задайте вопрос о своих данных или опишите, что сделать с картой. Помощник выполняет команды GeoGIS за вас; любое изменение можно отменить.
 Ask about the map, or tell it what to do…	Спросите о карте или скажите, что сделать…
 Ask about your data, or tell the assistant what to do with the map.	Спросите о своих данных или скажите помощнику, что сделать с картой.
 Assistant settings	Настройки помощника
@@ -778,7 +778,7 @@ Import Thumbnail	Импорт эскиза
 Import Web Tool	Импорт веб-инструмента
 In Beyond	Вкл. за пределами
 In Progress	Выполняется
-In RustGIS, it can:	В RustGIS он может:
+In GeoGIS, it can:	В GeoGIS он может:
 in progress	выполняется
 In project	В проекте
 In use	Используется
@@ -1075,7 +1075,7 @@ North	Север
 North\nArrow	Стрелка\nсевера
 North Polar Stereographic	Северная полярная стереографическая
 Not sandboxed	Без песочницы
-not a RustGIS layout	не макет RustGIS
+not a GeoGIS layout	не макет GeoGIS
 not needed	не требуется
 Not saved yet	Ещё не сохранено
 Notebook	Блокнот
@@ -1104,8 +1104,8 @@ Opacity	Непрозрачность
 Open	Открыть
 Open a .rgis project	Открыть проект .rgis
 open a layout first	сначала откройте макет
-Open a RustGIS or Jupyter notebook.	Открыть блокнот RustGIS или Jupyter.
-Open a RustGIS project.	Открыть проект RustGIS.
+Open a GeoGIS or Jupyter notebook.	Открыть блокнот GeoGIS или Jupyter.
+Open a GeoGIS project.	Открыть проект GeoGIS.
 Open an offline area to edit.	Открыть автономную область для редактирования.
 Open Custom Template	Открыть пользовательский шаблон
 Open Custom Template…	Открыть пользовательский шаблон…
@@ -1201,7 +1201,7 @@ Plugin Manager…	Менеджер модулей…
 Plugin registry	Каталог модулей
 Plugins	Модули
 Plugins are .rgplugin files. Install only plugins from people you trust.	Модули — это файлы .rgplugin. Устанавливайте модули только от тех, кому доверяете.
-Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through RustGIS's own commands, within the permissions you accept.	Модули работают в песочнице: у них нет доступа к вашим файлам и сети, и они изменяют проект только через собственные команды RustGIS в рамках разрешений, которые вы приняли.
+Plugins run in a sandbox: they can't reach your files or the network, and they change the project only through GeoGIS's own commands, within the permissions you accept.	Модули работают в песочнице: у них нет доступа к вашим файлам и сети, и они изменяют проект только через собственные команды GeoGIS в рамках разрешений, которые вы приняли.
 PMTiles archive	Архив PMTiles
 PMTiles File…	Файл PMTiles…
 PNG frames (zip)	Кадры PNG (zip)
@@ -1377,23 +1377,23 @@ Run the task	Запустить задачу
 Run Tool	Запустить инструмент
 Run {name}	Запустить {name}
 Running…	Выполняется…
-RustGIS	RustGIS
-RustGIS deep learning package	Пакет глубокого обучения RustGIS
+GeoGIS	GeoGIS
+GeoGIS deep learning package	Пакет глубокого обучения GeoGIS
 RustGIS is a free and open-source GIS written in pure Rust. It runs on the desktop and in the browser, and every action is a command you can also run from the command line.	RustGIS — свободная ГИС с открытым исходным кодом на чистом Rust. Она работает на компьютере и в браузере, а каждое действие — это команда, которую можно выполнить и из командной строки.
-RustGIS layer file	Файл слоя RustGIS
-RustGIS layers, maps and projects	Слои, карты и проекты RustGIS
-RustGIS layout	Макет RustGIS
-RustGIS maps and projects	Карты и проекты RustGIS
-RustGIS or Jupyter notebook	Блокнот RustGIS или Jupyter
-RustGIS plugin	Модуль RustGIS
-RustGIS presentation	Презентация RustGIS
-RustGIS project	Проект RustGIS
-RustGIS project template	Шаблон проекта RustGIS
-RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	В прошлый раз в RustGIS произошла внутренняя ошибка. Подробности в {path}; приложите их к отчёту об ошибке.
+GeoGIS layer file	Файл слоя GeoGIS
+GeoGIS layers, maps and projects	Слои, карты и проекты GeoGIS
+GeoGIS layout	Макет GeoGIS
+GeoGIS maps and projects	Карты и проекты GeoGIS
+GeoGIS or Jupyter notebook	Блокнот GeoGIS или Jupyter
+GeoGIS plugin	Модуль GeoGIS
+GeoGIS presentation	Презентация GeoGIS
+GeoGIS project	Проект GeoGIS
+GeoGIS project template	Шаблон проекта GeoGIS
+GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.	В прошлый раз в GeoGIS произошла внутренняя ошибка. Подробности в {path}; приложите их к отчёту об ошибке.
 RustGIS ran into an internal error while handling the model's reply, so the request was stopped. Please report it at https://github.com/opengeos/RustGIS/issues.	При обработке ответа модели в RustGIS произошла внутренняя ошибка, поэтому запрос остановлен. Сообщите о ней на https://github.com/opengeos/RustGIS/issues.
-RustGIS report or report template	Отчёт или шаблон отчёта RustGIS
-RustGIS styles	Стили RustGIS
-RustGIS task	Задача RustGIS
+GeoGIS report or report template	Отчёт или шаблон отчёта GeoGIS
+GeoGIS styles	Стили GeoGIS
+GeoGIS task	Задача GeoGIS
 RustGIS {latest} is available.	Доступна версия RustGIS {latest}.
 RustGIS {version} is the latest version.	RustGIS {version}: последняя версия.
 RUSTGIS_ASSISTANT_MODEL	RUSTGIS_ASSISTANT_MODEL
@@ -1651,7 +1651,7 @@ Text	Текст
 Text Symbol	Текстовый символ
 The assistant is busy; stop it or wait for it to finish.	Помощник занят; остановите его или дождитесь завершения.
 The assistant wants to run this, and {why}:	Помощник хочет выполнить следующее, но это действие {why}:
-This plugin runs as a program on your computer, outside RustGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Этот модуль работает как программа на вашем компьютере, вне песочницы RustGIS. Он может всё, что можете вы: читать и изменять ваши файлы, использовать сеть и запускать другие программы. Устанавливайте его, только если доверяете автору.
+This plugin runs as a program on your computer, outside GeoGIS's sandbox. It can do anything you can: read and change your files, use the network and run other programs. Install it only if you trust its author.	Этот модуль работает как программа на вашем компьютере, вне песочницы GeoGIS. Он может всё, что можете вы: читать и изменять ваши файлы, использовать сеть и запускать другие программы. Устанавливайте его, только если доверяете автору.
 the capture failed unexpectedly	снимок неожиданно завершился ошибкой
 the Help tab always shows	вкладка «Справка» отображается всегда
 The job covers the map view	Задание охватывает вид карты
@@ -1787,11 +1787,11 @@ Web Tile Layers	Слои веб-тайлов
 Web Tool	Веб-инструмент
 Website	Веб-сайт
 Weights	Веса
-Welcome to RustGIS	Добро пожаловать в RustGIS
+Welcome to GeoGIS	Добро пожаловать в GeoGIS
 West	Запад
 WGS 84 / Globe	WGS 84 / Глобус
 WGS 84 / Web Mercator	WGS 84 / Web Mercator
-What RustGIS opens with: the World Atlas sample or a blank map.	С чем открывается RustGIS: с примером World Atlas или с пустой картой.
+What GeoGIS opens with: the World Atlas sample or a blank map.	С чем открывается GeoGIS: с примером World Atlas или с пустой картой.
 What's near a point	Что находится рядом с точкой
 Where	Где
 Where Clause	Условие WHERE
