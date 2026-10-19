@@ -190,11 +190,11 @@ impl LegacyRow<'_> {
         AssetDraft { location, properties }
     }
 
-    /// The folder its photos are written to: the tower number, the same folder rule as a survey's
-    /// photo folder, so linking the written folder puts each photo back on its tower; or `row-<id>`
-    /// for a row with no tower number, so its photos aren't lost and can be added by hand. When
-    /// making the name file-system safe changes it (`76/0`), the engine adds that tower's photos
-    /// as picked photos instead, which are kept by tower number rather than by folder name.
+    /// The folder its photos are written to: the tower number, so people browsing the photos find
+    /// each tower's; or `row-<id>` for a row with no tower number, so its photos aren't lost and
+    /// can be added by hand. The engine also uses `row-<id>` when the number can't be a folder
+    /// name as it is (`76/0`). Written photos are added to their tower as picked photos, kept by
+    /// tower number, so they stay when GeoFlux's own photo folder is linked afterwards.
     pub fn photo_folder(&self) -> String {
         match self.value("tower_number").trim() {
             "" => format!("row-{}", self.id),

@@ -12,6 +12,7 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.schemas` | Lists the built-in schemas, the project's own, and which layers follow which. |
 | `geoflux.addSchema` | Adds a schema to the project from a `.json` file (`path`) or text (`json`). A project schema with a built-in id replaces the built-in one. Schemas travel inside the `.rgis` project. |
 | `geoflux.importCsv` | Reads a survey CSV (`path`, or `text`) with a schema (`schema`, default `com.geo.telecom`) into a point layer. Field labels become aliases; extra columns are kept; rows without a position are kept without geometry; skipped rows are reported with a reason. Each asset is rated and the layer is styled by severity. |
+| `geoflux.importGeox` | Reads a GeoFlux 1.x project (`path`, a `.geox`) into a power-line tower layer, rated and styled by severity like a survey CSV. The photos stored in the project are written to a new folder (`photos`, default `<name> photos` beside the `.geox`) and added to their towers' slots. See [GeoFlux projects](#geoflux-projects-geox). |
 | `geoflux.classify` | Rates every asset of the layer again from its schema's rule, after edits. Returns the count per level. |
 | `geoflux.validate` | Checks every asset against the schema (required fields, numbers, dates, options, coordinates) and lists the problems. |
 | `geoflux.setValues` | Saves an inspection form's values for one asset (`row`, `values`: field key → text) as one undoable edit. Every field is checked first; nothing changes if one is invalid. The asset is rated again. |
@@ -48,6 +49,27 @@ Files from Excel and survey tools are read as they come: UTF-8 with or without a
 UTF-16, or Windows "ANSI" (where `°` is one byte); separated by commas, semicolons or tabs.
 Coordinates can be decimal or degrees/minutes/seconds (`27°30'44.3"N`), and a pair whose
 hemisphere letters show the columns were swapped is put right.
+
+## GeoFlux projects (.geox)
+
+**Analyze › Inspection › Import GeoFlux Project** (or dropping a `.geox` on the window) reads a
+project saved by the GeoFlux 1.x desktop app. A progress bar in the Inspection pane shows the
+towers read, with Cancel; a cancelled or failed import adds nothing and removes the photos it
+wrote.
+
+- **Form fields:** each tower's line, number, circuit, phase, side, direction, date and time,
+  humidity, emissivity, ambient, fault and rise temperatures and fault description fill the
+  power-line form. GeoFlux's report type, fault flag, company name, circuit loads, status and
+  last edit time are kept as extra attributes. Older GeoFlux files lack some columns; the
+  summary lists them.
+- **Positions:** a tower at (0, 0), GeoFlux's placeholder, is imported without a position.
+- **Photos:** a photo put in a slot in GeoFlux is stored inside the project. These are written
+  to `<folder>/<tower>/thermal.jpg`, `location.jpg`, `tower.jpg` and `rgb.jpg` (a tower number
+  that can't be a folder name, such as `76/0`, uses `row-<id>`), and added to the tower's
+  slots. Every other photo stayed in GeoFlux's photo folder (`C:\Tower_images` by default):
+  link that folder with **Link Photos** as usual. The added photos stay, after the folder's own.
+- **Safety:** only the tower database is taken from the `.geox`, and it is opened read-only.
+  No other file in it is extracted, so a damaged or crafted file can't write anywhere.
 
 ## Writing a schema
 

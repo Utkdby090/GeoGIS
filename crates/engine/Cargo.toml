@@ -32,6 +32,10 @@ sys-locale = { version = "0.3", features = ["js"] }
 # The GeoLibre tool suite (native only: its tools read and write files).
 rustgis-geolibre = { workspace = true, optional = true }
 
+# GeoFlux projects (.geox) hold their towers in SQLite.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rusqlite = { workspace = true }
+
 [features]
 geolibre = ["dep:rustgis-geolibre"]
 
