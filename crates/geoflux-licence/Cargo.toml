@@ -1,0 +1,20 @@
+[package]
+name = "geoflux-licence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GeoFlux L1: which paid GeoGIS features a signed-in account unlocks, checked offline from a signed 30-day pass"
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+# Ed25519 checks. Already in the desktop build through rustls, so this adds no new code there;
+# the browser build signs in to the web app instead.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ring = "0.17"
