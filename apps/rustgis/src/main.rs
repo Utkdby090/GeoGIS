@@ -194,7 +194,14 @@ fn main() -> eframe::Result {
         app.session.notify(e, true);
     }
     for f in files {
-        let cmd = if rustgis_engine::project::is_project_file(f) { "project.open" } else { "layer.addData" };
+        // A GeoFlux project is read in the background, with progress in the Inspection pane.
+        let cmd = if f.to_ascii_lowercase().ends_with(".geox") {
+            "ui.geofluxImportGeox"
+        } else if rustgis_engine::project::is_project_file(f) {
+            "project.open"
+        } else {
+            "layer.addData"
+        };
         if let Err(e) = app.run(cmd, json!({"path": f})) {
             eprintln!("rustgis: {f}: {e}");
         }

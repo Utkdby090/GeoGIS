@@ -994,6 +994,16 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             small(
                 ui,
                 app,
+                "open",
+                "Import GeoFlux Project",
+                "Read a GeoFlux project (.geox) into a tower layer, with the photos stored in it.",
+                "ui.geofluxImportGeox",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
                 "add_folder",
                 "Link Photos",
                 "Link a folder of tower photos to the inspection layer.",
@@ -1001,9 +1011,9 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
                 Value::Null,
                 false,
             );
-            small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
         });
         col(ui, |ui| {
+            small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
             small(
                 ui,
                 app,

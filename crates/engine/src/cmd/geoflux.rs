@@ -292,17 +292,7 @@ fn import_csv(s: &mut Session, p: &Value) -> CmdResult {
     }
 
     let name = ps(p, "name").map(str::trim).filter(|n| !n.is_empty()).map_or(default_name, str::to_string);
-    let mut ds = dataset(&schema, &name, &report.drafts);
-    let rated = rate(&schema, &mut ds);
-    let id = super::layer::add_dataset(s, ds);
-    s.project.geoflux.link(id, &schema.id);
-    if rated {
-        // Unique values on severity, so findings stand out at once.
-        let _ = super::layer::symbology(s, &json!({"layer": id, "type": "unique", "field": SEVERITY_FIELD}));
-    }
-    if let Some(e) = s.map().layer(id).map(|l| l.extent()).filter(|e| !e.is_empty()) {
-        s.zoom_to(&e);
-    }
+    let id = add_inspection_layer(s, &schema, &name, &report.drafts);
     if report.skipped_rows > 0 {
         s.notify(format!("{} rows were skipped: {}", report.skipped_rows, report.skipped_details.join("; ")), false);
     }
@@ -318,6 +308,22 @@ fn import_csv(s: &mut Session, p: &Value) -> CmdResult {
         "withoutPosition": report.rows_without_position,
         "truncated": report.truncated,
     }))
+}
+
+/// Adds `drafts` as a point layer that follows `schema`, rated by severity and zoomed to.
+pub(crate) fn add_inspection_layer(s: &mut Session, schema: &DomainSchema, name: &str, drafts: &[AssetDraft]) -> u32 {
+    let mut ds = dataset(schema, name, drafts);
+    let rated = rate(schema, &mut ds);
+    let id = super::layer::add_dataset(s, ds);
+    s.project.geoflux.link(id, &schema.id);
+    if rated {
+        // Unique values on severity, so findings stand out at once.
+        let _ = super::layer::symbology(s, &json!({"layer": id, "type": "unique", "field": SEVERITY_FIELD}));
+    }
+    if let Some(e) = s.map().layer(id).map(|l| l.extent()).filter(|e| !e.is_empty()) {
+        s.zoom_to(&e);
+    }
+    id
 }
 
 /// The layer's table: the schema's fields (labels as aliases), other mapped CSV columns, extra
@@ -780,6 +786,19 @@ fn add_photos(s: &mut Session, p: &Value) -> CmdResult {
     Ok(json!({"layer": id, "row": row, "slot": slot, "added": added, "slots": photos(s, id, row)?}))
 }
 
+/// Adds one photo to one slot of the asset labelled `label`, as `geoflux.addPhotos` would, for a
+/// photo the caller has already checked. False when the project's limits are reached.
+pub(crate) fn add_picked(g: &mut GeoFlux, layer: u32, label: &str, slot: &str, path: &str) -> bool {
+    let in_slot = g.picked.iter().filter(|q| q.layer == layer && q.slot == slot && q.label.eq_ignore_ascii_case(label)).count();
+    if in_slot >= MAX_PICKED_PER_SLOT || g.picked.len() >= MAX_PICKED || path.len() > MAX_PICKED_PATH {
+        return false;
+    }
+    if !g.picked.iter().any(|q| q.layer == layer && q.slot == slot && q.path == path) {
+        g.picked.push(PickedPhoto { layer, label: label.to_string(), slot: slot.to_string(), path: path.to_string() });
+    }
+    true
+}
+
 /// Takes a picked photo out of its slot (the file stays where it is).
 fn remove_photo(s: &mut Session, p: &Value) -> CmdResult {
     let id = s.layer_id(p)?;
@@ -802,7 +821,7 @@ fn photos_cmd(s: &mut Session, p: &Value) -> CmdResult {
 }
 
 /// Links a folder of photos to a layer's assets, replacing any earlier link of the layer.
-fn link_photos(s: &mut Session, p: &Value) -> CmdResult {
+pub(crate) fn link_photos(s: &mut Session, p: &Value) -> CmdResult {
     let (id, schema) = layer_schema(s, p)?;
     if schema.image_slots.is_empty() {
         return Err(format!("schema '{}' has no image slots", schema.id));

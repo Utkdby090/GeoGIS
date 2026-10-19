@@ -204,6 +204,15 @@ pub struct InspectionState {
     /// A line's report ZIP being written, and what the last report did.
     pub(crate) reports: Option<crate::markupview::ReportJob>,
     pub(crate) report_note: Option<(String, bool)>,
+    /// A GeoFlux project (.geox) being read on a worker thread.
+    geox: Option<GeoxJob>,
+}
+
+/// A GeoFlux project being read off the frame; its layer is added when it lands.
+struct GeoxJob {
+    name: String,
+    progress: std::sync::Arc<rustgis_engine::geoflux_report::Progress>,
+    result: Slot<Result<rustgis_engine::cmd::geox::GeoxProject, String>>,
 }
 
 impl InspectionState {
@@ -294,12 +303,24 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     let ctx = ui.ctx().clone();
     app.inspection.cache.poll(&ctx);
     crate::thermalview::poll_scan(app);
+    geox_progress(app, ui, t);
     let layers = inspection_layers(app);
     if layers.is_empty() {
-        ui.label(RichText::new(tl!("No inspection layer yet. Import a survey CSV to start.")).weak());
+        if app.inspection.geox.is_some() {
+            return;
+        }
+        ui.label(RichText::new(tl!("No inspection layer yet. Import a survey CSV or a GeoFlux project to start.")).weak());
         ui.add_space(4.0);
-        if ui.button(tl!("Import Survey CSV…")).clicked() {
-            let _ = app.run("ui.geofluxImport", Value::Null);
+        ui.horizontal(|ui| {
+            if ui.button(tl!("Import Survey CSV…")).clicked() {
+                let _ = app.run("ui.geofluxImport", Value::Null);
+            }
+            if ui.button(tl!("Import GeoFlux Project…")).clicked() {
+                let _ = app.run("ui.geofluxImportGeox", Value::Null);
+            }
+        });
+        if let Some((m, err)) = &app.inspection.message {
+            ui.label(RichText::new(m.as_str()).small().color(if *err { t.red } else { t.text_dim }));
         }
         return;
     }
@@ -949,6 +970,96 @@ pub fn import(app: &mut RustGisApp) -> Result<(), String> {
         let _ = app;
         Err(tl!("Importing survey CSVs needs the desktop app for now.").into())
     }
+}
+
+/// GeoFlux › Import GeoFlux Project: reads a GeoFlux 1.x project (`.geox`, picked when `path` is
+/// None) on a worker thread, with progress and cancel in the Inspection pane; [`poll_geox`] adds
+/// its tower layer when it lands.
+pub fn import_geox(app: &mut RustGisApp, path: Option<String>) -> Result<(), String> {
+    if app.inspection.geox.is_some() {
+        return Err(tl!("A GeoFlux project is already being imported.").into());
+    }
+    let Some(path) = path.or_else(|| crate::dialogs::pick_open(&["geox"], tl!("GeoFlux project"))) else { return Ok(()) };
+    let name = path.rsplit(['/', '\\']).next().unwrap_or(&path).to_string();
+    let job = GeoxJob { name, progress: rustgis_engine::geoflux_report::Progress::new(), result: Slot::default() };
+    start_geox(path, &job)?;
+    app.inspection.geox = Some(job);
+    app.inspection.message = None;
+    app.ui.right = Some(crate::RightPane::Inspection);
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn start_geox(path: String, job: &GeoxJob) -> Result<(), String> {
+    let (progress, land) = (job.progress.clone(), job.result.clone());
+    std::thread::Builder::new()
+        .name("geoflux-geox".into())
+        .spawn(move || {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rustgis_engine::cmd::geox::read(&path, None, &progress)))
+                .unwrap_or_else(|_| Err(tl!("Reading the GeoFlux project failed unexpectedly.").to_string()));
+            *land.lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+        })
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn start_geox(_: String, _: &GeoxJob) -> Result<(), String> {
+    Err(tl!("Importing GeoFlux projects needs the desktop app.").into())
+}
+
+/// The import's progress bar and Cancel, at the top of the Inspection pane.
+fn geox_progress(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
+    let Some(job) = &app.inspection.geox else { return };
+    let (done, total) = job.progress.get();
+    ui.label(RichText::new(crate::i18n::fmt("Importing {name}", &[("name", &job.name)])).font(semibold(12.5)));
+    let frac = if total == 0 { 0.0 } else { done as f32 / total as f32 };
+    ui.add(egui::ProgressBar::new(frac).text(crate::i18n::fmt("{done} of {total} towers", &[("done", &done.to_string()), ("total", &total.to_string())])));
+    if job.progress.is_cancelled() {
+        ui.label(RichText::new(tl!("Stopping…")).small().color(t.text_dim));
+    } else if ui.small_button(tl!("Cancel")).clicked() {
+        job.progress.cancel();
+    }
+    ui.separator();
+}
+
+/// Adds a read GeoFlux project's layer when it lands (called every frame, so it lands with the
+/// Inspection pane closed too).
+pub fn poll_geox(app: &mut RustGisApp, ctx: &egui::Context) {
+    let Some(job) = &app.inspection.geox else { return };
+    let done = job.result.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let Some(result) = done else {
+        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        return;
+    };
+    app.inspection.geox = None;
+    let note = match result {
+        Ok(project) => match rustgis_engine::cmd::geox::apply(&mut app.session, project, None) {
+            Ok(r) => {
+                let st = &mut app.inspection;
+                st.layer = r["layer"].as_u64().map(|v| v as u32);
+                st.row = None;
+                st.loaded = None;
+                st.cache.clear();
+                let mut text = crate::i18n::fmt("Imported {n} towers", &[("n", &r["towers"].to_string())]);
+                if let Some(n) = r["photosInSurveyFolder"].as_u64().filter(|n| *n > 0) {
+                    text.push_str(&crate::i18n::fmt(
+                        "; {n} photos were in GeoFlux's photo folder: use Link Photos to link it",
+                        &[("n", &n.to_string())],
+                    ));
+                }
+                (text, false)
+            }
+            Err(e) => (e, true),
+        },
+        Err(e) if e == "cancelled" => (tl!("Import cancelled; nothing was added.").to_string(), false),
+        Err(e) => {
+            app.session.notify(e.clone(), true);
+            (e, true)
+        }
+    };
+    app.inspection.message = Some(note);
+    app.ui.right = Some(crate::RightPane::Inspection);
 }
 
 /// GeoFlux › Link Photos: picks a folder and links it to the inspected (or active) layer.

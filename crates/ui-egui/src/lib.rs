@@ -1537,6 +1537,7 @@ impl RustGisApp {
             "ui.pane.shares" => toggle_right(&mut self.ui, RightPane::Shares),
             "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
             "ui.geofluxImport" => geofluxpane::import(self)?,
+            "ui.geofluxImportGeox" => geofluxpane::import_geox(self, p.get("path").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
             "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
             "ui.thermal.view" | "ui.thermal.palette" | "ui.thermal.tool" | "ui.thermal.record" | "ui.thermal.scan" => {
@@ -2059,6 +2060,7 @@ impl RustGisApp {
         rustgis_engine::plugins::set_language(self.lang().code());
         panes::poll_geolibre(self, ctx);
         markupview::poll(self);
+        geofluxpane::poll_geox(self, ctx);
         self.poll_downloads();
         sqlpane::poll(self, ctx);
         self.poll_service();
@@ -2138,6 +2140,12 @@ impl RustGisApp {
                     match std::fs::read(f.path()) {
                         Ok(bytes) => pluginsui::received(self, bytes, None),
                         Err(e) => self.session.notify(format!("{p}: {e}"), true),
+                    }
+                    continue;
+                }
+                if p.to_ascii_lowercase().ends_with(".geox") {
+                    if let Err(e) = geofluxpane::import_geox(self, Some(p)) {
+                        self.session.notify(e, true);
                     }
                     continue;
                 }
