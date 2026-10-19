@@ -1,32 +1,31 @@
-//! GeoFlux L1: the desktop app's licence key and 15-day trial.
+//! GeoFlux L1: which paid GeoGIS features a signed-in account unlocks.
 //!
-//! A port of GeoFlux's `LicenseManager.kt`, `TrialManager.kt` and `HardwareUtil.kt`, so keys the
-//! GeoFlux licence server already issued keep working and its signing service doesn't change:
+//! GeoGIS is free to download. Signing in to a GeoFlux account (Pro or Organisation plan) unlocks
+//! the paid inspection features. The account server signs a pass for this computer that keeps
+//! working offline for 30 days and is renewed whenever the app is online; sites with no internet
+//! use an offline pass file from the account page instead.
 //!
-//! - [`key`]: `payload.signature` keys, RSA SHA-256 over `MachineID|YYYY-MM-DD`.
-//! - [`machine`]: the Windows SMBIOS UUID a key is locked to.
-//! - [`trial`]: 15 days from the first launch; a clock moved back a day or more locks.
-//! - [`gate`]: the decision at start-up and on activation, over pluggable stores and clock.
+//! - [`pass`]: the signed pass (Ed25519) and what it unlocks.
+//! - [`account`]: the sign-in, renewal and sign-out contract with the account server.
+//! - [`machine`]: the computer ID a pass and a seat are tied to.
+//! - [`gate`]: the decision at start-up and after sign-in, over pluggable store, clock and machine ID.
 //!
-//! Two GeoFlux behaviours are deliberately not ported: the `SECRET_ADMIN_DEBUG` key that unlocked
-//! any copy, and clearing a valid saved key when the machine ID couldn't be read.
-//!
-//! Only the desktop window is licensed; `rustgis-cli` and the browser build are not. Nothing here
-//! runs a program or touches the disk: the desktop app supplies those parts.
+//! The app always opens; without a usable pass it runs in the free tier. Nothing here runs a
+//! program, touches the disk or the network: the desktop app supplies those parts.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod account;
 pub mod date;
 mod error;
 pub mod gate;
-pub mod key;
 pub mod machine;
-pub mod trial;
+pub mod pass;
 
+pub use account::{AccountError, AccountService, DeviceCode, Grant, SignInPoll};
 pub use date::CivilDate;
 pub use error::LicenceError;
-pub use gate::{Access, Clock, Gate, LicenceStore, Licensing, LockReason};
-#[cfg(not(target_arch = "wasm32"))]
-pub use key::RsaSha256;
-pub use key::{GEOFLUX_PUBLIC_KEY, KeyStatus, SignatureVerifier, SignedPayload, check_key};
+pub use gate::{Access, Clock, FreeReason, Gate, Licensing, PassStore, StoredPass};
 pub use machine::{MachineId, MachineIdSource};
-pub use trial::{TRIAL_DAYS, TrialStart, TrialStatus, TrialStore};
+#[cfg(not(target_arch = "wasm32"))]
+pub use pass::Ed25519Keys;
+pub use pass::{Feature, ONLINE_PASS_DAYS, Pass, PassKind, PassStatus, PassVerifier, Plan};

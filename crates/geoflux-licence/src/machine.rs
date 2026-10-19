@@ -1,5 +1,5 @@
-//! The machine ID a licence is locked to: the Windows SMBIOS UUID, read the way GeoFlux read it,
-//! so keys already issued keep matching.
+//! The computer ID a pass and a seat are tied to: the Windows SMBIOS UUID, read the way GeoFlux
+//! read it.
 
 use crate::LicenceError;
 
@@ -7,7 +7,7 @@ use crate::LicenceError;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MachineId(String);
 
-/// What GeoFlux returned when it could not read an ID. A key issued for one of these would unlock
+/// What GeoFlux returned when it could not read an ID. A pass issued for one of these would unlock
 /// every computer where the lookup fails, so none of them is ever accepted as an ID.
 pub const PLACEHOLDER_IDS: &[&str] = &["WINDOWS-UUID-NOT-FOUND", "UNKNOWN-HARDWARE-ID", "NON-WINDOWS-ID-GENERIC"];
 

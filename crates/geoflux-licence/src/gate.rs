@@ -1,189 +1,191 @@
-//! The decision at start-up and on activation: licensed, in trial, or locked, and why.
+//! The decision at start-up, after a sign-in and after a renewal: which paid features are on.
 //!
-//! Everything the decision reads (machine ID, stored key, trial record, clock) comes through a
-//! trait, so the rules are tested here without Windows, and the window only shows the result.
+//! The app always opens. Without a usable pass it runs in the free tier, and [`FreeReason`] says
+//! why, so the status bar can offer the right fix (sign in, reconnect, fix the clock).
 
-use crate::date::format_instant;
-use crate::trial::{TrialStart, TrialStatus, earliest_start, trial_status};
-use crate::{CivilDate, KeyStatus, LicenceError, MachineId, MachineIdSource, SignatureVerifier, TrialStore, check_key};
+use crate::date::SECS_PER_DAY;
+use crate::{Feature, Grant, LicenceError, MachineId, MachineIdSource, Pass, PassKind, PassStatus, PassVerifier, Plan};
 
-/// Days left at or under which the status bar turns red, as in GeoFlux.
-pub const LICENCE_WARN_DAYS: i64 = 5;
-pub const TRIAL_WARN_DAYS: i64 = 3;
+/// Days left at or under which the status bar asks the person to go online.
+pub const RENEW_WARN_DAYS: i64 = 5;
+/// An online pass older than this is renewed at the next chance.
+pub const RENEW_AFTER_SECS: i64 = SECS_PER_DAY;
 
-/// Where the activated key is kept. GeoGIS's own store is read and written; GeoFlux's old one
-/// (`HKCU\Software\JavaSoft\Prefs\com\geospatial\app`, value `saved_license_key`) is only read, so
-/// a customer moving from GeoFlux doesn't have to enter the key again.
-pub trait LicenceStore: Send + Sync {
-    fn load(&self) -> Result<Option<String>, LicenceError>;
-    fn save(&self, key: &str) -> Result<(), LicenceError>;
+/// What is kept on disk between runs.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StoredPass {
+    pub pass: String,
+    /// None for an offline pass file, which isn't renewed.
+    pub refresh_token: Option<String>,
+    /// The latest time the app ran with this pass (seconds since 1970-01-01 UTC), to catch the
+    /// clock being moved back.
+    pub last_seen: Option<i64>,
+}
+
+/// Where the pass is kept. Stage 3 writes it atomically to `%APPDATA%\GeoGIS`, readable only by
+/// the user; the refresh token is the one secret in it.
+pub trait PassStore: Send + Sync {
+    fn load(&self) -> Result<Option<StoredPass>, LicenceError>;
+    fn save(&self, stored: &StoredPass) -> Result<(), LicenceError>;
     fn clear(&self) -> Result<(), LicenceError>;
 }
 
-/// The time. `today` is the computer's local date, which GeoFlux compared expiry dates with.
 pub trait Clock: Send + Sync {
-    /// Milliseconds since 1970-01-01 UTC.
-    fn now_ms(&self) -> i64;
-    fn today(&self) -> CivilDate;
+    /// Seconds since 1970-01-01 UTC.
+    fn now(&self) -> i64;
 }
 
 /// What the app may do now.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Access {
-    Licensed { days_left: i64 },
-    Trial { days_left: i64 },
-    Locked(LockReason),
+    Subscribed { pass: Pass, days_left: i64 },
+    Free(FreeReason),
 }
 
 impl Access {
-    pub fn is_open(&self) -> bool {
-        !matches!(self, Access::Locked(_))
+    pub fn allows(&self, feature: Feature) -> bool {
+        matches!(self, Access::Subscribed { pass, .. } if pass.allows(feature))
     }
 
-    /// True when the status bar should be red: a licence with 5 days or fewer left, a trial with 3
-    /// or fewer, or a lock.
+    pub fn plan(&self) -> Plan {
+        match self {
+            Access::Subscribed { pass, .. } => pass.plan,
+            Access::Free(_) => Plan::Free,
+        }
+    }
+
+    /// True when the status bar should ask for something: going online soon, or a problem with
+    /// the pass. Plain free use (never signed in) asks nothing.
     pub fn needs_attention(&self) -> bool {
         match self {
-            Access::Licensed { days_left } => *days_left <= LICENCE_WARN_DAYS,
-            Access::Trial { days_left } => *days_left <= TRIAL_WARN_DAYS,
-            Access::Locked(_) => true,
+            Access::Subscribed { days_left, .. } => *days_left <= RENEW_WARN_DAYS,
+            Access::Free(reason) => *reason != FreeReason::NotSignedIn,
         }
     }
 }
 
-/// Why the app is locked, or why a key was refused. Each has one message for the lock screen.
+/// Why the app is in the free tier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LockReason {
-    TrialEnded,
+pub enum FreeReason {
+    NotSignedIn,
+    /// Offline for longer than the pass allows.
     Expired,
     WrongMachine,
-    InvalidKey,
-    /// The machine ID could not be read. The saved key is kept (GeoFlux cleared it, so one slow
-    /// PowerShell start made customers enter their key again).
-    NoMachineId,
-    /// The clock reads before the trial started.
+    InvalidPass,
     ClockBack,
-    /// The trial record exists but can't be read.
-    TrialDamaged,
-    /// The licence or trial record could not be saved, so the trial would restart on every launch.
+    /// The machine ID could not be read. The pass is kept for the next run.
+    NoMachineId,
+    /// The stored pass could not be read or saved.
     Storage,
 }
 
-impl LockReason {
+impl FreeReason {
     pub fn message(self) -> &'static str {
         match self {
-            LockReason::TrialEnded => "Your 15-day trial has ended. Enter a licence key to continue.",
-            LockReason::Expired => "Your licence has expired. Enter a new key to continue.",
-            LockReason::WrongMachine => "This licence key is for a different computer.",
-            LockReason::InvalidKey => "This licence key is not valid.",
-            LockReason::NoMachineId => {
-                "GeoGIS could not read this computer's ID to check the licence. Restart GeoGIS; if it happens again, contact support."
+            FreeReason::NotSignedIn => "Free version. Sign in to use your subscription.",
+            FreeReason::Expired => "GeoGIS hasn't reached your account for 30 days. Connect to the internet to keep using paid features.",
+            FreeReason::WrongMachine => "This sign-in belongs to a different computer. Sign in again here.",
+            FreeReason::InvalidPass => "Your sign-in could not be checked. Sign in again.",
+            FreeReason::ClockBack => "The computer's date is earlier than your last use. Correct the date and time, then restart GeoGIS.",
+            FreeReason::NoMachineId => {
+                "GeoGIS could not read this computer's ID to check your subscription. Restart GeoGIS; if it happens again, contact support."
             }
-            LockReason::ClockBack => {
-                "The computer's date is earlier than when the trial started. Correct the date and time, then restart GeoGIS."
-            }
-            LockReason::TrialDamaged => "The trial record is damaged. Enter a licence key to continue.",
-            LockReason::Storage => {
-                "GeoGIS could not save its licence settings. Check that your user folder is writable, then restart GeoGIS."
+            FreeReason::Storage => {
+                "GeoGIS could not read or save your sign-in. Check that your user folder is writable, then restart GeoGIS."
             }
         }
     }
 }
 
-/// What the window asks of licensing. Every call may run a program (the machine ID) or touch the
-/// disk, so the window calls it on a worker thread and shows "Checking licence…" meanwhile.
+/// What the window asks of licensing. Calls may run a program (the machine ID) or touch the disk,
+/// so the window runs them on a worker thread.
 pub trait Licensing: Send + Sync {
-    /// The decision at start-up.
+    /// The decision at start-up, from the stored pass.
     fn startup(&self) -> Access;
-    /// Checks and saves a key typed on the lock screen.
-    fn activate(&self, key: &str) -> Result<Access, LockReason>;
-    /// The ID shown on the lock screen, for the customer to send when buying a key.
+    /// Keeps a grant from sign-in or renewal.
+    fn accept_grant(&self, grant: &Grant) -> Result<Access, FreeReason>;
+    /// Keeps an offline pass file opened by the person.
+    fn accept_offline_pass(&self, text: &str) -> Result<Access, FreeReason>;
+    /// The refresh token to renew with, when the stored pass is an online one older than a day.
+    fn due_for_renewal(&self) -> Option<String>;
+    /// Forgets the stored pass (after signing out, or when the server revoked it).
+    fn forget(&self) -> Result<(), LicenceError>;
     fn machine_id(&self) -> Result<MachineId, LicenceError>;
 }
 
-/// GeoFlux's rules over pluggable parts.
+/// The rules over pluggable parts.
 pub struct Gate {
     pub machine: Box<dyn MachineIdSource>,
-    pub verifier: Box<dyn SignatureVerifier>,
-    pub licence: Box<dyn LicenceStore>,
-    /// GeoFlux's saved key on this computer, read once to carry it over.
-    pub legacy_licence: Option<Box<dyn LicenceStore>>,
-    pub trial: Box<dyn TrialStore>,
-    /// GeoFlux's trial record on this computer; the earlier start counts.
-    pub legacy_trial: Option<Box<dyn TrialStore>>,
+    pub verifier: Box<dyn PassVerifier>,
+    pub store: Box<dyn PassStore>,
     pub clock: Box<dyn Clock>,
 }
 
 impl Gate {
-    fn key_access(&self, key: &str) -> Result<i64, LockReason> {
-        let machine = self.machine.machine_id().map_err(|_| LockReason::NoMachineId)?;
-        match check_key(key, &machine, self.clock.today(), self.verifier.as_ref()) {
-            KeyStatus::Valid { days_left } => Ok(days_left),
-            KeyStatus::Expired => Err(LockReason::Expired),
-            KeyStatus::WrongMachine => Err(LockReason::WrongMachine),
-            KeyStatus::Invalid => Err(LockReason::InvalidKey),
-        }
-    }
-
-    fn trial_access(&self) -> Access {
-        let own = match self.trial.first_launch() {
-            Ok(v) => v,
-            Err(_) => return Access::Locked(LockReason::Storage),
-        };
-        // GeoFlux's record is a bonus: unreadable storage there just means it isn't counted.
-        let legacy = self.legacy_trial.as_ref().and_then(|t| t.first_launch().ok().flatten());
-        let now = self.clock.now_ms();
-        match earliest_start([own.as_deref(), legacy.as_deref()]) {
-            TrialStart::FirstLaunch => match self.trial.set_first_launch(&format_instant(now)) {
-                Ok(()) => Access::Trial { days_left: crate::TRIAL_DAYS },
-                Err(_) => Access::Locked(LockReason::Storage),
-            },
-            TrialStart::Damaged => Access::Locked(LockReason::TrialDamaged),
-            TrialStart::Started(start) => match trial_status(start, now) {
-                TrialStatus::Active { days_left } => Access::Trial { days_left },
-                TrialStatus::Ended => Access::Locked(LockReason::TrialEnded),
-                TrialStatus::ClockBack => Access::Locked(LockReason::ClockBack),
-            },
+    /// Checks a pass for this computer now. A pass that checks out is saved with `refresh_token`.
+    fn check(&self, text: &str, refresh_token: Option<String>, last_seen: Option<i64>) -> Result<Access, FreeReason> {
+        let pass = Pass::verify(text, self.verifier.as_ref()).map_err(|_| FreeReason::InvalidPass)?;
+        let machine = self.machine.machine_id().map_err(|_| FreeReason::NoMachineId)?;
+        let now = self.clock.now();
+        match pass.status(&machine, now, last_seen) {
+            PassStatus::Valid { days_left } => {
+                let stored = StoredPass {
+                    pass: text.trim().to_string(),
+                    refresh_token,
+                    last_seen: Some(last_seen.map_or(now, |seen| seen.max(now))),
+                };
+                self.store.save(&stored).map_err(|_| FreeReason::Storage)?;
+                Ok(Access::Subscribed { pass, days_left })
+            }
+            PassStatus::Expired => Err(FreeReason::Expired),
+            PassStatus::WrongMachine => Err(FreeReason::WrongMachine),
+            PassStatus::ClockBack => Err(FreeReason::ClockBack),
         }
     }
 }
 
 impl Licensing for Gate {
-    /// GeoFlux's start-up: a saved key decides when there is one (an expired, foreign or broken key
-    /// is cleared and locks this launch); otherwise the trial decides. A key carried over from
-    /// GeoFlux is saved to GeoGIS's store once it checks out, and ignored when it doesn't.
+    /// The stored pass decides. An expired pass is kept, so its refresh token can renew it the
+    /// moment the computer is online; a broken or foreign one is cleared.
     fn startup(&self) -> Access {
-        let saved = match self.licence.load() {
-            Ok(saved) => saved,
-            Err(_) => return Access::Locked(LockReason::Storage),
+        let stored = match self.store.load() {
+            Ok(Some(stored)) => stored,
+            Ok(None) => return Access::Free(FreeReason::NotSignedIn),
+            Err(_) => return Access::Free(FreeReason::Storage),
         };
-        if let Some(key) = saved {
-            return match self.key_access(&key) {
-                Ok(days_left) => Access::Licensed { days_left },
-                Err(LockReason::NoMachineId) => Access::Locked(LockReason::NoMachineId),
-                Err(reason) => {
-                    let _ = self.licence.clear();
-                    Access::Locked(reason)
-                }
-            };
-        }
-        if let Some(key) = self.legacy_licence.as_ref().and_then(|l| l.load().ok().flatten()) {
-            match self.key_access(&key) {
-                Ok(days_left) => {
-                    let _ = self.licence.save(key.trim());
-                    return Access::Licensed { days_left };
-                }
-                Err(LockReason::NoMachineId) => return Access::Locked(LockReason::NoMachineId),
-                Err(_) => {}
+        match self.check(&stored.pass, stored.refresh_token, stored.last_seen) {
+            Ok(access) => access,
+            Err(reason @ (FreeReason::InvalidPass | FreeReason::WrongMachine)) => {
+                let _ = self.store.clear();
+                Access::Free(reason)
             }
+            Err(reason) => Access::Free(reason),
         }
-        self.trial_access()
     }
 
-    fn activate(&self, key: &str) -> Result<Access, LockReason> {
-        let days_left = self.key_access(key)?;
-        self.licence.save(key.trim()).map_err(|_| LockReason::Storage)?;
-        Ok(Access::Licensed { days_left })
+    fn accept_grant(&self, grant: &Grant) -> Result<Access, FreeReason> {
+        let last_seen = self.store.load().ok().flatten().and_then(|s| s.last_seen);
+        self.check(&grant.pass, Some(grant.refresh_token.clone()), last_seen)
+    }
+
+    fn accept_offline_pass(&self, text: &str) -> Result<Access, FreeReason> {
+        let pass = Pass::verify(text, self.verifier.as_ref()).map_err(|_| FreeReason::InvalidPass)?;
+        if pass.kind != PassKind::Offline {
+            return Err(FreeReason::InvalidPass);
+        }
+        let last_seen = self.store.load().ok().flatten().and_then(|s| s.last_seen);
+        self.check(text, None, last_seen)
+    }
+
+    fn due_for_renewal(&self) -> Option<String> {
+        let stored = self.store.load().ok().flatten()?;
+        let token = stored.refresh_token?;
+        let pass = Pass::verify(&stored.pass, self.verifier.as_ref()).ok()?;
+        (pass.kind == PassKind::Online && self.clock.now() - pass.issued >= RENEW_AFTER_SECS).then_some(token)
+    }
+
+    fn forget(&self) -> Result<(), LicenceError> {
+        self.store.clear()
     }
 
     fn machine_id(&self) -> Result<MachineId, LicenceError> {
@@ -191,27 +193,16 @@ impl Licensing for Gate {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[allow(clippy::expect_used)]
 mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::date::parse_instant;
+    use crate::pass::tests::{OFFLINE_FILE, PRO_30_DAYS, keys};
 
-    /// Accepts a "signature" equal to the payload reversed, so tests can make keys.
-    struct Mirror;
-    impl SignatureVerifier for Mirror {
-        fn verify(&self, message: &[u8], signature: &[u8]) -> bool {
-            message.iter().rev().eq(signature.iter())
-        }
-    }
-
-    fn key(payload: &str) -> String {
-        use base64::Engine;
-        let e = base64::engine::general_purpose::URL_SAFE_NO_PAD;
-        let sig: Vec<u8> = payload.bytes().rev().collect();
-        format!("{}.{}", e.encode(payload), e.encode(sig))
-    }
+    const ISSUED: i64 = 1_792_108_800;
+    const DAY: i64 = SECS_PER_DAY;
 
     struct Fixed(Result<&'static str, ()>);
     impl MachineIdSource for Fixed {
@@ -222,189 +213,136 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct Mem {
-        value: Arc<Mutex<Option<String>>>,
+        value: Arc<Mutex<Option<StoredPass>>>,
         broken: bool,
     }
     impl Mem {
-        fn with(v: &str) -> Self {
-            Mem { value: Arc::new(Mutex::new(Some(v.into()))), broken: false }
-        }
-        fn get(&self) -> Option<String> {
+        fn get(&self) -> Option<StoredPass> {
             self.value.lock().expect("lock").clone()
         }
-        fn put(&self, v: Option<&str>) -> Result<(), LicenceError> {
+    }
+    impl PassStore for Mem {
+        fn load(&self) -> Result<Option<StoredPass>, LicenceError> {
+            Ok(self.get())
+        }
+        fn save(&self, stored: &StoredPass) -> Result<(), LicenceError> {
             if self.broken {
                 return Err(LicenceError::Storage("read-only".into()));
             }
-            *self.value.lock().expect("lock") = v.map(str::to_string);
+            *self.value.lock().expect("lock") = Some(stored.clone());
+            Ok(())
+        }
+        fn clear(&self) -> Result<(), LicenceError> {
+            *self.value.lock().expect("lock") = None;
             Ok(())
         }
     }
-    impl LicenceStore for Mem {
-        fn load(&self) -> Result<Option<String>, LicenceError> {
-            Ok(self.get())
-        }
-        fn save(&self, key: &str) -> Result<(), LicenceError> {
-            self.put(Some(key))
-        }
-        fn clear(&self) -> Result<(), LicenceError> {
-            self.put(None)
-        }
-    }
-    impl TrialStore for Mem {
-        fn first_launch(&self) -> Result<Option<String>, LicenceError> {
-            Ok(self.get())
-        }
-        fn set_first_launch(&self, value: &str) -> Result<(), LicenceError> {
-            self.put(Some(value))
-        }
-    }
 
-    struct At(i64, CivilDate);
+    struct At(i64);
     impl Clock for At {
-        fn now_ms(&self) -> i64 {
+        fn now(&self) -> i64 {
             self.0
         }
-        fn today(&self) -> CivilDate {
-            self.1
-        }
     }
 
-    const NOW: i64 = 1_792_108_800_000; // 2026-10-16T00:00:00Z
-    const DAY: i64 = 86_400_000;
-
-    fn today() -> CivilDate {
-        CivilDate::from_unix_ms(NOW)
+    fn gate(machine: Result<&'static str, ()>, store: &Mem, now: i64) -> Gate {
+        Gate { machine: Box::new(Fixed(machine)), verifier: Box::new(keys()), store: Box::new(store.clone()), clock: Box::new(At(now)) }
     }
 
-    struct Parts {
-        licence: Mem,
-        legacy_licence: Mem,
-        trial: Mem,
-        legacy_trial: Mem,
-    }
-
-    fn gate(machine: Result<&'static str, ()>, p: &Parts, now: i64) -> Gate {
-        Gate {
-            machine: Box::new(Fixed(machine)),
-            verifier: Box::new(Mirror),
-            licence: Box::new(p.licence.clone()),
-            legacy_licence: Some(Box::new(p.legacy_licence.clone())),
-            trial: Box::new(p.trial.clone()),
-            legacy_trial: Some(Box::new(p.legacy_trial.clone())),
-            clock: Box::new(At(now, CivilDate::from_unix_ms(now))),
-        }
-    }
-
-    fn parts() -> Parts {
-        Parts { licence: Mem::default(), legacy_licence: Mem::default(), trial: Mem::default(), legacy_trial: Mem::default() }
+    fn grant() -> Grant {
+        Grant { pass: PRO_30_DAYS.into(), refresh_token: "rt-1".into() }
     }
 
     #[test]
-    fn first_launch_starts_the_trial_and_saves_it() {
-        let p = parts();
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Trial { days_left: 15 });
-        assert_eq!(p.trial.get().and_then(|t| parse_instant(&t)), Some(NOW));
-        assert_eq!(gate(Ok("PC-1"), &p, NOW + 10 * DAY).startup(), Access::Trial { days_left: 5 });
-        assert_eq!(gate(Ok("PC-1"), &p, NOW + 15 * DAY).startup(), Access::Locked(LockReason::TrialEnded));
-        assert_eq!(gate(Ok("PC-1"), &p, NOW - DAY).startup(), Access::Locked(LockReason::ClockBack));
-    }
-
-    #[test]
-    fn the_trial_works_without_a_machine_id() {
-        let p = parts();
-        assert_eq!(gate(Err(()), &p, NOW).startup(), Access::Trial { days_left: 15 });
-    }
-
-    #[test]
-    fn geoflux_trial_on_the_same_computer_counts() {
-        let p = parts();
-        *p.legacy_trial.value.lock().expect("lock") = Some(format_instant(NOW - 20 * DAY));
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Locked(LockReason::TrialEnded));
-    }
-
-    #[test]
-    fn unsaveable_or_damaged_trial_locks() {
-        let mut p = parts();
-        p.trial.broken = true;
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Locked(LockReason::Storage));
-        let p = Parts { trial: Mem::with("tomorrow"), ..parts() };
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Locked(LockReason::TrialDamaged));
-    }
-
-    #[test]
-    fn a_saved_key_decides() {
-        let good = key(&format!("PC-1|{}", CivilDate::from_unix_ms(NOW + 30 * DAY)));
-        let p = Parts { licence: Mem::with(&good), ..parts() };
-        let access = gate(Ok("pc-1"), &p, NOW).startup();
-        assert_eq!(access, Access::Licensed { days_left: 30 });
+    fn never_signed_in_is_plain_free() {
+        let access = gate(Ok("TEST-MACHINE-ID"), &Mem::default(), ISSUED).startup();
+        assert_eq!(access, Access::Free(FreeReason::NotSignedIn));
         assert!(!access.needs_attention());
-        assert!(gate(Ok("pc-1"), &p, NOW + 25 * DAY).startup().needs_attention());
-        // Past its date: cleared and locked, like GeoFlux.
-        assert_eq!(gate(Ok("PC-1"), &p, NOW + 31 * DAY).startup(), Access::Locked(LockReason::Expired));
-        assert_eq!(p.licence.get(), None);
+        assert!(!access.allows(Feature::Reports));
+        assert_eq!(access.plan(), Plan::Free);
     }
 
     #[test]
-    fn foreign_or_broken_keys_are_cleared() {
-        let foreign = key(&format!("PC-2|{}", today()));
-        let p = Parts { licence: Mem::with(&foreign), ..parts() };
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Locked(LockReason::WrongMachine));
-        assert_eq!(p.licence.get(), None);
-        let p = Parts { licence: Mem::with("SECRET_ADMIN_DEBUG"), ..parts() };
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Locked(LockReason::InvalidKey));
+    fn sign_in_unlocks_and_lasts_thirty_days_offline() {
+        let store = Mem::default();
+        let access = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 60).accept_grant(&grant()).expect("accepted");
+        assert!(access.allows(Feature::Thermal));
+        assert_eq!(access.plan(), Plan::Pro);
+        assert_eq!(store.get().and_then(|s| s.refresh_token).as_deref(), Some("rt-1"));
+        let day_26 = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 26 * DAY).startup();
+        assert!(matches!(day_26, Access::Subscribed { days_left: 4, .. }));
+        assert!(day_26.needs_attention());
+        let day_30 = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 30 * DAY).startup();
+        assert_eq!(day_30, Access::Free(FreeReason::Expired));
+        // Kept, so renewing works as soon as it is online.
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 30 * DAY).due_for_renewal().as_deref(), Some("rt-1"));
     }
 
     #[test]
-    fn an_unreadable_machine_id_keeps_the_key() {
-        let good = key(&format!("PC-1|{}", today()));
-        let p = Parts { licence: Mem::with(&good), ..parts() };
-        assert_eq!(gate(Err(()), &p, NOW).startup(), Access::Locked(LockReason::NoMachineId));
-        assert_eq!(p.licence.get(), Some(good.clone()));
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Licensed { days_left: 0 });
+    fn renewal_is_due_after_a_day() {
+        let store = Mem::default();
+        let _ = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).accept_grant(&grant());
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 60).due_for_renewal(), None);
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + DAY).due_for_renewal().as_deref(), Some("rt-1"));
     }
 
     #[test]
-    fn a_geoflux_key_carries_over_once_it_checks_out() {
-        let good = key(&format!("PC-1|{}", today()));
-        let p = Parts { legacy_licence: Mem::with(&format!("{good}\n")), ..parts() };
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Licensed { days_left: 0 });
-        assert_eq!(p.licence.get(), Some(good));
-        // An expired GeoFlux key is ignored, not cleared; the trial decides.
-        let old = key(&format!("PC-1|{}", CivilDate::from_unix_ms(NOW - DAY)));
-        let p = Parts { legacy_licence: Mem::with(&old), ..parts() };
-        assert_eq!(gate(Ok("PC-1"), &p, NOW).startup(), Access::Trial { days_left: 15 });
-        assert_eq!(p.legacy_licence.get(), Some(old));
+    fn moving_the_clock_back_is_caught_between_runs() {
+        let store = Mem::default();
+        let _ = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).accept_grant(&grant());
+        assert!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 20 * DAY).startup().allows(Feature::Markup));
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 3 * DAY).startup(), Access::Free(FreeReason::ClockBack));
     }
 
     #[test]
-    fn activation_checks_then_saves() {
-        let p = parts();
-        let g = gate(Ok("PC-1"), &p, NOW);
-        assert_eq!(g.activate("SECRET_ADMIN_DEBUG"), Err(LockReason::InvalidKey));
-        assert_eq!(g.activate(&key(&format!("PC-2|{}", today()))), Err(LockReason::WrongMachine));
-        assert_eq!(g.activate(&key(&format!("PC-1|{}", CivilDate::from_unix_ms(NOW - DAY)))), Err(LockReason::Expired));
-        assert_eq!(p.licence.get(), None);
-        let good = key(&format!("PC-1|{}", CivilDate::from_unix_ms(NOW + 100 * DAY)));
-        assert_eq!(g.activate(&format!(" {good} ")), Ok(Access::Licensed { days_left: 100 }));
-        assert_eq!(p.licence.get(), Some(good));
-        let mut q = parts();
-        q.licence.broken = true;
-        assert_eq!(gate(Ok("PC-1"), &q, NOW).activate(&key(&format!("PC-1|{}", today()))), Err(LockReason::Storage));
-        assert_eq!(gate(Err(()), &q, NOW).activate("x.y"), Err(LockReason::NoMachineId));
+    fn other_computers_and_damage_clear_the_pass() {
+        let store = Mem::default();
+        let _ = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).accept_grant(&grant());
+        assert_eq!(gate(Ok("OTHER-PC"), &store, ISSUED).startup(), Access::Free(FreeReason::WrongMachine));
+        assert_eq!(store.get(), None);
+        let store = Mem {
+            value: Arc::new(Mutex::new(Some(StoredPass { pass: "SECRET_ADMIN_DEBUG".into(), ..StoredPass::default() }))),
+            broken: false,
+        };
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).startup(), Access::Free(FreeReason::InvalidPass));
+        assert_eq!(store.get(), None);
+    }
+
+    #[test]
+    fn an_unreadable_machine_id_keeps_the_pass() {
+        let store = Mem::default();
+        let _ = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).accept_grant(&grant());
+        assert_eq!(gate(Err(()), &store, ISSUED).startup(), Access::Free(FreeReason::NoMachineId));
+        assert!(store.get().is_some());
+    }
+
+    #[test]
+    fn offline_files_for_sites_without_internet() {
+        let store = Mem::default();
+        let g = gate(Ok("TEST-MACHINE-ID"), &store, ISSUED + 100 * DAY);
+        assert_eq!(g.accept_offline_pass(PRO_30_DAYS), Err(FreeReason::InvalidPass));
+        let access = g.accept_offline_pass(OFFLINE_FILE).expect("accepted");
+        assert_eq!(access.plan(), Plan::Organisation);
+        assert_eq!(store.get().and_then(|s| s.refresh_token), None);
+        assert_eq!(g.due_for_renewal(), None);
+    }
+
+    #[test]
+    fn unsaveable_sign_in_is_refused() {
+        let store = Mem { broken: true, ..Mem::default() };
+        assert_eq!(gate(Ok("TEST-MACHINE-ID"), &store, ISSUED).accept_grant(&grant()), Err(FreeReason::Storage));
     }
 
     #[test]
     fn every_reason_has_a_message() {
         for r in [
-            LockReason::TrialEnded,
-            LockReason::Expired,
-            LockReason::WrongMachine,
-            LockReason::InvalidKey,
-            LockReason::NoMachineId,
-            LockReason::ClockBack,
-            LockReason::TrialDamaged,
-            LockReason::Storage,
+            FreeReason::NotSignedIn,
+            FreeReason::Expired,
+            FreeReason::WrongMachine,
+            FreeReason::InvalidPass,
+            FreeReason::ClockBack,
+            FreeReason::NoMachineId,
+            FreeReason::Storage,
         ] {
             assert!(r.message().ends_with('.'));
         }
