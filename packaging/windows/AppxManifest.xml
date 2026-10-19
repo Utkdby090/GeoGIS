@@ -9,7 +9,7 @@
   IgnorableNamespaces="uap uap3 desktop rescap">
   <Identity Name="@NAME@" Publisher="@PUBLISHER@" Version="@VERSION@" ProcessorArchitecture="@ARCH@" />
   <Properties>
-    <DisplayName>RustGIS</DisplayName>
+    <DisplayName>GeoGIS</DisplayName>
     <PublisherDisplayName>@PUBLISHER_DISPLAY_NAME@</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -20,14 +20,14 @@
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Applications>
-    <Application Id="RustGIS" Executable="rustgis.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="RustGIS" Description="Fast, open-source GIS for mapping, analyzing and sharing geospatial data"
+    <Application Id="GeoGIS" Executable="geogis.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="GeoGIS" Description="Desktop GIS for power-line inspection"
         BackgroundColor="transparent" Square44x44Logo="Assets\Square44x44Logo.png"
         Square150x150Logo="Assets\Square150x150Logo.png" />
       <Extensions>
         <uap:Extension Category="windows.fileTypeAssociation">
           <uap:FileTypeAssociation Name="rgis">
-            <uap:DisplayName>RustGIS project</uap:DisplayName>
+            <uap:DisplayName>GeoGIS project</uap:DisplayName>
             <uap:SupportedFileTypes>
               <uap:FileType>.rgis</uap:FileType>
               <uap:FileType>.rgisx</uap:FileType>
@@ -45,8 +45,8 @@
       </Extensions>
     </Application>
     <!-- The command line tool: no Start menu entry, run as `rustgis-cli` from any terminal. -->
-    <Application Id="RustGISCli" Executable="rustgis-cli.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="RustGIS command line" Description="RustGIS command line tool"
+    <Application Id="GeoGISCli" Executable="rustgis-cli.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="GeoGIS command line" Description="GeoGIS command line tool (rustgis-cli)"
         BackgroundColor="transparent" Square44x44Logo="Assets\Square44x44Logo.png"
         Square150x150Logo="Assets\Square150x150Logo.png" AppListEntry="none" />
       <Extensions>

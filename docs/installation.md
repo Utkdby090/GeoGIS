@@ -2,78 +2,49 @@
 
 ## Download
 
-Each [GitHub release](https://github.com/opengeos/RustGIS/releases/latest) carries ready-to-run
-builds of the desktop app and `rustgis-cli`. The same files, grouped by platform, are mirrored at
-**[downloads.rustgis.app](https://downloads.rustgis.app)**:
+Each [GitHub release](https://github.com/Utkdby090/GeoGIS/releases/latest) carries the Windows
+downloads. macOS and Linux builds will follow.
 
-| Platform | File |
+| File | What it is |
 | --- | --- |
-| Windows x64 (installer, no admin rights) | `RustGIS-<version>-windows-x86_64-setup.exe` |
-| Windows x64 (installer for all users) | `RustGIS-<version>-windows-x86_64.msi` |
-| Windows x64 (no install) | `RustGIS-<version>-windows-x86_64-portable.zip` (unzip and run `rustgis.exe`) |
-| Windows x64 (Microsoft Store package) | `RustGIS-<version>-windows-x86_64.msix` |
-| macOS Apple Silicon | `RustGIS-<version>-macos-aarch64.dmg` |
-| macOS Intel | `RustGIS-<version>-macos-x86_64.dmg` |
-| Linux x64 / arm64 (Debian, Ubuntu) | `rustgis_<version>_amd64.deb` / `rustgis_<version>_arm64.deb` |
-| Linux x64 / arm64 (Fedora, RHEL, openSUSE) | `rustgis-<version>-1.x86_64.rpm` / `rustgis-<version>-1.aarch64.rpm` |
-| Linux x64 / arm64 (any distribution, no install) | `RustGIS-<version>-linux-x86_64.AppImage` / `RustGIS-<version>-linux-aarch64.AppImage` |
-| Linux x64 / arm64 (other) | `RustGIS-<version>-linux-x86_64.tar.gz` / `RustGIS-<version>-linux-aarch64.tar.gz` |
+| `GeoGIS-<version>-windows-x86_64-setup.exe` | Installer for your account, no admin rights |
+| `GeoGIS-<version>-windows-x86_64.msi` | Installer for all users, for IT departments |
+| `GeoGIS-<version>-windows-x86_64-portable.zip` | No install: unzip and run `geogis.exe` |
+| `GeoGIS-DJI-Pack-<version>-windows-x86_64.zip` | Adds DJI thermal photos (see below) |
 
-On macOS the command line tool is a separate `rustgis-cli-<version>-macos-<arch>.tar.gz`;
-the other packages include it (the Windows installers and the MSIX add `rustgis-cli` to every
-new terminal). `SHA256SUMS` lists the checksum of every file.
+`setup.exe` installs in `%LOCALAPPDATA%\Programs\GeoGIS` and needs no admin rights; the `.msi`
+installs for every user in `C:\Program Files\GeoGIS` and suits managed deployment
+(`msiexec /i GeoGIS-<version>-windows-x86_64.msi /qn`). Both add a Start menu entry, put
+`rustgis-cli` on the PATH, open `.rgis` projects and uninstall from **Settings › Apps**. GeoGIS
+installs beside RustGIS without affecting it. `SHA256SUMS` lists the checksum of every file.
 
-On Windows, `setup.exe` installs for your account in `%LOCALAPPDATA%\Programs\RustGIS` and needs
-no admin rights; the `.msi` installs for every user in `Program Files` and suits managed
-deployment (`msiexec /i RustGIS-<version>-windows-x86_64.msi /qn`). Both add a Start menu
-entry, open `.rgis` projects and uninstall from **Settings › Apps**.
+The Windows builds are not signed yet: choose **More info › Run anyway** if SmartScreen warns
+about an unknown publisher.
 
-The `.msix` is the package submitted to the Microsoft Store, which signs it. It is unsigned
-on the release page, so Windows only installs it from the Store; download an installer or the
-portable zip instead.
+### DJI thermal photos
 
-The macOS DMG and command line tool are signed with a Developer ID and notarized by Apple, so
-they open without a warning. From the release after 0.1.0, the notarization ticket is also
-stapled to RustGIS.app, so it opens even when the Mac cannot reach Apple's servers. If macOS
-says Apple could not verify RustGIS 0.1.0, connect to the internet and open it again, or run
-`xattr -dr com.apple.quarantine /Applications/RustGIS.app`. The Windows builds are not yet
-signed: choose **More info › Run anyway** if SmartScreen warns about an unknown publisher.
+FLIR thermal photos work straight away. DJI thermal photos need the DJI pack and DJI's own
+Thermal SDK, which DJI's licence keeps us from including:
 
-## Package managers
-
-RustGIS is also published to these package managers, which keep it up to date:
-
-| Platform | Command |
-| --- | --- |
-| Windows ([winget](https://learn.microsoft.com/windows/package-manager/)) | `winget install OpenGeos.RustGIS` |
-| macOS ([Homebrew](https://brew.sh)) | `brew install --cask opengeos/rustgis/rustgis` |
-| macOS and Linux, command line tool only (Homebrew) | `brew install opengeos/rustgis/rustgis-cli` |
-| Arch Linux ([AUR](https://aur.archlinux.org/packages/rustgis-bin)) | `yay -S rustgis-bin` (or any AUR helper) |
-| Fedora ([COPR](https://copr.fedorainfracloud.org/coprs/giswqs/rustgis/)) | `sudo dnf copr enable giswqs/rustgis && sudo dnf install rustgis` |
-
-winget installs for your account with the setup.exe; add `--scope machine` for the `.msi`. On
-Homebrew 5.1 and later, run `brew trust opengeos/rustgis` once before installing from the tap.
-Each package is the same build as the release page, and a new release reaches the package
-managers shortly after it is published (winget after Microsoft's review).
+1. Unzip the DJI pack into the GeoGIS folder, so that `geoflux-dirp.exe` sits next to
+   `geogis.exe`.
+2. Download the DJI Thermal SDK for Windows from DJI and copy every file from its
+   `tsdk-core\lib\windows\release_x64` folder directly into the pack's `dji-sdk` folder.
+3. Restart GeoGIS.
 
 ## From source
 
-RustGIS builds from source with a recent stable Rust toolchain (1.90 or later).
+GeoGIS builds from source with a recent stable Rust toolchain (1.90 or later).
 
 ```sh
-git clone https://github.com/opengeos/RustGIS.git
-cd RustGIS
-cargo run --release -p rustgis            # the desktop app
+git clone https://github.com/Utkdby090/GeoGIS.git
+cd GeoGIS
+cargo run --release -p rustgis            # the desktop app (geogis)
 cargo build --release -p rustgis-cli      # the command line tool
+cargo build --release -p geoflux-dirp     # the DJI thermal helper
 ```
 
-The build downloads the Natural Earth sample data (a few hundred KB) from
-[rustgis-assets](https://github.com/opengeos/rustgis-assets). To build offline, download the
-four files from `https://assets.rustgis.app/data/` once and point the build at them:
-
-```sh
-RUSTGIS_DATA_DIR=/path/to/data cargo build --release
-```
+The Natural Earth sample data is in the repository, so the build works offline.
 
 ## Platforms
 

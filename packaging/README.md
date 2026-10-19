@@ -1,55 +1,57 @@
 # Packaging
 
-`package.sh` builds the release files for one platform (see its header); the Release workflow
-runs it on every platform and attaches the files to the GitHub Release. `downloads/` is the
-[downloads.rustgis.app](https://downloads.rustgis.app) site.
+`package.sh` builds the release files for one platform (see its header). The Release workflow
+(`.github/workflows/release.yml`) runs it on Windows when a version tag is pushed and attaches
+the files to a draft GitHub Release. macOS and Linux builds come later; `package.sh` already
+handles both.
 
-## Package managers
+## Making a release
 
-After each release build, `.github/workflows/package-managers.yml` publishes the release to four
-package managers. Each one repackages the release's own files (nothing is rebuilt), takes its
-checksums from the release's `SHA256SUMS`, runs as its own job and skips itself when its secret
-is missing. Pre-releases are not published. To republish a release, run the workflow by hand
-with its tag.
+1. Set `version` in `[workspace.package]` in the root `Cargo.toml` (for example `0.3.0`) and
+   merge that into `main`.
+2. Tag that commit and push the tag: `git tag v0.3.0 && git push origin v0.3.0`. The tag must
+   match the version, or the workflow stops. A tag with a hyphen (`v0.3.0-rc.1`) makes a
+   pre-release.
+3. When the workflow finishes, open the draft on the Releases page, check it and publish it.
+   Only a published release reaches the in-app update check.
 
-| Channel | Package | Install | Secret |
-| --- | --- | --- | --- |
-| Homebrew tap [opengeos/homebrew-rustgis](https://github.com/opengeos/homebrew-rustgis) | cask `rustgis` (the DMGs), formula `rustgis-cli` (macOS and Linux) | `brew install --cask opengeos/rustgis/rustgis` | `HOMEBREW_TAP_DEPLOY_KEY` |
-| [AUR](https://aur.archlinux.org/packages/rustgis-bin) | `rustgis-bin` (the .deb files, x86_64 and aarch64) | `yay -S rustgis-bin` | `AUR_SSH_PRIVATE_KEY` |
-| [Fedora COPR](https://copr.fedorainfracloud.org/coprs/giswqs/rustgis/) | `rustgis` (the .rpm files plus AppStream metainfo) | `sudo dnf copr enable giswqs/rustgis && sudo dnf install rustgis` | `COPR_CONFIG` |
-| [winget](https://github.com/microsoft/winget-pkgs/tree/master/manifests/o/OpenGeos/RustGIS) | `OpenGeos.RustGIS` (setup.exe per user, .msi per machine) | `winget install OpenGeos.RustGIS` | `WINGET_TOKEN` |
+To try a build without a release, run the Release workflow by hand (Actions › Release › Run
+workflow): the files are kept as a workflow artifact.
 
-Each folder has the script that writes the package for a version:
+## What a release holds (Windows)
 
-- `homebrew/render.sh <version> <SHA256SUMS> <tap folder>` writes `Casks/rustgis.rb` and
-  `Formula/rustgis-cli.rb`.
-- `aur/render.sh <version> <SHA256SUMS> > PKGBUILD`.
-- `copr/render.sh <version> <date> <folder>` writes `rustgis.spec` and
-  `org.rustgis.RustGIS.metainfo.xml`. Build the source RPM with both release `.rpm` files in
-  the same folder.
-- `winget/` holds reference copies of the manifests; winget-releaser writes each new version
-  from the previous one in winget-pkgs.
+| File | What it is |
+| --- | --- |
+| `GeoGIS-<version>-windows-x86_64-setup.exe` | Installs for the current user, no admin rights, in `%LOCALAPPDATA%\Programs\GeoGIS` |
+| `GeoGIS-<version>-windows-x86_64.msi` | Installs for all users in `C:\Program Files\GeoGIS` (for IT departments) |
+| `GeoGIS-<version>-windows-x86_64-portable.zip` | Unzip and run, nothing installed |
+| `GeoGIS-DJI-Pack-<version>-windows-x86_64.zip` | The `geoflux-dirp` helper and an empty `dji-sdk` folder, unzipped next to `geogis.exe` |
+| `SHA256SUMS` | Checksums of the files above |
 
-### Trying a package locally
+Both installers add a Start menu entry, put `rustgis-cli` on the PATH, open `.rgis`/`.rgisx`
+projects in GeoGIS and list GeoGIS under Open with for `.geojson`. Their Windows identities
+(the WiX `UpgradeCode`, the `Software\GeoGIS` registry key and the `GeoGIS.Project` file type)
+are GeoGIS's own, so installing or removing GeoGIS never touches an installed RustGIS. Never
+change the `UpgradeCode` in `windows/geogis.wxs`: Windows uses it to replace an older GeoGIS
+with a newer one.
 
-```sh
-gh release download v0.1.0 -R opengeos/RustGIS -p SHA256SUMS
-packaging/aur/render.sh 0.1.0 SHA256SUMS > /tmp/aur/PKGBUILD && (cd /tmp/aur && makepkg -si)
-packaging/copr/render.sh 0.1.0 2026-10-12 /tmp/copr     # then rpmbuild -bs in Fedora
-packaging/homebrew/render.sh 0.1.0 SHA256SUMS /tmp/tap && brew style /tmp/tap/Casks/rustgis.rb
-```
+The DJI pack holds no DJI library. DJI's licence keeps their Thermal SDK out of what we publish,
+so each customer downloads it from DJI and copies its `tsdk-core\lib\windows\release_x64` files
+into `dji-sdk` (the pack's README says how).
 
-### Accounts and secrets
+Every package carries `LICENSE` and `NOTICE`, which Apache-2.0 requires for the RustGIS code.
 
-- **Homebrew**: the tap repository has a write deploy key; its private half is
-  `HOMEBREW_TAP_DEPLOY_KEY`. Taps need `brew trust opengeos/rustgis` once on Homebrew 5.1 and
-  later. The official homebrew/cask repository can take the cask once the repository meets
-  Homebrew's notability rules (75 stars, 30 days old).
-- **AUR**: the maintainer account (giswqs) lists the public half of `AUR_SSH_PRIVATE_KEY` under
-  *My Account › SSH Public Key*.
-- **COPR**: the project `giswqs/rustgis` builds for the Fedora x86_64 and aarch64 chroots.
-  `COPR_CONFIG` is the whole block from <https://copr.fedorainfracloud.org/api/>; the token
-  expires after 180 days, so renew the secret when the COPR job fails to authenticate.
-- **winget**: `WINGET_TOKEN` is a classic token with the `public_repo` scope for the account
-  owning the `winget-pkgs` fork (giswqs/winget-pkgs). The first version (0.1.0) was submitted
-  by hand with `komac submit packaging/winget`.
+## Settings
+
+| Variable | Default | Used for |
+| --- | --- | --- |
+| `PUBLISHER` (repository variable `GEOGIS_PUBLISHER` in the workflow) | `GeoFlux` | The company shown by the installers and in Apps & features |
+| `MAINTAINER` | `<publisher> <issues page>` | The Debian package maintainer |
+| `MSIX_PUBLISHER`, `MSIX_NAME`, `MSIX_PUBLISHER_DISPLAY_NAME` | none, `GeoFlux.GeoGIS`, the publisher | An `.msix` for the Microsoft Store, built only when `MSIX_PUBLISHER` is set to the identity reserved in Partner Center |
+| `MACOS_SIGN_IDENTITY`, `APPLE_API_KEY_PATH`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | none | Signing and notarizing the macOS app |
+
+## Code signing
+
+The Windows files are not signed yet, so Windows SmartScreen warns the first time someone runs
+the installer ("Windows protected your PC", then More info › Run anyway). A code-signing
+certificate removes that warning; signing is added to the workflow once there is one.

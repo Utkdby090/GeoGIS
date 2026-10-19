@@ -160,7 +160,7 @@ impl eframe::App for App {
 fn main() -> eframe::Result {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("rustgis {}", env!("CARGO_PKG_VERSION"));
+        println!("geogis {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     // What an earlier session left, before this one can write a new log.
@@ -202,7 +202,7 @@ fn main() -> eframe::Result {
     app.session.dirty = false;
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("GeoGIS")
-        .with_app_id("org.rustgis.RustGIS")
+        .with_app_id("com.geoflux.GeoGIS")
         .with_inner_size([1480.0, 920.0])
         .with_min_inner_size([900.0, 560.0])
         .with_drag_and_drop(true);

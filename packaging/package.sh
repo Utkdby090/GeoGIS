@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Packages release builds of rustgis and rustgis-cli for one target into dist/.
+# Packages release builds of GeoGIS (geogis) and rustgis-cli for one target into dist/.
 #
 #   packaging/package.sh <version> [rust-target]
 #
 # Linux: a .tar.gz, a .deb, an .rpm (when rpmbuild is installed) and an AppImage.
-# macOS: a .dmg holding RustGIS.app, plus a .tar.gz of the CLI
+# macOS: a .dmg holding GeoGIS.app, plus a .tar.gz of the CLI
 # (signed and notarized when the MACOS_SIGN_IDENTITY / APPLE_API_* variables are set).
-# Windows (Git Bash): a portable .zip, an NSIS setup.exe (per user), a WiX .msi (all users) and
-# an .msix for the Microsoft Store. The installers need makensis and the wix .NET tool with the
-# WixToolset.UI.wixext extension (`wix extension add -g WixToolset.UI.wixext/<wix version>`).
-# Build first with `cargo build --release --locked -p rustgis -p rustgis-cli [--target T]`.
+# Windows (Git Bash): a portable .zip, an NSIS setup.exe (per user), a WiX .msi (all users), the
+# DJI pack (GeoGIS-DJI-Pack-*.zip: the geoflux-dirp helper and an empty dji-sdk folder, since
+# DJI's licence keeps their libraries out of what is published) and, when MSIX_PUBLISHER names
+# a Microsoft Store identity, an .msix. The installers need makensis and the wix .NET tool with
+# the WixToolset.UI.wixext extension (`wix extension add -g WixToolset.UI.wixext/<wix version>`).
+# Build first with
+# `cargo build --release --locked -p rustgis -p rustgis-cli -p geoflux-dirp [--target T]`.
+#
+# PUBLISHER (default GeoFlux) is the company shown by the installers and in Apps & features.
 set -euo pipefail
 
 version="${1:?usage: package.sh <version> [rust-target]}"
@@ -36,41 +41,43 @@ case "$arch" in
 esac
 exe=""
 [ "$os" = windows ] && exe=".exe"
-for b in rustgis rustgis-cli; do
+for b in geogis rustgis-cli; do
   [ -f "$bin/$b$exe" ] || { echo "missing $bin/$b$exe: build it first" >&2; exit 1; }
 done
 logo() { "$bin/rustgis-cli$exe" logo "$1" --size "$2"; }
-name="RustGIS-$version-$os-$arch"
+name="GeoGIS-$version-$os-$arch"
+publisher="${PUBLISHER:-GeoFlux}"
 
 case "$os" in
   linux)
     # Portable tarball.
     d="$work/$name"
     mkdir -p "$d"
-    cp "$bin/rustgis" "$bin/rustgis-cli" "$root/LICENSE" "$root/README.md" \
-      "$root/packaging/linux/rustgis.desktop" "$root/packaging/linux/rustgis-mime.xml" "$d/"
-    logo "$d/rustgis.png" 512
+    cp "$bin/geogis" "$bin/rustgis-cli" "$root/LICENSE" "$root/NOTICE" "$root/README.md" \
+      "$root/packaging/linux/geogis.desktop" "$root/packaging/linux/geogis-mime.xml" "$d/"
+    logo "$d/geogis.png" 512
     tar -C "$work" -czf "$dist/$name.tar.gz" "$name"
 
     # Debian package.
     case "$arch" in x86_64) debarch=amd64 ;; aarch64) debarch=arm64 ;; *) debarch="$arch" ;; esac
     p="$work/deb"
-    install -Dm755 "$bin/rustgis" "$p/usr/bin/rustgis"
+    install -Dm755 "$bin/geogis" "$p/usr/bin/geogis"
     install -Dm755 "$bin/rustgis-cli" "$p/usr/bin/rustgis-cli"
-    install -Dm644 "$root/packaging/linux/rustgis.desktop" "$p/usr/share/applications/rustgis.desktop"
-    install -Dm644 "$root/packaging/linux/rustgis-mime.xml" "$p/usr/share/mime/packages/rustgis.xml"
+    install -Dm644 "$root/packaging/linux/geogis.desktop" "$p/usr/share/applications/geogis.desktop"
+    install -Dm644 "$root/packaging/linux/geogis-mime.xml" "$p/usr/share/mime/packages/geogis.xml"
     for s in 32 64 128 256 512; do
       mkdir -p "$p/usr/share/icons/hicolor/${s}x${s}/apps"
-      logo "$p/usr/share/icons/hicolor/${s}x${s}/apps/rustgis.png" "$s"
+      logo "$p/usr/share/icons/hicolor/${s}x${s}/apps/geogis.png" "$s"
     done
-    install -Dm644 "$root/LICENSE" "$p/usr/share/doc/rustgis/copyright"
+    install -Dm644 "$root/LICENSE" "$p/usr/share/doc/geogis/copyright"
+    install -Dm644 "$root/NOTICE" "$p/usr/share/doc/geogis/NOTICE"
     mkdir -p "$p/DEBIAN"
     # Libraries the binaries link against, worked out by dpkg-shlibdeps (it wants a
     # debian/control in the working directory). The windowing and GPU libraries are loaded at
     # run time, so they are listed by hand below.
     mkdir -p "$work/shlibs/debian"
-    printf 'Source: rustgis\n\nPackage: rustgis\nArchitecture: any\n' > "$work/shlibs/debian/control"
-    shlibs="$(cd "$work/shlibs" && dpkg-shlibdeps -O "$p/usr/bin/rustgis" "$p/usr/bin/rustgis-cli" | sed -n 's/^shlibs:Depends=//p')" || shlibs=""
+    printf 'Source: geogis\n\nPackage: geogis\nArchitecture: any\n' > "$work/shlibs/debian/control"
+    shlibs="$(cd "$work/shlibs" && dpkg-shlibdeps -O "$p/usr/bin/geogis" "$p/usr/bin/rustgis-cli" | sed -n 's/^shlibs:Depends=//p')" || shlibs=""
     if [ -z "$shlibs" ]; then
       # Off Debian/Ubuntu there is no dpkg database to consult. In CI that is an error: the
       # published package must carry the real list.
@@ -84,21 +91,22 @@ case "$os" in
     # here: older bash keeps the backslash of ${version/-/\~} inside a here-document.
     pkgver="$(printf '%s' "$version" | tr - '~')"
     cat > "$p/DEBIAN/control" <<CONTROL
-Package: rustgis
+Package: geogis
 Version: $pkgver
 Section: science
 Priority: optional
 Architecture: $debarch
-Maintainer: Qiusheng Wu <giswqs@gmail.com>
-Homepage: https://rustgis.app
+Maintainer: ${MAINTAINER:-$publisher <https://github.com/Utkdby090/GeoGIS/issues>}
+Homepage: https://github.com/Utkdby090/GeoGIS
 Installed-Size: $(du -sk "$p/usr" | cut -f1)
 Depends: ${shlibs:-libc6, libgcc-s1}, libxkbcommon0, libwayland-client0 | libx11-6
 Recommends: libxkbcommon-x11-0, libxcursor1, libxi6, libxrandr2, libvulkan1 | libegl1
-Description: Fast, open-source GIS for mapping, analyzing and sharing geospatial data
- Maps and layers, symbology, labeling, selection, editing, geoprocessing and
- export. Includes rustgis-cli for scripting every command.
+Description: Desktop GIS for power-line inspection
+ Links each tower to its inspection photos, reads FLIR and DJI thermal images
+ and writes inspection reports, with maps and layers, symbology, editing,
+ geoprocessing and export. Includes rustgis-cli for scripting every command.
 CONTROL
-    dpkg-deb --root-owner-group --build "$p" "$dist/rustgis_${version}_${debarch}.deb"
+    dpkg-deb --root-owner-group --build "$p" "$dist/geogis_${version}_${debarch}.deb"
 
     # RPM package (Fedora, RHEL, openSUSE) from the same tree. Library dependencies are found
     # by rpmbuild; the run-time loaded windowing and GPU libraries are listed by soname, which
@@ -106,15 +114,15 @@ CONTROL
     if command -v rpmbuild > /dev/null; then
       r="$work/rpm"
       mkdir -p "$r/SPECS"
-      cat > "$r/SPECS/rustgis.spec" <<SPEC
+      cat > "$r/SPECS/geogis.spec" <<SPEC
 %global debug_package %{nil}
 %global __os_install_post %{nil}
-Name: rustgis
+Name: geogis
 Version: $pkgver
 Release: 1
-Summary: Fast, open-source GIS for mapping, analyzing and sharing geospatial data
+Summary: Desktop GIS for power-line inspection
 License: Apache-2.0
-URL: https://rustgis.app
+URL: https://github.com/Utkdby090/GeoGIS
 Requires: libxkbcommon.so.0()(64bit)
 Requires: (libwayland-client.so.0()(64bit) or libX11.so.6()(64bit))
 Recommends: libxkbcommon-x11.so.0()(64bit)
@@ -124,25 +132,27 @@ Recommends: libXrandr.so.2()(64bit)
 Recommends: (libvulkan.so.1()(64bit) or libEGL.so.1()(64bit))
 
 %description
-Maps and layers, symbology, labeling, selection, editing, geoprocessing and
-export. Includes rustgis-cli for scripting every command.
+Links each tower to its inspection photos, reads FLIR and DJI thermal images
+and writes inspection reports, with maps and layers, symbology, editing,
+geoprocessing and export. Includes rustgis-cli for scripting every command.
 
 %install
 mkdir -p %{buildroot}
 cp -a "$p/usr" %{buildroot}/
 
 %files
-/usr/bin/rustgis
+/usr/bin/geogis
 /usr/bin/rustgis-cli
-/usr/share/applications/rustgis.desktop
-/usr/share/mime/packages/rustgis.xml
-/usr/share/icons/hicolor/*/apps/rustgis.png
-%license /usr/share/doc/rustgis/copyright
+/usr/share/applications/geogis.desktop
+/usr/share/mime/packages/geogis.xml
+/usr/share/icons/hicolor/*/apps/geogis.png
+%license /usr/share/doc/geogis/copyright
+%license /usr/share/doc/geogis/NOTICE
 SPEC
-      rpmbuild --quiet -bb --target "$arch" --define "_topdir $r" "$r/SPECS/rustgis.spec"
+      rpmbuild --quiet -bb --target "$arch" --define "_topdir $r" "$r/SPECS/geogis.spec"
       # The file is named after $version (0.2.0-rc.1), like the other assets: GitHub rewrites
       # the ~ of the package version in release asset names.
-      cp "$r"/RPMS/*/rustgis-*.rpm "$dist/rustgis-$version-1.$arch.rpm"
+      cp "$r"/RPMS/*/geogis-*.rpm "$dist/geogis-$version-1.$arch.rpm"
     elif [ -n "${CI:-}" ]; then
       echo "rpmbuild not found" >&2
       exit 1
@@ -173,30 +183,31 @@ SPEC
       fetch "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$arch" \
         "$runtime_sha" "$t/runtime"
       chmod +x "$t/appimagetool"
-      a="$work/RustGIS.AppDir"
+      a="$work/GeoGIS.AppDir"
       mkdir -p "$a"
       cp -a "$p/usr" "$a/"
-      cp "$root/packaging/linux/rustgis.desktop" "$a/"
-      logo "$a/rustgis.png" 256
-      ln -s usr/bin/rustgis "$a/AppRun"
+      cp "$root/packaging/linux/geogis.desktop" "$a/"
+      logo "$a/geogis.png" 256
+      ln -s usr/bin/geogis "$a/AppRun"
       ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$t/appimagetool" --no-appstream --runtime-file "$t/runtime" \
         "$a" "$dist/$name.AppImage"
     fi
     ;;
 
   macos)
-    app="$work/RustGIS.app"
+    app="$work/GeoGIS.app"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    cp "$bin/rustgis" "$app/Contents/MacOS/rustgis"
+    cp "$bin/geogis" "$app/Contents/MacOS/geogis"
+    cp "$root/LICENSE" "$root/NOTICE" "$app/Contents/Resources/"
     # Bundle versions must be dot-separated numbers: drop a pre-release suffix (0.2.0-rc.1).
     sed "s/@VERSION@/${version%%-*}/g" "$root/packaging/macos/Info.plist" > "$app/Contents/Info.plist"
-    iconset="$work/rustgis.iconset"
+    iconset="$work/geogis.iconset"
     mkdir -p "$iconset"
     for s in 16 32 128 256 512; do
       logo "$iconset/icon_${s}x${s}.png" "$s"
       logo "$iconset/icon_${s}x${s}@2x.png" "$((s * 2))"
     done
-    iconutil -c icns "$iconset" -o "$app/Contents/Resources/rustgis.icns"
+    iconutil -c icns "$iconset" -o "$app/Contents/Resources/geogis.icns"
     # Signing: with MACOS_SIGN_IDENTITY (a Developer ID Application identity in the keychain)
     # the app and CLI get a hardened-runtime signature; without it, an ad-hoc one, which
     # Apple Silicon needs to launch anything. With APPLE_API_KEY_PATH, APPLE_API_KEY_ID and
@@ -221,8 +232,8 @@ SPEC
     # reaches Apple's servers at first launch (#89). Stapling adds a file outside the signed
     # contents, so the signature stays valid.
     if [ -n "$identity" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
-      ditto -c -k --keepParent "$app" "$work/RustGIS.app.zip"
-      notarize "$work/RustGIS.app.zip"
+      ditto -c -k --keepParent "$app" "$work/GeoGIS.app.zip"
+      notarize "$work/GeoGIS.app.zip"
       xcrun stapler staple "$app"
     fi
 
@@ -230,7 +241,7 @@ SPEC
     mkdir -p "$stage"
     cp -R "$app" "$stage/"
     ln -s /Applications "$stage/Applications"
-    hdiutil create -volname "RustGIS $version" -srcfolder "$stage" -ov -format UDZO "$dist/$name.dmg"
+    hdiutil create -volname "GeoGIS $version" -srcfolder "$stage" -ov -format UDZO "$dist/$name.dmg"
     if [ -n "$identity" ]; then
       sign "$dist/$name.dmg"
       if notarize "$dist/$name.dmg" && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
@@ -240,7 +251,7 @@ SPEC
 
     d="$work/rustgis-cli-$version-$os-$arch"
     mkdir -p "$d"
-    cp "$bin/rustgis-cli" "$root/LICENSE" "$d/"
+    cp "$bin/rustgis-cli" "$root/LICENSE" "$root/NOTICE" "$d/"
     sign "$d/rustgis-cli"
     # A bare executable cannot be stapled: notarizing it registers the ticket that Gatekeeper
     # looks up online.
@@ -255,18 +266,39 @@ SPEC
     # Portable zip: unzip anywhere and run, no installer or admin rights.
     d="$work/$name"
     mkdir -p "$d"
-    cp "$bin/rustgis.exe" "$bin/rustgis-cli.exe" "$root/LICENSE" "$root/README.md" "$d/"
+    cp "$bin/geogis.exe" "$bin/rustgis-cli.exe" "$root/LICENSE" "$root/NOTICE" "$root/README.md" "$d/"
     sed "s/@VERSION@/$version/g" "$root/packaging/windows/README-portable.txt" > "$d/README.txt"
     (cd "$work" && 7z a -tzip -bso0 "$dist/$name-portable.zip" "$name")
 
-    # Installers, as GeoLibre ships: setup.exe (NSIS) installs for the current user without admin
-    # rights, the .msi (WiX) for all users. Both add a Start menu shortcut, put rustgis-cli on the
-    # PATH and open .rgis projects. Wizard images are the logo on white, drawn by rustgis-cli.
+    # DJI pack: the geoflux-dirp helper and an empty dji-sdk folder, unzipped straight into the
+    # GeoGIS folder (no top folder in the zip). DJI's licence keeps their libraries out of it; the
+    # customer adds them (README). File names don't clash with the app's own README.txt, and
+    # LICENSE.txt and NOTICE.txt match the installed ones.
+    if [ -f "$bin/geoflux-dirp.exe" ]; then
+      k="$work/dji-pack"
+      mkdir -p "$k/dji-sdk"
+      cp "$bin/geoflux-dirp.exe" "$k/"
+      cp "$root/LICENSE" "$k/LICENSE.txt"
+      cp "$root/NOTICE" "$k/NOTICE.txt"
+      sed "s/@VERSION@/$version/g" "$root/packaging/windows/README-dji-pack.txt" > "$k/README-DJI-pack.txt"
+      sed "s/@VERSION@/$version/g" "$root/packaging/windows/README-dji-sdk.txt" > "$k/dji-sdk/README.txt"
+      (cd "$k" && 7z a -tzip -bso0 "$dist/GeoGIS-DJI-Pack-$version-$os-$arch.zip" \
+        geoflux-dirp.exe LICENSE.txt NOTICE.txt README-DJI-pack.txt dji-sdk)
+    elif [ -n "${CI:-}" ]; then
+      echo "missing $bin/geoflux-dirp.exe: build it with -p geoflux-dirp" >&2
+      exit 1
+    else
+      echo "geoflux-dirp.exe not built: skipping the DJI pack" >&2
+    fi
+
+    # Installers: setup.exe (NSIS) installs for the current user without admin rights, the .msi
+    # (WiX) for all users. Both add a Start menu shortcut, put rustgis-cli on the PATH and open
+    # .rgis projects. Wizard images are the logo on white, drawn by rustgis-cli.
     case "$arch" in x86_64) instarch=x64 ;; aarch64) instarch=arm64 ;; *) instarch="$arch" ;; esac
     s="$work/installer"
     mkdir -p "$s"
-    cp "$bin/rustgis.exe" "$bin/rustgis-cli.exe" "$root/LICENSE" "$root/packaging/windows/path.ps1" "$s/"
-    "$bin/rustgis-cli.exe" logo "$s/rustgis.ico"
+    cp "$bin/geogis.exe" "$bin/rustgis-cli.exe" "$root/LICENSE" "$root/NOTICE" "$root/packaging/windows/path.ps1" "$s/"
+    "$bin/rustgis-cli.exe" logo "$s/geogis.ico"
     "$bin/rustgis-cli.exe" logo "$s/sidebar.bmp" --size 128 --canvas 164x314
     "$bin/rustgis-cli.exe" logo "$s/banner.bmp" --size 44 --canvas 493x58 --at 440,7
     "$bin/rustgis-cli.exe" logo "$s/dialog.bmp" --size 120 --canvas 493x312 --at 22,96
@@ -284,8 +316,9 @@ SPEC
     if [ -n "$makensis" ]; then
       # VIProductVersion wants four numbers: drop a pre-release suffix (0.2.0-rc.1 -> 0.2.0.0).
       MSYS2_ARG_CONV_EXCL='*' "$makensis" -V2 -DVERSION="$version" -DVERSION4="${version%%-*}.0" \
-        -DSTAGE="$(w "$s")" -DICON="$(w "$s/rustgis.ico")" -DSIDEBAR="$(w "$s/sidebar.bmp")" \
-        -DOUTFILE="$(w "$dist/$name-setup.exe")" "$(w "$root/packaging/windows/rustgis.nsi")"
+        -DPUBLISHER="$publisher" -DSTAGE="$(w "$s")" -DICON="$(w "$s/geogis.ico")" \
+        -DSIDEBAR="$(w "$s/sidebar.bmp")" -DOUTFILE="$(w "$dist/$name-setup.exe")" \
+        "$(w "$root/packaging/windows/geogis.nsi")"
     else
       missing makensis setup.exe
     fi
@@ -300,39 +333,42 @@ SPEC
       } > "$s/LICENSE.rtf"
       # MSI versions are three numbers: drop a pre-release suffix.
       MSYS2_ARG_CONV_EXCL='*' "$wix" build -arch "$instarch" -ext WixToolset.UI.wixext \
-        -d Version="${version%%-*}" -d Stage="$(w "$s")" -d Icon="$(w "$s/rustgis.ico")" \
+        -d Version="${version%%-*}" -d Publisher="$publisher" -d Stage="$(w "$s")" -d Icon="$(w "$s/geogis.ico")" \
         -d License="$(w "$s/LICENSE.rtf")" -d Banner="$(w "$s/banner.bmp")" -d Dialog="$(w "$s/dialog.bmp")" \
-        -o "$(w "$dist/$name.msi")" "$(w "$root/packaging/windows/rustgis.wxs")"
+        -o "$(w "$dist/$name.msi")" "$(w "$root/packaging/windows/geogis.wxs")"
       rm -f "$dist/$name.wixpdb"
     else
       missing wix .msi
     fi
 
-    # MSIX package for the Microsoft Store, which signs it on ingestion. The identity must
-    # match the product reserved in Partner Center (Product identity); override it for a
-    # self-signed sideload build.
-    m="$work/msix"
-    mkdir -p "$m/Assets"
-    cp "$bin/rustgis.exe" "$bin/rustgis-cli.exe" "$m/"
-    logo "$m/Assets/Square44x44Logo.png" 44
-    logo "$m/Assets/Square150x150Logo.png" 150
-    logo "$m/Assets/StoreLogo.png" 50
-    # A value for the manifest: XML-escaped, then escaped for a sed replacement.
-    xmlval() { printf '%s' "$1" | sed -e 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g' -e 's/[\\|&]/\\&/g'; }
-    # MSIX versions are four numbers: drop a pre-release suffix (0.2.0-rc.1 -> 0.2.0.0).
-    sed -e "s|@VERSION@|${version%%-*}.0|g" -e "s|@ARCH@|$instarch|g" \
-      -e "s|@NAME@|$(xmlval "${MSIX_NAME:-OpenGeospatialSolutions.RustGIS}")|g" \
-      -e "s|@PUBLISHER@|$(xmlval "${MSIX_PUBLISHER:-CN=E6AE8172-DC4F-4F79-844B-9D84204BF95A}")|g" \
-      -e "s|@PUBLISHER_DISPLAY_NAME@|$(xmlval "${MSIX_PUBLISHER_DISPLAY_NAME:-Open Geospatial Solutions}")|g" \
-      "$root/packaging/windows/AppxManifest.xml" > "$m/AppxManifest.xml"
-    makeappx="$(command -v makeappx.exe || true)"
-    if [ -z "$makeappx" ]; then
-      # The host's own build of the SDK tools, x64 or ARM64.
-      case "$(uname -m)" in aarch64 | arm64) sdkarch=arm64 ;; *) sdkarch=x64 ;; esac
-      makeappx="$(ls -d "/c/Program Files (x86)/Windows Kits/10/bin/"*/"$sdkarch"/makeappx.exe 2>/dev/null | sort -V | tail -1)"
+    # MSIX package for the Microsoft Store, which signs it on ingestion. Built only when
+    # MSIX_PUBLISHER is set: the identity (MSIX_NAME, MSIX_PUBLISHER) must match the product
+    # reserved in Partner Center, and an unsigned package with any other identity cannot be
+    # installed.
+    if [ -n "${MSIX_PUBLISHER:-}" ]; then
+      m="$work/msix"
+      mkdir -p "$m/Assets"
+      cp "$bin/geogis.exe" "$bin/rustgis-cli.exe" "$root/LICENSE" "$root/NOTICE" "$m/"
+      logo "$m/Assets/Square44x44Logo.png" 44
+      logo "$m/Assets/Square150x150Logo.png" 150
+      logo "$m/Assets/StoreLogo.png" 50
+      # A value for the manifest: XML-escaped, then escaped for a sed replacement.
+      xmlval() { printf '%s' "$1" | sed -e 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g' -e 's/[\\|&]/\\&/g'; }
+      # MSIX versions are four numbers: drop a pre-release suffix (0.2.0-rc.1 -> 0.2.0.0).
+      sed -e "s|@VERSION@|${version%%-*}.0|g" -e "s|@ARCH@|$instarch|g" \
+        -e "s|@NAME@|$(xmlval "${MSIX_NAME:-GeoFlux.GeoGIS}")|g" \
+        -e "s|@PUBLISHER@|$(xmlval "$MSIX_PUBLISHER")|g" \
+        -e "s|@PUBLISHER_DISPLAY_NAME@|$(xmlval "${MSIX_PUBLISHER_DISPLAY_NAME:-$publisher}")|g" \
+        "$root/packaging/windows/AppxManifest.xml" > "$m/AppxManifest.xml"
+      makeappx="$(command -v makeappx.exe || true)"
+      if [ -z "$makeappx" ]; then
+        # The host's own build of the SDK tools, x64 or ARM64.
+        case "$(uname -m)" in aarch64 | arm64) sdkarch=arm64 ;; *) sdkarch=x64 ;; esac
+        makeappx="$(ls -d "/c/Program Files (x86)/Windows Kits/10/bin/"*/"$sdkarch"/makeappx.exe 2>/dev/null | sort -V | tail -1)"
+      fi
+      [ -n "$makeappx" ] || { echo "makeappx.exe not found: install the Windows SDK" >&2; exit 1; }
+      MSYS2_ARG_CONV_EXCL='*' "$makeappx" pack /d "$(cygpath -w "$m")" /p "$(cygpath -w "$dist/$name.msix")" /o
     fi
-    [ -n "$makeappx" ] || { echo "makeappx.exe not found: install the Windows SDK" >&2; exit 1; }
-    MSYS2_ARG_CONV_EXCL='*' "$makeappx" pack /d "$(cygpath -w "$m")" /p "$(cygpath -w "$dist/$name.msix")" /o
     ;;
 esac
 
