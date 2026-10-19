@@ -23,6 +23,7 @@ use super::ps;
 use crate::{CmdResult, CommandSpec as C, Session};
 
 /// Most skipped photos listed one by one in the summary (all are counted).
+#[cfg(not(target_arch = "wasm32"))]
 const MAX_SKIPPED_LISTED: usize = 50;
 
 pub fn commands() -> Vec<C> {
@@ -90,13 +91,19 @@ fn add(s: &mut Session, mut project: GeoxProject, name: Option<&str>) -> CmdResu
         s.notify(format!("{} towers have no position yet", r.towers_without_position), false);
     }
     if r.photos_without_tower > 0 {
-        s.notify(format!("{} photos belong to rows with no tower number; they are in the photo folder's row-… folders", r.photos_without_tower), false);
+        s.notify(
+            format!("{} photos belong to rows with no tower number; they are in the photo folder's row-… folders", r.photos_without_tower),
+            false,
+        );
     }
     if !r.photos_skipped.is_empty() {
         s.notify(format!("Photos left out: {}", r.photos_skipped.join("; ")), false);
     }
     if not_added > 0 {
-        s.notify(format!("{not_added} written photos could not be added to their towers (too many photos); link the photo folder instead"), true);
+        s.notify(
+            format!("{not_added} written photos could not be added to their towers (too many photos); link the photo folder instead"),
+            true,
+        );
     }
     if r.truncated {
         s.notify(format!("Only the first {} towers were imported", geoflux_domain::legacy::MAX_TOWERS), true);
@@ -122,6 +129,7 @@ fn add(s: &mut Session, mut project: GeoxProject, name: Option<&str>) -> CmdResu
 struct PhotoFolder {
     root: std::path::PathBuf,
     /// The folder was there (empty) before the import.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     existed: bool,
     made: bool,
     kept: bool,
@@ -218,9 +226,9 @@ mod native {
         let folder = |root: PathBuf, existed: bool| PhotoFolder { root, existed, made: false, kept: false };
         if let Some(given) = given {
             let root = PathBuf::from(given);
-            return match fs::read_dir(&root) {
-                Ok(mut entries) if entries.next().is_none() => Ok(folder(root, true)),
-                Ok(_) => Err(format!("{given}: choose a new or empty folder for the project's photos")),
+            return match fs::read_dir(&root).map(|mut entries| entries.next().is_none()) {
+                Ok(true) => Ok(folder(root, true)),
+                Ok(false) => Err(format!("{given}: choose a new or empty folder for the project's photos")),
                 Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(folder(root, false)),
                 Err(e) => Err(format!("{given}: {e}")),
             };
@@ -423,10 +431,10 @@ mod native {
         }
         let has = |c: &str| columns.iter().any(|x| x == c);
         let report = &mut project.report;
-        let text_columns: Vec<&'static str> =
-            FIELD_COLUMNS.iter().chain(EXTRA_COLUMNS).map(|(c, _)| *c).filter(|c| has(c)).collect();
+        let text_columns: Vec<&'static str> = FIELD_COLUMNS.iter().chain(EXTRA_COLUMNS).map(|(c, _)| *c).filter(|c| has(c)).collect();
         let photo_columns = LegacySlot::ALL.map(|s| has(s.column()));
-        for c in FIELD_COLUMNS.iter().map(|(c, _)| *c).chain([LATITUDE_COLUMN, LONGITUDE_COLUMN]).chain(LegacySlot::ALL.map(|s| s.column())) {
+        for c in FIELD_COLUMNS.iter().map(|(c, _)| *c).chain([LATITUDE_COLUMN, LONGITUDE_COLUMN]).chain(LegacySlot::ALL.map(|s| s.column()))
+        {
             if !has(c) {
                 report.missing_columns.push(c.to_string());
             }
@@ -504,7 +512,8 @@ mod native {
                 }
             };
             for (slot, photo) in LegacySlot::ALL.iter().zip(&photos) {
-                let who = if tower.is_empty() { format!("row {id}") } else { format!("tower {tower}") };
+                // Only for the messages of skipped photos, so built only then.
+                let who = || if tower.is_empty() { format!("row {id}") } else { format!("tower {tower}") };
                 let bytes = match photo {
                     Photo::Read(LegacyPhoto::NotSet) => {
                         report.photos_in_survey_folder += 1;
@@ -512,13 +521,13 @@ mod native {
                     }
                     Photo::Read(LegacyPhoto::Removed) => continue,
                     Photo::TooLarge => {
-                        skip(report, format!("{who} {}: larger than {} MB", slot.file_word(), MAX_PHOTO_BYTES >> 20));
+                        skip(report, format!("{} {}: larger than {} MB", who(), slot.file_word(), MAX_PHOTO_BYTES >> 20));
                         continue;
                     }
                     Photo::Read(LegacyPhoto::Embedded(b)) => *b,
                 };
                 let Some(ext) = photo_extension(bytes) else {
-                    skip(report, format!("{who} {}: not a JPEG or PNG", slot.file_word()));
+                    skip(report, format!("{} {}: not a JPEG or PNG", who(), slot.file_word()));
                     continue;
                 };
                 let dir = project.photos.tower_dir(&folder).map_err(io_error)?;
@@ -642,8 +651,8 @@ mod tests {
         let slots = geoflux::photos(&s, id, 0).unwrap();
         assert_eq!(slots.iter().find(|sp| sp.slot.id == "THERMAL").map(|sp| sp.photos.len()), Some(2));
 
-        // Undo removes the layer; a second import writes to a new folder.
-        s.undo();
+        // Undo (the link, then the import) removes the layer; a second import writes to a new folder.
+        assert!(s.undo() && s.undo());
         assert!(s.map().layer(id).is_none());
         let r = s.run("geoflux.importGeox", &json!({"path": path, "name": "Again"})).expect("again");
         assert_eq!(r["photosFolder"].as_str(), Some(d.join("Line 1 photos 2").to_string_lossy().as_ref()));

@@ -1014,7 +1014,10 @@ fn geox_progress(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     let (done, total) = job.progress.get();
     ui.label(RichText::new(crate::i18n::fmt("Importing {name}", &[("name", &job.name)])).font(semibold(12.5)));
     let frac = if total == 0 { 0.0 } else { done as f32 / total as f32 };
-    ui.add(egui::ProgressBar::new(frac).text(crate::i18n::fmt("{done} of {total} towers", &[("done", &done.to_string()), ("total", &total.to_string())])));
+    ui.add(
+        egui::ProgressBar::new(frac)
+            .text(crate::i18n::fmt("{done} of {total} towers", &[("done", &done.to_string()), ("total", &total.to_string())])),
+    );
     if job.progress.is_cancelled() {
         ui.label(RichText::new(tl!("Stopping…")).small().color(t.text_dim));
     } else if ui.small_button(tl!("Cancel")).clicked() {
