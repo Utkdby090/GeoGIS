@@ -1,0 +1,175 @@
+name: Release
+
+# Builds the Windows downloads (setup.exe, .msi, portable zip and the DJI pack) and puts them on a
+# draft GitHub Release when a version tag (v0.2.0) is pushed. The draft is published by hand
+# after a look, and only a published release reaches the in-app update check. Run by hand
+# (Actions › Release › Run workflow) to try a build: the files are then kept as workflow
+# artifacts and no release is made. macOS and Linux follow later; package.sh already handles them.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Read-only by default; only the release job can write.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Version
+        id: version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          # The version in [workspace.package]. A pre-release tag (v0.2.0-rc.1) needs the same
+          # pre-release version in Cargo.toml.
+          crate="$(awk '/^\[/ { s = ($0 == "[workspace.package]") } s && /^version *=/ { gsub(/.*= *"|".*/, ""); print; exit }' Cargo.toml)"
+          version="${TAG:-$crate}"
+          version="${version#v}"
+          # A tag must match the workspace version, so the app reports what was released.
+          if [ -n "$TAG" ] && [ "$version" != "$crate" ]; then
+            echo "::error::Tag $TAG does not match the workspace version $crate in Cargo.toml."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        shell: bash
+        run: cargo build --release --locked -p rustgis -p rustgis-cli -p geoflux-dirp
+
+      # The WiX .NET tool (pinned to 5.x, MS-RL) for the .msi; NSIS for setup.exe when the
+      # runner image lacks it.
+      - name: Install installer tools
+        shell: bash
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          tools="$HOME/.dotnet/tools"
+          "$tools/wix" extension add --global WixToolset.UI.wixext/5.0.2
+          cygpath -w "$tools" >> "$GITHUB_PATH"
+          if ! command -v makensis > /dev/null && [ ! -x "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
+            choco install nsis -y --no-progress
+          fi
+
+      - name: Package
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISHER: ${{ vars.GEOGIS_PUBLISHER }}
+        run: packaging/package.sh "$VERSION"
+
+      # Silent installs of both installers: the app and CLI are in place, the CLI is on the PATH
+      # and projects open in GeoGIS; uninstalling removes them again. The DJI pack holds the
+      # helper and an empty dji-sdk folder, and no DJI library.
+      - name: Check the downloads
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Check($dir, $scope) {
+            if (-not (Test-Path "$dir\geogis.exe")) { throw "no geogis.exe in $dir" }
+            foreach ($f in 'LICENSE.txt', 'NOTICE.txt') {
+              if (-not (Test-Path "$dir\$f")) { throw "no $f in $dir" }
+            }
+            & "$dir\rustgis-cli.exe" logo "$env:RUNNER_TEMP\logo.png" --size 64
+            if ($LASTEXITCODE) { throw "rustgis-cli failed in $dir" }
+            $path = [Environment]::GetEnvironmentVariable('Path', $scope) -split ';'
+            if ($path -notcontains $dir.TrimEnd('\') -and $path -notcontains "$($dir.TrimEnd('\'))\") {
+              throw "$dir is not on the $scope PATH"
+            }
+          }
+          function Gone($dir, $scope) {
+            if (Test-Path "$dir\geogis.exe") { throw "$dir\geogis.exe is still there" }
+            $path = [Environment]::GetEnvironmentVariable('Path', $scope)
+            if ($path -and $path.Contains($dir.TrimEnd('\'))) { throw "$dir is still on the $scope PATH" }
+          }
+
+          $msi = (Get-Item dist\*.msi).FullName
+          $log = "$env:RUNNER_TEMP\msi.log"
+          $p = Start-Process msiexec -ArgumentList "/i `"$msi`" /qn /l*v `"$log`"" -Wait -PassThru
+          if ($p.ExitCode) { Get-Content $log -Tail 80; throw "msiexec /i exited with $($p.ExitCode)" }
+          $dir = "$env:ProgramFiles\GeoGIS"
+          Check $dir 'Machine'
+          if (-not (Test-Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\GeoGIS.lnk")) {
+            throw 'no Start menu shortcut'
+          }
+          $p = Start-Process msiexec -ArgumentList "/x `"$msi`" /qn" -Wait -PassThru
+          if ($p.ExitCode) { throw "msiexec /x exited with $($p.ExitCode)" }
+          Gone $dir 'Machine'
+
+          $setup = (Get-Item dist\*-setup.exe).FullName
+          Start-Process $setup -ArgumentList '/S' -Wait
+          $dir = "$env:LOCALAPPDATA\Programs\GeoGIS"
+          Check $dir 'User'
+          if ((Get-ItemProperty 'HKCU:\Software\Classes\.rgis').'(default)' -ne 'GeoGIS.Project') {
+            throw '.rgis is not associated'
+          }
+          # _?= keeps the uninstaller in place, so -Wait waits for it.
+          Start-Process "$dir\uninstall.exe" -ArgumentList '/S', "_?=$dir" -Wait
+          Gone $dir 'User'
+          if (Test-Path 'HKCU:\Software\Classes\GeoGIS.Project') { throw 'GeoGIS.Project is still registered' }
+
+          $pack = (Get-Item dist\GeoGIS-DJI-Pack-*.zip).FullName
+          $out = "$env:RUNNER_TEMP\dji-pack"
+          Expand-Archive $pack -DestinationPath $out
+          # Unzipped straight into the GeoGIS folder, so no top folder.
+          foreach ($f in 'geoflux-dirp.exe', 'README-DJI-pack.txt', 'LICENSE.txt', 'NOTICE.txt', 'dji-sdk\README.txt') {
+            if (-not (Test-Path "$out\$f")) { throw "the DJI pack has no $f" }
+          }
+          if (Get-ChildItem $out -Recurse -Filter *.dll) { throw 'the DJI pack must not hold DJI libraries' }
+
+      - name: Write SHA256SUMS
+        shell: bash
+        working-directory: dist
+        run: sha256sum -- * | tee SHA256SUMS
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: geogis-windows-x64
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Draft GitHub Release
+    if: github.ref_type == 'tag'
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      # A draft: check it, then publish it on GitHub. A re-run replaces the files on the same
+      # draft. A tag with a hyphen (v0.3.0-rc.1) is marked as a pre-release.
+      - name: Create the draft and attach the files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            pre=""
+            case "$TAG" in *-*) pre="--prerelease" ;; esac
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft $pre --verify-tag \
+              --title "GeoGIS ${TAG#v}" --generate-notes
+          fi
+          gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"

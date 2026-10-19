@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=GeoGIS
+GenericName=Geographic Information System
+Comment=Inspect power lines and make maps
+Exec=geogis %F
+Icon=geogis
+Terminal=false
+Categories=Science;Geography;Education;
+MimeType=application/x-geogis-project;application/geo+json;
+StartupWMClass=com.geoflux.GeoGIS
+Keywords=GIS;map;geospatial;GeoJSON;shapefile;inspection;thermal;GeoFlux;

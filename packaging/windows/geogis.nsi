@@ -1,16 +1,21 @@
 ; setup.exe installer (NSIS 3), built by package.sh. A per-user install that needs no admin
-; rights, in %LOCALAPPDATA%\Programs\RustGIS: a Start menu shortcut, rustgis-cli on the user's
-; PATH, .rgis/.rgisx projects opened by RustGIS and RustGIS offered under Open with for .geojson.
+; rights, in %LOCALAPPDATA%\Programs\GeoGIS: a Start menu shortcut, rustgis-cli on the user's
+; PATH, .rgis/.rgisx projects opened by GeoGIS and GeoGIS offered under Open with for .geojson.
+; Its registry keys and file type (GeoGIS.Project) are its own, so it never touches an installed
+; RustGIS. PUBLISHER may be passed with -D; it defaults to GeoFlux.
 ; Defines passed with -D: VERSION, VERSION4 (four numbers), STAGE (the folder holding the exes,
-; LICENSE and path.ps1), ICON, SIDEBAR (a 164x314 BMP) and OUTFILE.
+; LICENSE, NOTICE and path.ps1), ICON, SIDEBAR (a 164x314 BMP) and OUTFILE.
 
 Unicode true
 SetCompressor /SOLID lzma
 RequestExecutionLevel user
 ManifestDPIAware true
 
-!define APP "RustGIS"
-!define PUBLISHER "Open Geospatial Solutions"
+!define APP "GeoGIS"
+!ifndef PUBLISHER
+  !define PUBLISHER "GeoFlux"
+!endif
+!define PROGID "GeoGIS.Project"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
 
 Name "${APP}"
@@ -24,7 +29,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "FileDescription" "${APP} ${VERSION} setup"
 VIAddVersionKey "CompanyName" "${PUBLISHER}"
-VIAddVersionKey "LegalCopyright" "Copyright the RustGIS contributors. Apache-2.0."
+VIAddVersionKey "LegalCopyright" "Copyright ${PUBLISHER} and the RustGIS contributors. Apache-2.0."
 
 !include "MUI2.nsh"
 !include "WinMessages.nsh"
@@ -34,7 +39,7 @@ VIAddVersionKey "LegalCopyright" "Copyright the RustGIS contributors. Apache-2.0
 !define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDEBAR}"
 !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${SIDEBAR}"
 !define MUI_ABORTWARNING
-!define MUI_FINISHPAGE_RUN "$INSTDIR\rustgis.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\geogis.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${APP}"
 
 !insertmacro MUI_PAGE_WELCOME
@@ -60,12 +65,13 @@ VIAddVersionKey "LegalCopyright" "Copyright the RustGIS contributors. Apache-2.0
 
 Section "Install"
   SetOutPath "$INSTDIR"
-  File "${STAGE}\rustgis.exe"
+  File "${STAGE}\geogis.exe"
   File "${STAGE}\rustgis-cli.exe"
   File /oname=LICENSE.txt "${STAGE}\LICENSE"
+  File /oname=NOTICE.txt "${STAGE}\NOTICE"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  CreateShortcut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\rustgis.exe"
+  CreateShortcut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\geogis.exe"
 
   ; rustgis-cli from any new terminal.
   InitPluginsDir
@@ -76,13 +82,13 @@ Section "Install"
     MessageBox MB_OK|MB_ICONEXCLAMATION "${APP} is installed, but rustgis-cli could not be added to your PATH ($0). Run it from $INSTDIR instead." /SD IDOK
   !insertmacro RefreshEnvironment
 
-  ; Projects open in RustGIS; GeoJSON lists it under Open with.
-  WriteRegStr HKCU "Software\Classes\RustGIS.Project" "" "RustGIS project"
-  WriteRegStr HKCU "Software\Classes\RustGIS.Project\DefaultIcon" "" '"$INSTDIR\rustgis.exe",0'
-  WriteRegStr HKCU "Software\Classes\RustGIS.Project\shell\open\command" "" '"$INSTDIR\rustgis.exe" "%1"'
-  WriteRegStr HKCU "Software\Classes\.rgis" "" "RustGIS.Project"
-  WriteRegStr HKCU "Software\Classes\.rgisx" "" "RustGIS.Project"
-  WriteRegStr HKCU "Software\Classes\.geojson\OpenWithProgids" "RustGIS.Project" ""
+  ; Projects open in GeoGIS; GeoJSON lists it under Open with.
+  WriteRegStr HKCU "Software\Classes\${PROGID}" "" "GeoGIS project"
+  WriteRegStr HKCU "Software\Classes\${PROGID}\DefaultIcon" "" '"$INSTDIR\geogis.exe",0'
+  WriteRegStr HKCU "Software\Classes\${PROGID}\shell\open\command" "" '"$INSTDIR\geogis.exe" "%1"'
+  WriteRegStr HKCU "Software\Classes\.rgis" "" "${PROGID}"
+  WriteRegStr HKCU "Software\Classes\.rgisx" "" "${PROGID}"
+  WriteRegStr HKCU "Software\Classes\.geojson\OpenWithProgids" "${PROGID}" ""
   !insertmacro RefreshShell
 
   ; Apps & features.
@@ -90,9 +96,9 @@ Section "Install"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APP}"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${PUBLISHER}"
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" '"$INSTDIR\rustgis.exe",0'
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" '"$INSTDIR\geogis.exe",0'
   WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKCU "${UNINST_KEY}" "URLInfoAbout" "https://rustgis.app"
+  WriteRegStr HKCU "${UNINST_KEY}" "URLInfoAbout" "https://github.com/Utkdby090/GeoGIS"
   WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegStr HKCU "${UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1
@@ -113,19 +119,26 @@ Section "Uninstall"
   !insertmacro RefreshEnvironment
 
   ; Only the associations this installer made: another program may own .geojson.
-  DeleteRegValue HKCU "Software\Classes\.geojson\OpenWithProgids" "RustGIS.Project"
+  DeleteRegValue HKCU "Software\Classes\.geojson\OpenWithProgids" "${PROGID}"
   ReadRegStr $0 HKCU "Software\Classes\.rgis" ""
-  StrCmp $0 "RustGIS.Project" 0 +2
+  StrCmp $0 "${PROGID}" 0 +2
     DeleteRegKey HKCU "Software\Classes\.rgis"
   ReadRegStr $0 HKCU "Software\Classes\.rgisx" ""
-  StrCmp $0 "RustGIS.Project" 0 +2
+  StrCmp $0 "${PROGID}" 0 +2
     DeleteRegKey HKCU "Software\Classes\.rgisx"
-  DeleteRegKey HKCU "Software\Classes\RustGIS.Project"
+  DeleteRegKey HKCU "Software\Classes\${PROGID}"
   !insertmacro RefreshShell
 
-  Delete "$INSTDIR\rustgis.exe"
+  ; The DJI pack's files, if it was unzipped here. DJI's own libraries in dji-sdk were added by
+  ; the user and are left in place, which keeps those folders.
+  Delete "$INSTDIR\geoflux-dirp.exe"
+  Delete "$INSTDIR\README-DJI-pack.txt"
+  Delete "$INSTDIR\dji-sdk\README.txt"
+  RMDir "$INSTDIR\dji-sdk"
+  Delete "$INSTDIR\geogis.exe"
   Delete "$INSTDIR\rustgis-cli.exe"
   Delete "$INSTDIR\LICENSE.txt"
+  Delete "$INSTDIR\NOTICE.txt"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
 
