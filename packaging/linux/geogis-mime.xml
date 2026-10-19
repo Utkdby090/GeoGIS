@@ -6,4 +6,9 @@
     <glob pattern="*.rgis"/>
     <glob pattern="*.rgisx"/>
   </mime-type>
+  <mime-type type="application/x-geoflux-project">
+    <comment>GeoFlux project</comment>
+    <sub-class-of type="application/zip"/>
+    <glob pattern="*.geox"/>
+  </mime-type>
 </mime-info>
