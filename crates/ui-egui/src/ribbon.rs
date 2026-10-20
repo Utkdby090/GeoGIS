@@ -1035,6 +1035,19 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
                 false,
             );
         });
+        col(ui, |ui| {
+            small(
+                ui,
+                app,
+                "share",
+                "Sync to Cloud",
+                "Send this tower layer, its photos and markup to your GeoFlux account.",
+                "ui.cloudSync",
+                Value::Null,
+                false,
+            );
+            small(ui, app, "settings", "Account", "Sign this computer in to your GeoFlux account.", "ui.account", Value::Null, false);
+        });
     });
 }
 

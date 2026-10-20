@@ -16,6 +16,8 @@
 
 pub mod account;
 pub mod date;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod desktop;
 mod error;
 pub mod gate;
 pub mod machine;

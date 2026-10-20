@@ -56,6 +56,7 @@ mod prefs {
                     log::warn!("could not save preferences: {e}");
                 }
             })),
+            settings_dir: dir(),
             ..Services::default()
         }
     }

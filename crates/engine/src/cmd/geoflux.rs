@@ -144,11 +144,19 @@ pub struct GeoFlux {
     pub picked: Vec<PickedPhoto>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markup: Vec<PhotoMarkup>,
+    /// The survey this project syncs to GeoFlux Cloud as.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cloud: Option<super::cloud_sync::CloudLink>,
 }
 
 impl GeoFlux {
     pub fn is_empty(&self) -> bool {
-        self.schemas.is_empty() && self.links.is_empty() && self.photos.is_empty() && self.picked.is_empty() && self.markup.is_empty()
+        self.schemas.is_empty()
+            && self.links.is_empty()
+            && self.photos.is_empty()
+            && self.picked.is_empty()
+            && self.markup.is_empty()
+            && self.cloud.is_none()
     }
 
     /// Files skip the commands' checks: schemas that fail them are dropped, photo paths that

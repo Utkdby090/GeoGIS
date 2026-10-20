@@ -2,6 +2,7 @@
 
 pub mod catalogs;
 pub mod clipboard;
+pub mod cloud_sync;
 pub mod deeplearning;
 pub mod design;
 pub mod edit;
@@ -84,6 +85,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(geoflux::commands());
     v.extend(geox::commands());
     v.extend(inspection_report::commands());
+    v.extend(cloud_sync::commands());
     v.extend(thermal::commands());
     v
 }

@@ -13,6 +13,7 @@ mod assistantpane;
 mod backstage;
 mod catalogsui;
 mod chrome;
+mod cloudui;
 mod cswui;
 mod dialogs;
 mod docpanes;
@@ -109,6 +110,8 @@ pub struct Services {
     /// Makes an HTTP request (the AI assistant's calls to its model) and puts the response, of any
     /// status, in the slot (the browser's fetch; the desktop sends it on a thread).
     pub http: Option<Box<dyn Fn(rustgis_assistant::HttpRequest, Slot<Result<rustgis_assistant::HttpResponse, String>>)>>,
+    /// The desktop's settings folder, where the GeoFlux sign-in is kept.
+    pub settings_dir: Option<std::path::PathBuf>,
 }
 
 /// A new private folder for one print job: unique, created fresh (never an existing path) and,
@@ -410,6 +413,8 @@ pub struct RustGisApp {
     pub docs: docpanes::DocState,
     /// The AI Assistant's conversation and settings.
     pub assistant: assistantpane::AssistantState,
+    /// GeoFlux › Account and Sync to Cloud.
+    pub cloud: cloudui::CloudState,
     fonts_frames: u32,
     applied_dark: Option<bool>,
     sent_title: String,
@@ -456,6 +461,7 @@ impl RustGisApp {
             inspection: geofluxpane::InspectionState::default(),
             docs: docpanes::DocState::default(),
             assistant: assistantpane::AssistantState::default(),
+            cloud: cloudui::CloudState::default(),
             fonts_frames: 0,
             applied_dark: None,
             sent_title: String::new(),
@@ -879,7 +885,8 @@ impl RustGisApp {
         if !matches!(id, "ui.menu" | "ui.ribbon" | "ui.language" | "ui.worldview") {
             self.ui.ribbon_peek = false;
         }
-        let r = if id.starts_with("ui.") { self.run_ui(id, &params) } else { self.session.run(id, &params) };
+        let r = cloudui::check(self, id)
+            .and_then(|()| if id.starts_with("ui.") { self.run_ui(id, &params) } else { self.session.run(id, &params) });
         if let Err(e) = &r {
             log::info!("{id}: {e}");
         }
@@ -1540,6 +1547,7 @@ impl RustGisApp {
             "ui.geofluxImportGeox" => geofluxpane::import_geox(self, p.get("path").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
             "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
+            "ui.account" | "ui.cloudSync" => cloudui::command(self, id)?,
             "ui.thermal.view" | "ui.thermal.palette" | "ui.thermal.tool" | "ui.thermal.record" | "ui.thermal.scan" => {
                 thermalview::command(self, id, p)?
             }
@@ -2060,6 +2068,7 @@ impl RustGisApp {
         rustgis_engine::plugins::set_language(self.lang().code());
         panes::poll_geolibre(self, ctx);
         markupview::poll(self);
+        cloudui::poll(self, ctx);
         geofluxpane::poll_geox(self, ctx);
         self.poll_downloads();
         sqlpane::poll(self, ctx);
@@ -2209,6 +2218,7 @@ impl RustGisApp {
         dialogs::show(self, &ctx);
         pluginsui::show(self, &ctx);
         update::show(self, &ctx);
+        cloudui::show(self, &ctx);
         chrome::command_search(self, &ctx);
         chrome::about(self, &ctx);
         chrome::notices(self, &ctx);

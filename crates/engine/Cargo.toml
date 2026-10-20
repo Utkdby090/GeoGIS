@@ -26,6 +26,8 @@ rustgis-plugins = { workspace = true }
 geoflux-domain = { workspace = true }
 geoflux-report = { workspace = true }
 geoflux-thermal = { workspace = true }
+geoflux-cloud = { workspace = true }
+sha2 = { workspace = true }
 # The system's time zone and locales, to pick the worldview of the built-in countries.
 iana-time-zone = { version = "0.1", features = ["fallback"] }
 sys-locale = { version = "0.3", features = ["js"] }
