@@ -974,7 +974,7 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             app,
             "identify",
             "Inspection\nPane",
-            "Walk the towers one by one: their form, severity and photos.",
+            "Walk the towers one by one: their form, severity and photos (Ctrl+I).",
             "ui.pane.inspection",
             Value::Null,
             app.ui.right == Some(RightPane::Inspection),

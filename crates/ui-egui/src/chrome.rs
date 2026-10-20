@@ -241,6 +241,7 @@ pub fn shortcuts(app: &mut RustGisApp, ctx: &egui::Context) {
             (cmd, Key::K, "ui.commandSearch"),
             (cmd, Key::F1, "ui.ribbon"),
             (cmd, Key::T, "table.open"),
+            (cmd, Key::I, "ui.pane.inspection"),
             (cmd, Key::Equals, "map.zoomIn"),
             (cmd, Key::Plus, "map.zoomIn"),
             (cmd, Key::Minus, "map.zoomOut"),
@@ -396,6 +397,13 @@ pub fn command_search(app: &mut RustGisApp, ctx: &egui::Context) {
             ("ui.theme", "Toggle Dark Mode", "View"),
             ("ui.exportMap", "Export Map…", "Publish › Output"),
             ("ui.checkUpdate", "Check for Updates…", "Help › Help"),
+            ("ui.pane.inspection", "Inspection Pane", "Analyze › Inspection"),
+            ("ui.geofluxImport", "Import Survey CSV…", "Analyze › Inspection"),
+            ("ui.geofluxImportGeox", "Import GeoFlux Project…", "Analyze › Inspection"),
+            ("ui.geofluxLinkPhotos", "Link Photos…", "Analyze › Inspection"),
+            ("ui.geofluxReport", "Tower Report…", "Analyze › Inspection"),
+            ("ui.geofluxReportBulk", "Line Reports…", "Analyze › Inspection"),
+            ("ui.thermal.view", "Thermal View", "Analyze › Thermal"),
         ] {
             // The web app always serves the latest release, and has no Check for Updates button.
             if id == "ui.checkUpdate" && cfg!(target_arch = "wasm32") {
@@ -504,6 +512,7 @@ pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
                         ("Ctrl+N / O / S", "New / Open / Save project"),
                         ("Ctrl+Z / Ctrl+Y", "Undo / Redo"),
                         ("Ctrl+T", "Attribute table"),
+                        ("Ctrl+I", "Inspection pane"),
                         ("Ctrl+F1", "Collapse or expand the ribbon"),
                         ("Ctrl+= / Ctrl+-", "Zoom in / out"),
                         ("Home", "Full extent"),
