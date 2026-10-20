@@ -10,7 +10,9 @@
 pub mod blobs;
 pub mod crypto;
 mod http;
+pub mod mail;
 pub mod memory;
+pub mod postgres;
 mod routes;
 
 use std::path::PathBuf;

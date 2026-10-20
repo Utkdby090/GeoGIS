@@ -8,8 +8,12 @@
 //!   `GEOFLUX_SIGNING_KID` its id. Without them a throwaway key is made and its public half
 //!   printed, which only suits a local trial (GeoGIS builds only trust the keys they ship with).
 //! - `GEOFLUX_TRUST_PROXY=1` behind a proxy that sets `X-Forwarded-For`.
-//!
-//! Storage is in memory for now (everything is lost on restart); PostgreSQL comes next.
+//! - `GEOFLUX_DATABASE_URL` (`postgres://user:pass@host/db`, add `?sslmode=require` for Neon or
+//!   Supabase): records in PostgreSQL, photos under `GEOFLUX_DATA_DIR/photos`. The schema is
+//!   created or updated at start-up. `GEOFLUX_DB_CONNECTIONS` caps the pool (default 10). Use the
+//!   database's direct (session) address, not a transaction-mode pooler such as Supabase's port
+//!   6543: the server keeps prepared statements per connection.
+//!   Without a database URL everything is kept in memory and lost when the server stops.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -17,15 +21,20 @@ use std::sync::Arc;
 
 use geoflux_cloud::ports::AccountStore;
 use geoflux_licence::Ed25519Signer;
+use geoflux_server::blobs::DiskBlobs;
 use geoflux_server::crypto::{Argon2Hasher, MemoryRateLimiter, OsRandom, SystemClock};
+use geoflux_server::mail::NoMail;
 use geoflux_server::memory::MemoryBackend;
-use geoflux_server::{Server, Settings, router};
+use geoflux_server::postgres::{PgBackend, PgStore};
+use geoflux_server::{Backend, Server, Settings, router};
 
 struct StderrLog;
 
 impl log::Log for StderrLog {
     fn enabled(&self, m: &log::Metadata<'_>) -> bool {
-        m.level() <= log::Level::Info
+        // The database driver's own notices ("already exists, skipping") only at warning level.
+        let max = if m.target().starts_with("sqlx") { log::Level::Warn } else { log::Level::Info };
+        m.level() <= max
     }
     fn log(&self, r: &log::Record<'_>) {
         if self.enabled(r.metadata()) {
@@ -75,8 +84,24 @@ async fn run() -> Result<(), String> {
         upload_dir: data.join("uploads"),
         trust_proxy: env("GEOFLUX_TRUST_PROXY", "0") == "1",
     };
+    match std::env::var("GEOFLUX_DATABASE_URL") {
+        Ok(url) if !url.is_empty() => {
+            let connections = env("GEOFLUX_DB_CONNECTIONS", "10").parse().map_err(|e| format!("GEOFLUX_DB_CONNECTIONS: {e}"))?;
+            let store = PgStore::connect(&url, connections).await.map_err(|e| format!("connecting to the database: {e}"))?;
+            store.migrate().await.map_err(|e| format!("updating the database: {e}"))?;
+            log::info!("records in PostgreSQL, photos in {}", data.join("photos").display());
+            serve(PgBackend { store, blobs: DiskBlobs::new(data.join("photos")), mail: NoMail }, settings, bind).await
+        }
+        _ => {
+            log::warn!("no GEOFLUX_DATABASE_URL: storage is in memory and everything is lost when the server stops");
+            serve(MemoryBackend::default(), settings, bind).await
+        }
+    }
+}
+
+async fn serve<B: Backend>(backend: B, settings: Settings, bind: SocketAddr) -> Result<(), String> {
     let server = Arc::new(Server {
-        backend: MemoryBackend::default(),
+        backend,
         hasher: Arc::new(Argon2Hasher::owasp()?),
         random: Arc::new(OsRandom),
         limiter: Arc::new(MemoryRateLimiter::default()),
@@ -84,14 +109,13 @@ async fn run() -> Result<(), String> {
         signer: Arc::new(signer()?),
         settings,
     });
-    log::warn!("storage is in memory: everything is lost when the server stops");
     // Expired tokens and sign-in codes are deleted hourly.
     let purge = server.clone();
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(3_600));
         loop {
             tick.tick().await;
-            if let Err(e) = purge.backend.purge_expired(purge.now()).await {
+            if let Err(e) = purge.backend.accounts().purge_expired(purge.now()).await {
                 log::warn!("purging expired tokens: {e}");
             }
         }
