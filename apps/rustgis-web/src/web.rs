@@ -637,6 +637,8 @@ fn services(inbox: Inbox, font_inbox: Inbox, ctx: egui::Context, embedded: bool)
                 ctx.request_repaint();
             });
         })),
+        // The browser keeps no GeoFlux sign-in.
+        settings_dir: None,
     }
 }
 

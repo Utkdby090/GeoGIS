@@ -18,3 +18,11 @@ thiserror = { workspace = true }
 # the browser build signs in to the web app instead.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ring = "0.17"
+
+# Where the desktop keeps the refresh token: Credential Manager and the Keychain (Linux keeps it in
+# a file only the user can read).
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["apple-native"] }

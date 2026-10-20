@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 rustgis-engine = { workspace = true }
 rustgis-assistant = { workspace = true }
+geoflux-licence = { workspace = true }
 egui = { workspace = true }
 egui_extras = { workspace = true }
 serde = { workspace = true }
@@ -26,6 +27,9 @@ image = { workspace = true, features = ["jpeg"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rfd = { workspace = true }
+# GeoFlux › Account and Sync to Cloud.
+geoflux-client = { workspace = true }
+geoflux-cloud = { workspace = true }
 
 [dev-dependencies]
 rustgis-plugins = { workspace = true, features = ["testing"] }

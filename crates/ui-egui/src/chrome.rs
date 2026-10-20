@@ -403,6 +403,8 @@ pub fn command_search(app: &mut RustGisApp, ctx: &egui::Context) {
             ("ui.geofluxLinkPhotos", "Link Photos…", "Analyze › Inspection"),
             ("ui.geofluxReport", "Tower Report…", "Analyze › Inspection"),
             ("ui.geofluxReportBulk", "Line Reports…", "Analyze › Inspection"),
+            ("ui.cloudSync", "Sync to Cloud", "Analyze › Inspection"),
+            ("ui.account", "GeoFlux Account…", "Analyze › Inspection"),
             ("ui.thermal.view", "Thermal View", "Analyze › Thermal"),
         ] {
             // The web app always serves the latest release, and has no Check for Updates button.
