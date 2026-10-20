@@ -30,6 +30,7 @@ geoflux-thermal = { path = "crates/geoflux-thermal" }
 geoflux-report = { path = "crates/geoflux-report" }
 geoflux-licence = { path = "crates/geoflux-licence" }
 geoflux-cloud = { path = "crates/geoflux-cloud" }
+geoflux-client = { path = "crates/geoflux-client" }
 
 # foundation
 thiserror = "2"

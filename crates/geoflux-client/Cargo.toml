@@ -1,0 +1,23 @@
+[package]
+name = "geoflux-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "GeoGIS's side of GeoFlux Cloud: signing in, renewing the pass, and uploading surveys over HTTPS"
+
+[lints]
+workspace = true
+
+[dependencies]
+geoflux-cloud = { workspace = true }
+geoflux-licence = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+
+[dev-dependencies]
+geoflux-domain = { workspace = true }
+geoflux-server = { path = "../../apps/geoflux-server" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "net"] }

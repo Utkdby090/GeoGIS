@@ -1913,6 +1913,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-client"
+version = "0.2.0"
+dependencies = [
+ "axum",
+ "geoflux-cloud",
+ "geoflux-domain",
+ "geoflux-licence",
+ "geoflux-server",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "ureq",
+]
+
+[[package]]
 name = "geoflux-cloud"
 version = "0.2.0"
 dependencies = [
