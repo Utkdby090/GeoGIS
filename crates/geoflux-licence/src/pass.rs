@@ -9,7 +9,7 @@
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::date::SECS_PER_DAY;
 use crate::{LicenceError, MachineId};
@@ -35,7 +35,7 @@ pub const PRODUCTION_KEYS: &[(&str, &str)] = &[];
 
 /// A paid capability. Free use (the GIS, opening inspection layers, the Inspection pane
 /// read-only) needs none.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Feature {
     /// Changing inspection forms, photo links and severity.
@@ -58,7 +58,7 @@ pub enum Feature {
 }
 
 /// The subscription plan, for display; [`Feature`]s decide what is unlocked.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Plan {
     Free,
@@ -69,7 +69,7 @@ pub enum Plan {
 }
 
 /// How the pass reached the app.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PassKind {
     /// From signing in; renewed when online.
@@ -117,6 +117,144 @@ pub struct Pass {
 /// Checks Ed25519 signatures by key id. The desktop app uses [`Ed25519Keys`]; tests pass their own.
 pub trait PassVerifier: Send + Sync {
     fn verify(&self, kid: &str, message: &[u8], signature: &[u8]) -> bool;
+}
+
+/// Signs passes: the account server's side of [`PassVerifier`]. The server uses [`Ed25519Signer`]
+/// with a key from its secret store; the key never leaves the server.
+pub trait PassSigner: Send + Sync {
+    /// The id the desktop app looks the public key up by ([`PRODUCTION_KEYS`]).
+    fn kid(&self) -> &str;
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, LicenceError>;
+}
+
+/// What the account server puts in a pass. [`PassClaims::sign`] refuses anything
+/// [`Pass::verify`] would not read back as written, so the server can't issue a pass the app
+/// rejects or reads differently.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PassClaims {
+    pub account: String,
+    pub org: Option<String>,
+    pub name: String,
+    pub plan: Plan,
+    pub features: Vec<Feature>,
+    /// [`MachineId::as_str`] of the computer it is for.
+    pub machine: String,
+    pub kind: PassKind,
+    /// Seconds since 1970-01-01 UTC.
+    pub issued: i64,
+    pub expires: i64,
+}
+
+/// The JSON as signed, borrowing the claims (field order is the wire order).
+#[derive(Serialize)]
+struct PayloadRef<'a> {
+    v: u32,
+    kid: &'a str,
+    account: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    org: Option<&'a str>,
+    name: &'a str,
+    plan: Plan,
+    features: &'a [Feature],
+    machine: &'a str,
+    kind: PassKind,
+    issued: i64,
+    expires: i64,
+}
+
+impl PassClaims {
+    /// The pass text, `gfp1.<payload>.<signature>`.
+    pub fn sign(&self, signer: &dyn PassSigner) -> Result<String, LicenceError> {
+        let unsignable = |why| Err(LicenceError::Unsignable(why));
+        if signer.kid().is_empty() || self.account.is_empty() || self.machine.is_empty() {
+            return unsignable("a key id, account and machine are required");
+        }
+        if self.plan == Plan::Unknown || self.features.contains(&Feature::Unknown) {
+            return unsignable("unknown plan or feature");
+        }
+        if self.features.iter().enumerate().any(|(i, f)| self.features[..i].contains(f)) {
+            return unsignable("a feature is listed twice");
+        }
+        let longest = match self.kind {
+            PassKind::Online => ONLINE_PASS_DAYS,
+            PassKind::Offline => MAX_OFFLINE_PASS_DAYS,
+        };
+        // No clock slack here: the slack is for the reader's clock, not the issuer's.
+        if self.expires <= self.issued || self.expires.saturating_sub(self.issued) > longest * SECS_PER_DAY {
+            return unsignable("dates out of range");
+        }
+        let payload = PayloadRef {
+            v: PASS_VERSION,
+            kid: signer.kid(),
+            account: &self.account,
+            org: self.org.as_deref(),
+            name: &self.name,
+            plan: self.plan,
+            features: &self.features,
+            machine: &self.machine,
+            kind: self.kind,
+            issued: self.issued,
+            expires: self.expires,
+        };
+        let json = serde_json::to_vec(&payload).map_err(|_| LicenceError::Unsignable("not serialisable"))?;
+        let signed = format!("{PASS_PREFIX}.{}", URL_SAFE_NO_PAD.encode(json));
+        let signature = signer.sign(signed.as_bytes())?;
+        let text = format!("{signed}.{}", URL_SAFE_NO_PAD.encode(signature));
+        if text.len() > MAX_PASS_LEN {
+            return Err(LicenceError::TooLong { max: MAX_PASS_LEN });
+        }
+        Ok(text)
+    }
+}
+
+/// An Ed25519 private key that signs passes, through `ring`. Server only.
+#[cfg(not(target_arch = "wasm32"))]
+pub struct Ed25519Signer {
+    kid: String,
+    pair: ring::signature::Ed25519KeyPair,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Debug for Ed25519Signer {
+    // Never prints the key.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ed25519Signer").field("kid", &self.kid).finish_non_exhaustive()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Ed25519Signer {
+    /// A key from its PKCS#8 document (as `openssl genpkey -algorithm ed25519` or
+    /// [`Ed25519Signer::generate_pkcs8`] write it, DER-encoded).
+    pub fn from_pkcs8(kid: &str, der: &[u8]) -> Result<Self, LicenceError> {
+        let pair = ring::signature::Ed25519KeyPair::from_pkcs8_maybe_unchecked(der)
+            .map_err(|_| LicenceError::BadPrivateKey("not an Ed25519 PKCS#8 key"))?;
+        Ok(Ed25519Signer { kid: kid.to_string(), pair })
+    }
+
+    /// A new private key, for the server's key-rotation tool.
+    pub fn generate_pkcs8() -> Result<Vec<u8>, LicenceError> {
+        let doc = ring::signature::Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())
+            .map_err(|_| LicenceError::BadPrivateKey("the system's random source failed"))?;
+        Ok(doc.as_ref().to_vec())
+    }
+
+    /// The public half, as [`PRODUCTION_KEYS`] lists it.
+    pub fn public_key_base64(&self) -> String {
+        use ring::signature::KeyPair;
+        base64::engine::general_purpose::STANDARD.encode(self.pair.public_key().as_ref())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PassSigner for Ed25519Signer {
+    fn kid(&self) -> &str {
+        &self.kid
+    }
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, LicenceError> {
+        Ok(self.pair.sign(message).as_ref().to_vec())
+    }
 }
 
 /// Ed25519 public keys by id, checked through `ring`.
@@ -341,6 +479,60 @@ pub(crate) mod tests {
         }
         // No production key yet, so nothing verifies against it.
         assert_eq!(Pass::verify(PRO_30_DAYS, &Ed25519Keys::production().expect("keys")), Err(LicenceError::BadSignature));
+    }
+
+    fn claims() -> PassClaims {
+        PassClaims {
+            account: "acc_1".into(),
+            org: Some("org_1".into()),
+            name: "Asha Verma".into(),
+            plan: Plan::Pro,
+            features: vec![Feature::EditForms, Feature::Thermal],
+            machine: machine().as_str().to_string(),
+            kind: PassKind::Online,
+            issued: ISSUED,
+            expires: ISSUED + ONLINE_PASS_DAYS * DAY,
+        }
+    }
+
+    #[test]
+    fn what_the_server_signs_the_app_reads_back() {
+        let signer = Ed25519Signer::from_pkcs8("k1", &Ed25519Signer::generate_pkcs8().expect("key")).expect("signer");
+        assert!(!format!("{signer:?}").contains(&signer.public_key_base64()));
+        let keys = Ed25519Keys::from_base64(&[("k1", &signer.public_key_base64())]).expect("keys");
+        let c = claims();
+        let text = c.sign(&signer).expect("signed");
+        let p = Pass::verify(&text, &keys).expect("reads");
+        assert_eq!((p.account.as_str(), p.org.as_deref(), p.plan, p.kind), ("acc_1", Some("org_1"), Plan::Pro, PassKind::Online));
+        assert_eq!((&p.features, p.issued, p.expires), (&c.features, c.issued, c.expires));
+        assert!(matches!(p.status(&machine(), ISSUED, None), PassStatus::Valid { days_left: 30 }));
+        // Another key id doesn't verify it.
+        let other = Ed25519Keys::from_base64(&[("k2", &signer.public_key_base64())]).expect("keys");
+        assert_eq!(Pass::verify(&text, &other), Err(LicenceError::BadSignature));
+    }
+
+    #[test]
+    fn passes_the_app_would_reject_are_never_signed() {
+        let signer = Ed25519Signer::from_pkcs8("k1", &Ed25519Signer::generate_pkcs8().expect("key")).expect("signer");
+        let bad: [fn(&mut PassClaims); 7] = [
+            |c| c.plan = Plan::Unknown,
+            |c| c.features.push(Feature::Unknown),
+            |c| c.features.push(Feature::Thermal),
+            |c| c.expires = c.issued,
+            |c| c.expires = c.issued + ONLINE_PASS_DAYS * DAY + 1,
+            |c| c.machine.clear(),
+            |c| c.name = "x".repeat(MAX_PASS_LEN),
+        ];
+        for (i, change) in bad.iter().enumerate() {
+            let mut c = claims();
+            change(&mut c);
+            assert!(c.sign(&signer).is_err(), "case {i}");
+        }
+        let mut long = claims();
+        long.kind = PassKind::Offline;
+        long.expires = long.issued + MAX_OFFLINE_PASS_DAYS * DAY;
+        assert!(long.sign(&signer).is_ok());
+        assert!(Ed25519Signer::from_pkcs8("k", b"not a key").is_err());
     }
 
     #[test]

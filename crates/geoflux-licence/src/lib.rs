@@ -5,7 +5,7 @@
 //! working offline for 30 days and is renewed whenever the app is online; sites with no internet
 //! use an offline pass file from the account page instead.
 //!
-//! - [`pass`]: the signed pass (Ed25519) and what it unlocks.
+//! - [`pass`]: the signed pass (Ed25519), what it unlocks, and the account server's signing side.
 //! - [`account`]: the sign-in, renewal and sign-out contract with the account server.
 //! - [`machine`]: the computer ID a pass and a seat are tied to.
 //! - [`gate`]: the decision at start-up and after sign-in, over pluggable store, clock and machine ID.
@@ -27,5 +27,5 @@ pub use error::LicenceError;
 pub use gate::{Access, Clock, FreeReason, Gate, Licensing, PassStore, StoredPass};
 pub use machine::{MachineId, MachineIdSource};
 #[cfg(not(target_arch = "wasm32"))]
-pub use pass::Ed25519Keys;
-pub use pass::{Feature, ONLINE_PASS_DAYS, Pass, PassKind, PassStatus, PassVerifier, Plan};
+pub use pass::{Ed25519Keys, Ed25519Signer};
+pub use pass::{Feature, ONLINE_PASS_DAYS, Pass, PassClaims, PassKind, PassSigner, PassStatus, PassVerifier, Plan};
