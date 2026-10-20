@@ -14,6 +14,8 @@ const LAYERS: &[(&str, u8)] = &[
     ("geoflux-thermal", 1),
     ("geoflux-report", 1),
     ("geoflux-licence", 1),
+    ("geoflux-cloud", 1),
+    ("geoflux-client", 2),
     ("map", 2),
     ("analysis", 2),
     ("tiles", 2),
