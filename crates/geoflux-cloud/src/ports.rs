@@ -93,16 +93,35 @@ pub trait AccountStore: Send + Sync {
     fn create_organisation(&self, new: NewOrganisation) -> impl Future<Output = StoreResult<()>> + Send;
     fn user_by_email(&self, email: &str) -> impl Future<Output = StoreResult<Option<UserRecord>>> + Send;
     fn user(&self, id: &UserId) -> impl Future<Output = StoreResult<Option<UserRecord>>> + Send;
+    fn organisation(&self, id: &OrgId) -> impl Future<Output = StoreResult<Option<Organisation>>> + Send;
     fn membership(&self, user: &UserId) -> impl Future<Output = StoreResult<Option<(Membership, Subscription)>>> + Send;
     /// Also ends every session and token of the person except `keep`, so a reset locks out
     /// whoever knew the old password.
     fn set_password(&self, user: &UserId, hash: &str, keep: Option<&Sha256>) -> impl Future<Output = StoreResult<()>> + Send;
     fn set_email_verified(&self, user: &UserId) -> impl Future<Output = StoreResult<()>> + Send;
-    /// Adds an invited person (seat limits checked by the caller in the same scope).
-    fn add_member(&self, scope: &OrgScope, user: User, role: Role, password_hash: &str) -> impl Future<Output = StoreResult<()>> + Send;
+    /// Adds a person who accepted an invite (only after [`AccountStore::take_token`] returned the
+    /// invite). Counts the organisation's desktop or viewer members against `seats` and adds the
+    /// person in the same step; `Err(SeatsInUse)` when the role's seats are full.
+    fn add_member(
+        &self,
+        org: &OrgId,
+        user: User,
+        role: Role,
+        password_hash: &str,
+        seats: Seats,
+        now: i64,
+    ) -> impl Future<Output = StoreResult<Result<(), SeatsInUse>>> + Send;
     fn members(&self, scope: &OrgScope) -> impl Future<Output = StoreResult<Vec<(User, Membership)>>> + Send;
-    fn set_role(&self, scope: &OrgScope, user: &UserId, role: Role) -> impl Future<Output = StoreResult<()>> + Send;
-    /// Removes the person and signs out their computers.
+    /// `Conflict("last_admin")` if it would leave the organisation without an admin;
+    /// `Ok(Err(SeatsInUse))` if the new role's seats are full.
+    fn set_role(
+        &self,
+        scope: &OrgScope,
+        user: &UserId,
+        role: Role,
+        seats: Seats,
+    ) -> impl Future<Output = StoreResult<Result<(), SeatsInUse>>> + Send;
+    /// Removes the person and signs out their computers. `Conflict("last_admin")` for the last admin.
     fn remove_member(&self, scope: &OrgScope, user: &UserId) -> impl Future<Output = StoreResult<()>> + Send;
     /// GeoFlux staff only (activate by invoice); not reachable from customer routes.
     fn set_subscription(&self, sub: Subscription) -> impl Future<Output = StoreResult<()>> + Send;
@@ -166,18 +185,41 @@ pub trait DeviceStore: Send + Sync {
         limit: u32,
         now: i64,
     ) -> impl Future<Output = StoreResult<Result<Device, SeatsInUse>>> + Send;
-    /// The device a refresh token belongs to, swapping the token for `next` in the same step.
-    /// A token that was already swapped (copied and used twice) revokes the device and returns
-    /// `Ok(None)`.
-    fn rotate_refresh(&self, old: &Sha256, next: &TokenRecord, now: i64) -> impl Future<Output = StoreResult<Option<Device>>> + Send;
+    /// The device a refresh token belongs to, swapping the token for one with digest `next` (same
+    /// person and device, expiring at `expires`) in the same step. A token that was already swapped
+    /// (copied and used twice) signs that device out and returns `Ok(None)`.
+    fn rotate_refresh(
+        &self,
+        old: &Sha256,
+        next: &Sha256,
+        expires: i64,
+        now: i64,
+    ) -> impl Future<Output = StoreResult<Option<Device>>> + Send;
     fn devices(&self, scope: &OrgScope, user: Option<&UserId>) -> impl Future<Output = StoreResult<Vec<Device>>> + Send;
     /// Signs a computer out: deletes its refresh and access tokens.
     fn revoke_device(&self, scope: &OrgScope, device: &DeviceId) -> impl Future<Output = StoreResult<()>> + Send;
+    /// Records that an offline pass file runs on this device until `until`.
+    fn mark_offline(&self, scope: &OrgScope, device: &DeviceId, until: i64) -> impl Future<Output = StoreResult<()>> + Send;
     /// Signs out the computer holding this refresh token (GeoGIS's own Sign out).
     fn sign_out(&self, refresh: &Sha256) -> impl Future<Output = StoreResult<()>> + Send;
 }
 
-/// [`DeviceStore::claim_seat`] found the person's computers all in use.
+/// The member limits of a subscription, passed to the methods that add or change members.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Seats {
+    /// Admins and inspectors.
+    pub desktop: u32,
+    pub viewers: u32,
+}
+
+impl Seats {
+    pub fn of(sub: &Subscription) -> Self {
+        Seats { desktop: sub.seats, viewers: sub.viewer_seats }
+    }
+}
+
+/// [`DeviceStore::claim_seat`] found the person's computers all in use, or
+/// [`AccountStore::add_member`] the organisation's seats. `devices` is how many are in use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SeatsInUse {
     pub devices: u32,
