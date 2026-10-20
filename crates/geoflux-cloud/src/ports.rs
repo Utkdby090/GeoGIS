@@ -4,9 +4,10 @@
 //!
 //! | Port | Oracle Always Free (F1) | Render + Neon + R2 (F2) | Supabase + Render (F3) | Tests |
 //! |---|---|---|---|---|
-//! | [`AccountStore`], [`DeviceStore`], [`SurveyStore`] | PostgreSQL in Docker | Neon PostgreSQL | Supabase PostgreSQL | in memory |
+//! | [`AccountStore`], [`DeviceStore`], [`SurveyStore`], [`SurveyReader`] | PostgreSQL in Docker | Neon PostgreSQL | Supabase PostgreSQL | in memory |
 //! | [`BlobStore`] | the VM's disk | Cloudflare R2 (S3 API) | Supabase Storage (S3 API) | in memory |
 //! | [`Mailer`] | SMTP | SMTP | SMTP | a list |
+//! | [`ReportRenderer`] | `geoflux-report` | `geoflux-report` | `geoflux-report` | a fake |
 //!
 //! The stores are async (`fn … -> impl Future + Send`), so the server's runtime never blocks on
 //! them. [`PasswordHasher`] is deliberately blocking: Argon2 is CPU work the server runs on its
@@ -23,7 +24,8 @@ use thiserror::Error;
 
 use crate::auth::{OrgScope, TokenKind, UserCode};
 use crate::model::{Device, Membership, Organisation, Role, Subscription, SurveySummary, User};
-use crate::sync::{PhotoType, SurveyCreated, SurveyManifest};
+use crate::sync::{PhotoType, SurveyAsset, SurveyCreated, SurveyManifest};
+use crate::view::SurveyDetail;
 use crate::{ApiError, DeviceId, ErrorCode, OrgId, Sha256, SurveyId, UserId};
 
 pub use geoflux_licence::{Clock, PassSigner};
@@ -253,6 +255,52 @@ pub trait SurveyStore: Send + Sync {
     fn surveys(&self, scope: &OrgScope) -> impl Future<Output = StoreResult<Vec<SurveySummary>>> + Send;
     /// Bytes of photos the organisation stores, for the plan's limit.
     fn storage_used(&self, scope: &OrgScope) -> impl Future<Output = StoreResult<u64>> + Send;
+}
+
+/// The web app's reading of committed surveys (Phase 7b). A survey that is still uploading, or
+/// belongs to another organisation, is `Ok(None)`, never an error, so the routes answer 404 for both
+/// and can't be used to probe other organisations' ids.
+pub trait SurveyReader: Send + Sync {
+    fn survey(&self, scope: &OrgScope, survey: &SurveyId) -> impl Future<Output = StoreResult<Option<SurveyDetail>>> + Send;
+    /// Every tower as uploaded, in walking order. At most [`crate::view::MAX_TOWERS`].
+    fn survey_assets(&self, scope: &OrgScope, survey: &SurveyId) -> impl Future<Output = StoreResult<Option<Vec<SurveyAsset>>>> + Send;
+    fn survey_asset(
+        &self,
+        scope: &OrgScope,
+        survey: &SurveyId,
+        asset: &str,
+    ) -> impl Future<Output = StoreResult<Option<SurveyAsset>>> + Send;
+    /// The photo's type if the committed survey lists it; the route then asks [`BlobStore::source`].
+    fn survey_photo(
+        &self,
+        scope: &OrgScope,
+        survey: &SurveyId,
+        sha: &Sha256,
+    ) -> impl Future<Output = StoreResult<Option<PhotoType>>> + Send;
+}
+
+/// Makes report files with the desktop's templates, so the server stays free of the report crate's
+/// details and a test can swap in a fake. Blocking and CPU-heavy: the server runs it on its blocking
+/// pool, a few at a time.
+pub trait ReportRenderer: Send + Sync {
+    /// One tower's PDF. `photo` returns a listed photo's bytes, or `None` when it can't be read
+    /// (the report then shows an empty slot rather than failing).
+    fn tower_pdf(
+        &self,
+        schema_id: &str,
+        summary: &SurveySummary,
+        tower: &SurveyAsset,
+        photo: &mut dyn FnMut(&Sha256) -> Option<Vec<u8>>,
+    ) -> Result<Vec<u8>, ReportFailure>;
+}
+
+/// Why a report couldn't be made. The message goes to the server log only.
+#[derive(Clone, Debug, PartialEq, Eq, Error)]
+pub enum ReportFailure {
+    #[error("no built-in schema {0}")]
+    UnknownSchema(String),
+    #[error("report: {0}")]
+    Render(String),
 }
 
 /// Where a stored photo can be read from.

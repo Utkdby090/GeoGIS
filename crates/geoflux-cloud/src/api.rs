@@ -15,7 +15,8 @@ use crate::{DeviceId, UserId};
 /// Every route starts with this, so a v2 can run beside it.
 pub const PREFIX: &str = "/api/v1";
 
-/// `(method, path)`: the whole API of Phase 7a. Paths use `{name}` for parameters.
+/// `(method, path)`: the whole API of Phases 7a and 7b. Paths use `{name}` for parameters; a tower
+/// id (`{asset}`) is the client's own text, so clients percent-encode it.
 pub mod routes {
     // Web sign-in (open, then session).
     pub const SIGN_UP: (&str, &str) = ("POST", "/api/v1/auth/signup");
@@ -33,6 +34,8 @@ pub mod routes {
     pub const DEVICE_SIGN_OUT: (&str, &str) = ("POST", "/api/v1/device/signout");
     /// The account page's "approve this computer" (session).
     pub const DEVICE_APPROVE: (&str, &str) = ("POST", "/api/v1/device/approve");
+    /// What a code would sign in, shown before approving (session; `?code=WDJB-MJHT`).
+    pub const DEVICE_PENDING: (&str, &str) = ("GET", "/api/v1/device/pending");
 
     // Computers and people (session).
     pub const DEVICES: (&str, &str) = ("GET", "/api/v1/devices");
@@ -50,10 +53,22 @@ pub mod routes {
     pub const COMMIT_SURVEY: (&str, &str) = ("POST", "/api/v1/surveys/{id}/commit");
     pub const SURVEYS: (&str, &str) = ("GET", "/api/v1/surveys");
 
+    // The web app's reading (session; committed surveys only). Phase 7b.
+    pub const SURVEY: (&str, &str) = ("GET", "/api/v1/surveys/{id}");
+    /// GeoJSON, see [`crate::view::TowerCollection`].
+    pub const SURVEY_TOWERS: (&str, &str) = ("GET", "/api/v1/surveys/{id}/towers");
+    pub const SURVEY_ASSET: (&str, &str) = ("GET", "/api/v1/surveys/{id}/assets/{asset}");
+    /// The photo's bytes (or a redirect to signed storage), only if the survey lists it.
+    pub const PHOTO: (&str, &str) = ("GET", "/api/v1/surveys/{id}/photos/{sha256}");
+    pub const TOWER_REPORT: (&str, &str) = ("GET", "/api/v1/surveys/{id}/assets/{asset}/report.pdf");
+    pub const LINE_REPORT: (&str, &str) = ("GET", "/api/v1/surveys/{id}/report.zip");
+    /// A built-in schema's fields and photo slots, for labelling a tower's form (open).
+    pub const SCHEMA: (&str, &str) = ("GET", "/api/v1/schemas/{id}");
+
     // Liveness for the host's health check (open).
     pub const HEALTH: (&str, &str) = ("GET", "/api/v1/health");
 
-    pub const ALL: [(&str, &str); 25] = [
+    pub const ALL: [(&str, &str); 33] = [
         SIGN_UP,
         LOG_IN,
         LOG_OUT,
@@ -66,6 +81,7 @@ pub mod routes {
         DEVICE_RENEW,
         DEVICE_SIGN_OUT,
         DEVICE_APPROVE,
+        DEVICE_PENDING,
         DEVICES,
         REVOKE_DEVICE,
         OFFLINE_PASS,
@@ -78,6 +94,13 @@ pub mod routes {
         PUT_PHOTO,
         COMMIT_SURVEY,
         SURVEYS,
+        SURVEY,
+        SURVEY_TOWERS,
+        SURVEY_ASSET,
+        PHOTO,
+        TOWER_REPORT,
+        LINE_REPORT,
+        SCHEMA,
         HEALTH,
     ];
 }

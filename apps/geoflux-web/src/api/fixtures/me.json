@@ -1,0 +1,32 @@
+{
+  "effectivePlan": "pro",
+  "membership": {
+    "joined": 1790000000,
+    "org": "org_01010101010101010101010101010101",
+    "role": "admin",
+    "user": "usr_02020202020202020202020202020202"
+  },
+  "organisation": {
+    "created": 1790000000,
+    "id": "org_01010101010101010101010101010101",
+    "name": "Bihar Grid Surveys"
+  },
+  "subscription": {
+    "billing": "trial",
+    "org": "org_01010101010101010101010101010101",
+    "plan": "pro",
+    "seats": 3,
+    "state": {
+      "ends": 1791296000,
+      "state": "trial"
+    },
+    "viewerSeats": 0
+  },
+  "user": {
+    "created": 1790000000,
+    "email": "asha@example.in",
+    "emailVerified": true,
+    "id": "usr_02020202020202020202020202020202",
+    "name": "Asha Verma"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "bounds": [
+    85.1,
+    25.6,
+    85.12,
+    25.61
+  ],
+  "revisions": [
+    {
+      "committed": 1790000060,
+      "id": "srv_03030303030303030303030303030303",
+      "revision": 2
+    },
+    {
+      "committed": 1789913600,
+      "id": "srv_04040404040404040404040404040404",
+      "revision": 1
+    }
+  ],
+  "summary": {
+    "assets": 3,
+    "clientSurveyId": "proj-4f1c2a9e",
+    "committed": 1790000060,
+    "id": "srv_03030303030303030303030303030303",
+    "line": "Line 4",
+    "org": "org_01010101010101010101010101010101",
+    "photoBytes": 9400000,
+    "photos": 3,
+    "project": "Patna 132 kV",
+    "revision": 2,
+    "schemaId": "com.geo.telecom",
+    "severityCounts": [
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    "state": "committed",
+    "uploaded": 1790000000,
+    "uploadedBy": "usr_02020202020202020202020202020202"
+  }
+}

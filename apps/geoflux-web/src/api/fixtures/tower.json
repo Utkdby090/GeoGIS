@@ -1,0 +1,65 @@
+{
+  "asset": {
+    "id": "t1",
+    "location": {
+      "lat": 25.6,
+      "lon": 85.1
+    },
+    "position": 0,
+    "properties": [
+      [
+        "towerNumber",
+        "101"
+      ],
+      [
+        "faultDescription",
+        "Hot spot on B phase jumper"
+      ]
+    ],
+    "schemaId": "com.geo.telecom",
+    "severity": "critical",
+    "status": "ready"
+  },
+  "photos": [
+    {
+      "bytes": 3100000,
+      "fileName": "DJI_0001_THERMAL.JPG",
+      "markup": [
+        {
+          "a": {
+            "x": 0.25,
+            "y": 0.25
+          },
+          "b": {
+            "x": 0.5,
+            "y": 0.75
+          },
+          "color": "#e51a1a",
+          "kind": "rect",
+          "width": 6.0
+        },
+        {
+          "at": {
+            "x": 0.75,
+            "y": 0.5
+          },
+          "color": "#e51a1a",
+          "kind": "marker",
+          "number": 1,
+          "width": 6.0
+        }
+      ],
+      "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "slot": "THERMAL",
+      "type": "jpeg"
+    },
+    {
+      "bytes": 3100000,
+      "fileName": "DJI_0001_STRUCTURE.JPG",
+      "sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "slot": "STRUCTURE",
+      "type": "jpeg"
+    }
+  ],
+  "survey": "srv_03030303030303030303030303030303"
+}

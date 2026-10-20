@@ -1,0 +1,24 @@
+{
+  "name": "geoflux-web",
+  "private": true,
+  "version": "0.2.0",
+  "description": "GeoFlux web app: surveys on a map, towers with photos and markup, reports. Built into geoflux-server.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.10"
+  }
+}
