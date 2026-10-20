@@ -2,9 +2,9 @@
 <!--
   Windows Installer package (WiX 5), built by package.sh. An all-users install in Program Files:
   a Start menu shortcut, rustgis-cli on the system PATH, .rgis/.rgisx projects opened by GeoGIS
-  and GeoGIS offered under Open with for .geojson. Variables passed with -d: Version (three
-  numbers), Publisher, Stage (the folder holding the exes, LICENSE and NOTICE), Icon, License (RTF),
-  Banner and Dialog (BMPs).
+  and GeoGIS offered under Open with for .geojson and GeoFlux projects (.geox). Variables passed
+  with -d: Version (three numbers), Publisher, Stage (the folder holding the exes, LICENSE and
+  NOTICE), Icon, License (RTF), Banner and Dialog (BMPs).
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <!-- The UpgradeCode never changes: a new version replaces the installed one. It is GeoGIS's
@@ -38,6 +38,9 @@
         </ProgId>
         <!-- Listed under Open with for GeoJSON, without taking over the default app. -->
         <RegistryValue Root="HKLM" Key="Software\Classes\.geojson\OpenWithProgids" Name="GeoGIS.Project"
+          Type="string" Value="" />
+        <!-- GeoFlux projects, imported on opening; offered beside GeoFlux 1.x, not made the default. -->
+        <RegistryValue Root="HKLM" Key="Software\Classes\.geox\OpenWithProgids" Name="GeoGIS.Project"
           Type="string" Value="" />
       </Component>
       <Component Directory="INSTALLFOLDER">

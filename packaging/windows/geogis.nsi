@@ -1,6 +1,7 @@
 ; setup.exe installer (NSIS 3), built by package.sh. A per-user install that needs no admin
 ; rights, in %LOCALAPPDATA%\Programs\GeoGIS: a Start menu shortcut, rustgis-cli on the user's
-; PATH, .rgis/.rgisx projects opened by GeoGIS and GeoGIS offered under Open with for .geojson.
+; PATH, .rgis/.rgisx projects opened by GeoGIS and GeoGIS offered under Open with for .geojson
+; and GeoFlux projects (.geox, imported on opening).
 ; Its registry keys and file type (GeoGIS.Project) are its own, so it never touches an installed
 ; RustGIS. PUBLISHER may be passed with -D; it defaults to GeoFlux.
 ; Defines passed with -D: VERSION, VERSION4 (four numbers), STAGE (the folder holding the exes,
@@ -89,6 +90,8 @@ Section "Install"
   WriteRegStr HKCU "Software\Classes\.rgis" "" "${PROGID}"
   WriteRegStr HKCU "Software\Classes\.rgisx" "" "${PROGID}"
   WriteRegStr HKCU "Software\Classes\.geojson\OpenWithProgids" "${PROGID}" ""
+  ; GeoFlux projects: GeoGIS imports them. Offered, not made the default, beside GeoFlux 1.x.
+  WriteRegStr HKCU "Software\Classes\.geox\OpenWithProgids" "${PROGID}" ""
   !insertmacro RefreshShell
 
   ; Apps & features.
@@ -118,8 +121,9 @@ Section "Uninstall"
     MessageBox MB_OK|MB_ICONEXCLAMATION "$INSTDIR could not be removed from your PATH ($0). Remove it in Settings › System › About › Advanced system settings › Environment Variables." /SD IDOK
   !insertmacro RefreshEnvironment
 
-  ; Only the associations this installer made: another program may own .geojson.
+  ; Only the associations this installer made: another program may own .geojson or .geox.
   DeleteRegValue HKCU "Software\Classes\.geojson\OpenWithProgids" "${PROGID}"
+  DeleteRegValue HKCU "Software\Classes\.geox\OpenWithProgids" "${PROGID}"
   ReadRegStr $0 HKCU "Software\Classes\.rgis" ""
   StrCmp $0 "${PROGID}" 0 +2
     DeleteRegKey HKCU "Software\Classes\.rgis"

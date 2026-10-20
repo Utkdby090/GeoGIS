@@ -7,6 +7,6 @@ Exec=geogis %F
 Icon=geogis
 Terminal=false
 Categories=Science;Geography;Education;
-MimeType=application/x-geogis-project;application/geo+json;
+MimeType=application/x-geogis-project;application/x-geoflux-project;application/geo+json;
 StartupWMClass=com.geoflux.GeoGIS
 Keywords=GIS;map;geospatial;GeoJSON;shapefile;inspection;thermal;GeoFlux;

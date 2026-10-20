@@ -29,6 +29,12 @@
       <key>CFBundleTypeRole</key><string>Viewer</string>
       <key>LSHandlerRank</key><string>Alternate</string>
     </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>GeoFlux project</string>
+      <key>CFBundleTypeExtensions</key><array><string>geox</string></array>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+    </dict>
   </array>
 </dict>
 </plist>

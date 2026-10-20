@@ -120,10 +120,16 @@ jobs:
           if ((Get-ItemProperty 'HKCU:\Software\Classes\.rgis').'(default)' -ne 'GeoGIS.Project') {
             throw '.rgis is not associated'
           }
+          if ($null -eq (Get-ItemProperty 'HKCU:\Software\Classes\.geox\OpenWithProgids' -Name 'GeoGIS.Project' -ErrorAction SilentlyContinue)) {
+            throw '.geox does not offer GeoGIS'
+          }
           # _?= keeps the uninstaller in place, so -Wait waits for it.
           Start-Process "$dir\uninstall.exe" -ArgumentList '/S', "_?=$dir" -Wait
           Gone $dir 'User'
           if (Test-Path 'HKCU:\Software\Classes\GeoGIS.Project') { throw 'GeoGIS.Project is still registered' }
+          if (Get-ItemProperty 'HKCU:\Software\Classes\.geox\OpenWithProgids' -Name 'GeoGIS.Project' -ErrorAction SilentlyContinue) {
+            throw '.geox still offers GeoGIS'
+          }
 
           $pack = (Get-Item dist\GeoGIS-DJI-Pack-*.zip).FullName
           $out = "$env:RUNNER_TEMP\dji-pack"
