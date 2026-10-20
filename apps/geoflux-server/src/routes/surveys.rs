@@ -120,5 +120,8 @@ pub async fn commit<B: Backend>(State(s): State<Arc<Server<B>>>, ctx: Ctx, Path(
 pub async fn list<B: Backend>(State(s): State<Arc<Server<B>>>, ctx: Ctx) -> Result<Json<SurveyList>> {
     let p = http::any(&s, &ctx.method, &ctx.headers).await?;
     let scope = p.require(Permission::ViewSurveys, s.now())?;
-    Ok(Json(SurveyList { surveys: s.backend.surveys().surveys(&scope).await? }))
+    // Only finished uploads: one still arriving can't be opened yet.
+    let mut surveys = s.backend.surveys().surveys(&scope).await?;
+    surveys.retain(|x| x.state == geoflux_cloud::model::SurveyState::Committed);
+    Ok(Json(SurveyList { surveys }))
 }

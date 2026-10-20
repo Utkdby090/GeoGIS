@@ -3,7 +3,8 @@
 CREATE TABLE survey_assets (
     survey    text NOT NULL REFERENCES surveys (id) ON DELETE CASCADE,
     -- The tower's id in GeoGIS (client text, at most 200 characters, checked before storing).
-    asset_id  text NOT NULL,
+    -- Byte order ("C"), the same order the in-memory store and Rust use for ties in position.
+    asset_id  text COLLATE "C" NOT NULL,
     position  bigint NOT NULL,
     -- From geoflux_domain::Severity, for the dashboard's counts without reading `body`.
     severity  text NOT NULL,

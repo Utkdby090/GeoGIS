@@ -13,13 +13,15 @@ mod http;
 pub mod mail;
 pub mod memory;
 pub mod postgres;
+pub mod reports;
 mod routes;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use geoflux_cloud::ports::{
-    AccountStore, BlobStore, Clock, DeviceStore, Mailer, PassSigner, PasswordHasher, Random, RateLimiter, SurveyStore,
+    AccountStore, BlobStore, Clock, DeviceStore, Mailer, PassSigner, PasswordHasher, Random, RateLimiter, ReportRenderer, SurveyReader,
+    SurveyStore,
 };
 
 /// The storage a server runs on. One type bundles the async stores (their traits use
@@ -27,7 +29,7 @@ use geoflux_cloud::ports::{
 pub trait Backend: Send + Sync + 'static {
     type Accounts: AccountStore + 'static;
     type Devices: DeviceStore + 'static;
-    type Surveys: SurveyStore + 'static;
+    type Surveys: SurveyStore + SurveyReader + 'static;
     type Blobs: BlobStore + 'static;
     type Mail: Mailer + 'static;
 
@@ -61,6 +63,11 @@ pub struct Server<B: Backend> {
     pub limiter: Arc<dyn RateLimiter>,
     pub clock: Arc<dyn Clock>,
     pub signer: Arc<dyn PassSigner>,
+    /// Tower PDFs and line ZIPs ([`reports::Reports`] in production).
+    pub reports: Arc<dyn ReportRenderer>,
+    /// At most this many reports are made at once, so a burst of downloads can't use every CPU
+    /// and the memory of every tower's photos.
+    pub report_slots: Arc<tokio::sync::Semaphore>,
     pub settings: Settings,
 }
 

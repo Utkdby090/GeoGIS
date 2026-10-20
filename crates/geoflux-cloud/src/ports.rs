@@ -270,6 +270,14 @@ pub trait SurveyReader: Send + Sync {
         survey: &SurveyId,
         asset: &str,
     ) -> impl Future<Output = StoreResult<Option<SurveyAsset>>> + Send;
+    /// The towers before and after `asset` in walking order (`None` at either end); `None` overall
+    /// when the survey or the tower isn't found.
+    fn neighbours(
+        &self,
+        scope: &OrgScope,
+        survey: &SurveyId,
+        asset: &str,
+    ) -> impl Future<Output = StoreResult<Option<(Option<SurveyAsset>, Option<SurveyAsset>)>>> + Send;
     /// The photo's type if the committed survey lists it; the route then asks [`BlobStore::source`].
     fn survey_photo(
         &self,
@@ -282,17 +290,35 @@ pub trait SurveyReader: Send + Sync {
 /// Makes report files with the desktop's templates, so the server stays free of the report crate's
 /// details and a test can swap in a fake. Blocking and CPU-heavy: the server runs it on its blocking
 /// pool, a few at a time.
+///
+/// `photo` returns a listed photo's bytes, or `None` when it can't be read; the report then shows
+/// an empty slot rather than failing.
 pub trait ReportRenderer: Send + Sync {
-    /// One tower's PDF. `photo` returns a listed photo's bytes, or `None` when it can't be read
-    /// (the report then shows an empty slot rather than failing).
+    /// One tower's PDF. `previous` and `next` are its neighbours in walking order, for the page's
+    /// arrows.
     fn tower_pdf(
         &self,
         schema_id: &str,
-        summary: &SurveySummary,
         tower: &SurveyAsset,
+        previous: Option<&SurveyAsset>,
+        next: Option<&SurveyAsset>,
         photo: &mut dyn FnMut(&Sha256) -> Option<Vec<u8>>,
     ) -> Result<Vec<u8>, ReportFailure>;
+
+    /// A ZIP with one PDF per tower (in walking order) written to `out`, one page in memory at a
+    /// time. Returns how many PDFs it holds.
+    fn line_zip(
+        &self,
+        schema_id: &str,
+        towers: &[SurveyAsset],
+        photo: &mut dyn FnMut(&Sha256) -> Option<Vec<u8>>,
+        out: &mut dyn ZipOut,
+    ) -> Result<u32, ReportFailure>;
 }
+
+/// Where a ZIP is written: a file the server streams afterwards.
+pub trait ZipOut: std::io::Write + std::io::Seek + Send {}
+impl<T: std::io::Write + std::io::Seek + Send> ZipOut for T {}
 
 /// Why a report couldn't be made. The message goes to the server log only.
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
@@ -301,6 +327,8 @@ pub enum ReportFailure {
     UnknownSchema(String),
     #[error("report: {0}")]
     Render(String),
+    #[error("a line report holds at most {0} towers")]
+    TooManyTowers(usize),
 }
 
 /// Where a stored photo can be read from.
@@ -310,6 +338,8 @@ pub enum BlobSource {
     File(std::path::PathBuf),
     /// A short-lived signed URL the client is redirected to (S3-style storage).
     Url(String),
+    /// The bytes themselves (in-memory storage for tests and trials only).
+    Bytes(Vec<u8>),
 }
 
 /// Photo storage, by organisation and hash. Keys are built from typed ids and hashes only, never
@@ -363,6 +393,8 @@ pub mod limits {
     pub const DEVICE_CODES_PER_IP: Limit = Limit { attempts: 10, window_secs: 3_600 };
     /// Typing user codes on the account page.
     pub const USER_CODE_PER_IP: Limit = Limit { attempts: 10, window_secs: 15 * 60 };
+    /// Line ZIPs (a PDF per tower) per organisation: each one is minutes of CPU on a large line.
+    pub const LINE_REPORTS_PER_ORG: Limit = Limit { attempts: 20, window_secs: 3_600 };
 }
 
 pub trait RateLimiter: Send + Sync {

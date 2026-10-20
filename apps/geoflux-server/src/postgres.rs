@@ -13,9 +13,10 @@ use geoflux_cloud::auth::{OrgScope, TokenKind, UserCode};
 use geoflux_cloud::model::{Device, Membership, Organisation, Role, Subscription, SubscriptionState, SurveySummary, User};
 use geoflux_cloud::ports::{
     AccountStore, BlobStore, DeviceCodeRecord, DeviceCodeState, DeviceStore, Mailer, NewOrganisation, Seats, SeatsInUse, StoreError,
-    StoreResult, SurveyStore, TokenRecord, UserRecord,
+    StoreResult, SurveyReader, SurveyStore, TokenRecord, UserRecord,
 };
-use geoflux_cloud::sync::{PhotoType, SurveyCreated, SurveyManifest};
+use geoflux_cloud::sync::{PhotoType, SurveyAsset, SurveyCreated, SurveyManifest};
+use geoflux_cloud::view::{RevisionRef, SurveyDetail};
 use geoflux_cloud::{DeviceId, OrgId, Sha256, SurveyId, UserId};
 use geoflux_domain::Severity;
 use serde::Serialize;
@@ -1027,6 +1028,40 @@ impl SurveyStore for PgStore {
         .execute(&mut *tx)
         .await
         .map_err(db)?;
+        // Every tower as uploaded, in one statement as arrays. JSON travels as text and is cast, so
+        // no JSON support is needed in the driver.
+        let n = manifest.assets.len();
+        let (mut ids, mut positions, mut severities, mut lons, mut lats, mut bodies) = (
+            Vec::with_capacity(n),
+            Vec::with_capacity(n),
+            Vec::with_capacity(n),
+            Vec::with_capacity(n),
+            Vec::with_capacity(n),
+            Vec::with_capacity(n),
+        );
+        for a in &manifest.assets {
+            ids.push(a.asset.id.clone());
+            positions.push(i64::from(a.asset.position));
+            severities.push(a.asset.severity.as_str().to_string());
+            lons.push(a.asset.location.map(|p| p.lon));
+            lats.push(a.asset.location.map(|p| p.lat));
+            bodies.push(serde_json::to_string(a).map_err(|e| StoreError::Other(format!("tower JSON: {e}")))?);
+        }
+        sqlx::query(
+            "INSERT INTO survey_assets (survey, asset_id, position, severity, lon, lat, body) \
+             SELECT $1, i, p, s, x, y, b::jsonb FROM UNNEST($2::text[], $3::bigint[], $4::text[], $5::float8[], $6::float8[], $7::text[]) \
+             AS t (i, p, s, x, y, b)",
+        )
+        .bind(id.as_str())
+        .bind(ids)
+        .bind(positions)
+        .bind(severities)
+        .bind(lons)
+        .bind(lats)
+        .bind(bodies)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
         let missing = missing(&mut *tx, org, &id).await?;
         tx.commit().await.map_err(db)?;
         Ok(SurveyCreated { survey: id, missing, existing: false })
@@ -1108,6 +1143,148 @@ impl SurveyStore for PgStore {
 
 /// PostgreSQL for the records, with photos in `Bl` (the server's disk now; R2 or Supabase Storage
 /// with the hosting choice) and mail through `M`.
+/// The towers of a committed survey of the organisation, as `SELECT … FROM survey_assets a` with
+/// the survey checked in the same query.
+const COMMITTED_ASSETS: &str = "FROM survey_assets a JOIN surveys s ON s.id = a.survey \
+     WHERE a.survey = $1 AND s.org = $2 AND s.state = 'committed'";
+
+fn asset_row(r: &PgRow) -> StoreResult<SurveyAsset> {
+    let body: String = get(r, "body")?;
+    serde_json::from_str(&body).map_err(|_| corrupt("tower"))
+}
+
+impl SurveyReader for PgStore {
+    async fn survey(&self, scope: &OrgScope, survey: &SurveyId) -> StoreResult<Option<SurveyDetail>> {
+        let Some(r) = sqlx::query(&format!("SELECT {SURVEY_COLS} FROM surveys WHERE id = $1 AND org = $2 AND state = 'committed'"))
+            .bind(survey.as_str())
+            .bind(scope.org().as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db)?
+        else {
+            return Ok(None);
+        };
+        let summary = survey_row(&r)?;
+        let b = sqlx::query("SELECT min(lon) AS w, min(lat) AS s, max(lon) AS e, max(lat) AS n FROM survey_assets WHERE survey = $1 AND lon IS NOT NULL AND lat IS NOT NULL")
+            .bind(survey.as_str())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db)?;
+        let bounds = match (
+            get::<Option<f64>>(&b, "w")?,
+            get::<Option<f64>>(&b, "s")?,
+            get::<Option<f64>>(&b, "e")?,
+            get::<Option<f64>>(&b, "n")?,
+        ) {
+            (Some(w), Some(s), Some(e), Some(n)) => Some([w, s, e, n]),
+            _ => None,
+        };
+        let rows = sqlx::query(
+            "SELECT id, revision, committed FROM surveys WHERE org = $1 AND client_survey_id = $2 AND state = 'committed' \
+             ORDER BY revision DESC",
+        )
+        .bind(scope.org().as_str())
+        .bind(&summary.client_survey_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db)?;
+        let revisions = rows
+            .iter()
+            .map(|r| {
+                Ok(RevisionRef {
+                    id: survey_id(get(r, "id")?)?,
+                    revision: u32_of(get(r, "revision")?, "revision")?,
+                    committed: get(r, "committed")?,
+                })
+            })
+            .collect::<StoreResult<Vec<_>>>()?;
+        Ok(Some(SurveyDetail { summary, bounds, revisions }))
+    }
+
+    async fn survey_assets(&self, scope: &OrgScope, survey: &SurveyId) -> StoreResult<Option<Vec<SurveyAsset>>> {
+        let found: Option<i32> = sqlx::query_scalar("SELECT 1 FROM surveys WHERE id = $1 AND org = $2 AND state = 'committed'")
+            .bind(survey.as_str())
+            .bind(scope.org().as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db)?;
+        if found.is_none() {
+            return Ok(None);
+        }
+        let rows = sqlx::query(&format!("SELECT a.body::text AS body {COMMITTED_ASSETS} ORDER BY a.position, a.asset_id"))
+            .bind(survey.as_str())
+            .bind(scope.org().as_str())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(db)?;
+        rows.iter().map(asset_row).collect::<StoreResult<Vec<_>>>().map(Some)
+    }
+
+    async fn survey_asset(&self, scope: &OrgScope, survey: &SurveyId, asset: &str) -> StoreResult<Option<SurveyAsset>> {
+        let r = sqlx::query(&format!("SELECT a.body::text AS body {COMMITTED_ASSETS} AND a.asset_id = $3"))
+            .bind(survey.as_str())
+            .bind(scope.org().as_str())
+            .bind(asset)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db)?;
+        r.as_ref().map(asset_row).transpose()
+    }
+
+    async fn neighbours(
+        &self,
+        scope: &OrgScope,
+        survey: &SurveyId,
+        asset: &str,
+    ) -> StoreResult<Option<(Option<SurveyAsset>, Option<SurveyAsset>)>> {
+        let Some(at) = sqlx::query(&format!("SELECT a.position {COMMITTED_ASSETS} AND a.asset_id = $3"))
+            .bind(survey.as_str())
+            .bind(scope.org().as_str())
+            .bind(asset)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db)?
+        else {
+            return Ok(None);
+        };
+        let position: i64 = get(&at, "position")?;
+        let side = |cmp: &str, dir: &str| {
+            format!(
+                "SELECT body::text AS body FROM survey_assets WHERE survey = $1 AND (position, asset_id) {cmp} ($2, $3) \
+                 ORDER BY position {dir}, asset_id {dir} LIMIT 1"
+            )
+        };
+        let mut out = Vec::with_capacity(2);
+        for (cmp, dir) in [("<", "DESC"), (">", "ASC")] {
+            let r = sqlx::query(&side(cmp, dir))
+                .bind(survey.as_str())
+                .bind(position)
+                .bind(asset)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db)?;
+            out.push(r.as_ref().map(asset_row).transpose()?);
+        }
+        let next = out.pop().flatten();
+        let previous = out.pop().flatten();
+        Ok(Some((previous, next)))
+    }
+
+    async fn survey_photo(&self, scope: &OrgScope, survey: &SurveyId, sha: &Sha256) -> StoreResult<Option<PhotoType>> {
+        let kind: Option<String> = sqlx::query_scalar(
+            "SELECT sp.kind FROM survey_photos sp JOIN surveys s ON s.id = sp.survey \
+             WHERE s.id = $1 AND s.org = $2 AND s.state = 'committed' AND sp.sha = $3",
+        )
+        .bind(survey.as_str())
+        .bind(scope.org().as_str())
+        .bind(sha.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db)?;
+        kind.map(|k| from_text(k, "photo type")).transpose()
+    }
+}
+
 pub struct PgBackend<Bl, M> {
     pub store: PgStore,
     pub blobs: Bl,
