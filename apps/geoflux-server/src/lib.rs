@@ -3,8 +3,8 @@
 //!
 //! The rules and the wire format live in `geoflux-cloud`; this crate is the HTTP layer over them
 //! and the adapters for its ports. Storage is a [`Backend`]: [`memory::MemoryBackend`] for tests and
-//! local trials now, PostgreSQL next, and the hosting choice (Oracle, Render + Neon + R2, Supabase)
-//! is decided at the end as further adapters.
+//! local trials, [`postgres::PgBackend`] for real use. The hosting choice (Oracle, Render + Neon +
+//! R2, Supabase) is decided at the end and adds photo storage and mail adapters.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod blobs;
