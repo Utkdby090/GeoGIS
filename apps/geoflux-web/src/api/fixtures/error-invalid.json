@@ -1,0 +1,10 @@
+{
+  "error": "invalid_field",
+  "fields": [
+    {
+      "field": "password",
+      "reason": "too_short"
+    }
+  ],
+  "message": "Some fields need fixing."
+}

@@ -24,7 +24,8 @@ use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::{Executor, Postgres, Row, Transaction};
 
 /// Schema changes, applied in order once each. Never edit a released one; add the next.
-const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../migrations/0001_accounts.sql"))];
+const MIGRATIONS: &[(i64, &str)] =
+    &[(1, include_str!("../migrations/0001_accounts.sql")), (2, include_str!("../migrations/0002_survey_assets.sql"))];
 
 /// Held while migrating, so two servers starting together don't both apply a change.
 const MIGRATION_LOCK: i64 = 0x6765_6f66_6c75_7801;

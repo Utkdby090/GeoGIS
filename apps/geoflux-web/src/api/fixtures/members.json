@@ -1,0 +1,17 @@
+{
+  "members": [
+    {
+      "joined": 1790000000,
+      "role": "admin",
+      "user": {
+        "created": 1790000000,
+        "email": "asha@example.in",
+        "emailVerified": true,
+        "id": "usr_02020202020202020202020202020202",
+        "name": "Asha Verma"
+      }
+    }
+  ],
+  "seats": 3,
+  "viewerSeats": 0
+}

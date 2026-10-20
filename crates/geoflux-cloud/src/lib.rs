@@ -9,6 +9,7 @@
 //! - [`auth`]: email and password rules, secret tokens, device codes, and the signed-in
 //!   [`auth::Principal`] whose [`auth::OrgScope`] every organisation read needs.
 //! - [`sync`]: the survey upload (a manifest, then photos by hash, then a commit).
+//! - [`view`]: what the web app reads: a survey, its towers as GeoJSON, one tower, reports.
 //! - [`api`]: routes and request and response bodies.
 //! - [`error`]: one error shape for every route, with its HTTP status.
 //! - [`ports`]: storage, photos, mail, password hashing, randomness, rate limits and single
@@ -26,6 +27,7 @@ pub mod model;
 pub mod plans;
 pub mod ports;
 pub mod sync;
+pub mod view;
 
 pub use error::{ApiError, ErrorCode, FieldError};
 pub use ids::{DeviceId, IdError, OrgId, Sha256, SurveyId, UserId};

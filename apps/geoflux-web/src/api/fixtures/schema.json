@@ -1,0 +1,313 @@
+{
+  "csv": {
+    "columns": [
+      {
+        "header": "Tower No.",
+        "key": "towerNumber"
+      },
+      {
+        "header": "Line Name",
+        "key": "lineName"
+      },
+      {
+        "header": "CKT",
+        "key": "circuit"
+      },
+      {
+        "header": "Phase",
+        "key": "phase"
+      },
+      {
+        "header": "Side",
+        "key": "side"
+      },
+      {
+        "header": "Captured Date",
+        "key": "capturedDate"
+      },
+      {
+        "header": "Captured Time",
+        "key": "capturedTime"
+      },
+      {
+        "header": "Ambeint Temp.",
+        "key": "ambientTemp"
+      },
+      {
+        "header": "Humidity",
+        "key": "humidity"
+      },
+      {
+        "header": "Emissivity",
+        "key": "emissivity"
+      },
+      {
+        "header": "Fault Temp.",
+        "key": "faultTemp"
+      },
+      {
+        "header": "Rise Temp.",
+        "key": "riseTemp"
+      },
+      {
+        "header": "Fault Description",
+        "key": "faultDescription"
+      },
+      {
+        "header": "Company Name",
+        "key": "companyName"
+      },
+      {
+        "header": "Direction",
+        "key": "direction"
+      },
+      {
+        "default": "tower",
+        "header": "report_Type",
+        "key": "reportType"
+      },
+      {
+        "default": "normal",
+        "header": "Fault",
+        "key": "faultStatus"
+      }
+    ],
+    "extraGroup": "Environmental & Load Data",
+    "extraPrefix": "load.",
+    "ignore": [
+      "Sr. No."
+    ],
+    "latitude": "Lat.",
+    "longitude": "Long.",
+    "required": [
+      "towerNumber",
+      "lineName"
+    ]
+  },
+  "description": "Process 765kV transmission lines, mid-spans, and hardware fittings.",
+  "fields": [
+    {
+      "group": "Location & Temporal Data",
+      "key": "lineName",
+      "label": "Line Name",
+      "required": true,
+      "row": 0,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "towerNumber",
+      "label": "Tower No",
+      "required": true,
+      "row": 0,
+      "type": "text",
+      "weight": 0.5
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "circuit",
+      "label": "Circuit",
+      "required": false,
+      "row": 0,
+      "type": "text",
+      "weight": 0.5
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "phase",
+      "label": "Phase",
+      "required": false,
+      "row": 1,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "side",
+      "label": "Side",
+      "required": false,
+      "row": 1,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "direction",
+      "label": "Direction",
+      "required": false,
+      "row": 1,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "capturedDate",
+      "label": "Captured Date",
+      "required": false,
+      "row": 2,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "capturedTime",
+      "label": "Captured Time",
+      "required": false,
+      "row": 2,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "core.latitude",
+      "label": "Latitude",
+      "required": true,
+      "row": 2,
+      "type": "number",
+      "weight": 1.0
+    },
+    {
+      "group": "Location & Temporal Data",
+      "key": "core.longitude",
+      "label": "Longitude",
+      "required": true,
+      "row": 2,
+      "type": "number",
+      "weight": 1.0
+    },
+    {
+      "group": "Environmental & Load Data",
+      "key": "humidity",
+      "label": "Humidity (%)",
+      "required": false,
+      "row": 0,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Environmental & Load Data",
+      "key": "emissivity",
+      "label": "Emissivity",
+      "required": false,
+      "row": 0,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Environmental & Load Data",
+      "key": "ambientTemp",
+      "label": "Amb. Temp (°C)",
+      "required": false,
+      "row": 0,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Fault Analysis",
+      "key": "faultDescription",
+      "label": "Fault Description",
+      "required": false,
+      "row": 0,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Fault Analysis",
+      "key": "faultTemp",
+      "label": "Fault Temp (°C)",
+      "required": false,
+      "row": 1,
+      "type": "text",
+      "weight": 1.0
+    },
+    {
+      "group": "Fault Analysis",
+      "key": "riseTemp",
+      "label": "Rise Temp (°C)",
+      "required": false,
+      "row": 1,
+      "type": "text",
+      "weight": 1.0
+    }
+  ],
+  "id": "com.geo.telecom",
+  "imageSlots": [
+    {
+      "fallback": true,
+      "id": "LOCATION",
+      "label": "Location",
+      "matches": [
+        "location",
+        "v"
+      ],
+      "thermal": false
+    },
+    {
+      "id": "THERMAL",
+      "label": "Thermal Image",
+      "matches": [
+        "thermal",
+        "ir",
+        "radiometric",
+        "t"
+      ],
+      "thermal": true
+    },
+    {
+      "id": "STRUCTURE",
+      "label": "Structure Image",
+      "matches": [
+        "tower",
+        "structure",
+        "wide",
+        "w",
+        "span",
+        "mid",
+        "midspan",
+        "sleeve",
+        "repair",
+        "earth",
+        "joint"
+      ],
+      "thermal": false
+    },
+    {
+      "id": "RGB_ZOOM",
+      "label": "RGB Image",
+      "matches": [
+        "zoom",
+        "rgb",
+        "visual",
+        "supp",
+        "z"
+      ],
+      "thermal": false
+    }
+  ],
+  "labelField": "towerNumber",
+  "name": "Electric Grid Inspection",
+  "schemaVersion": 1,
+  "severity": {
+    "flaggedWhen": [
+      {
+        "contains": "fault",
+        "key": "faultStatus"
+      },
+      {
+        "contains": "fault",
+        "key": "reportType"
+      }
+    ],
+    "measured": "faultTemp",
+    "reference": "ambientTemp",
+    "rise": "riseTemp",
+    "thresholds": {
+      "critical": 40.0,
+      "high": 16.0,
+      "low": 1.0,
+      "medium": 4.0
+    }
+  },
+  "version": "1.0.0"
+}
