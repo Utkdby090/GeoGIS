@@ -1750,6 +1750,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoflux-cloud"
+version = "0.2.0"
+dependencies = [
+ "base64 0.22.1",
+ "geoflux-domain",
+ "geoflux-licence",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "geoflux-dirp"
 version = "0.2.0"
 dependencies = [

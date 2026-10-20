@@ -16,6 +16,12 @@ pub enum LicenceError {
     /// A built-in public key couldn't be read (a build problem, never the customer's).
     #[error("the account server's public key is not usable ({0})")]
     BadPublicKey(&'static str),
+    /// The account server's private key could not be read or used.
+    #[error("the signing key is not usable ({0})")]
+    BadPrivateKey(&'static str),
+    /// The account server was about to sign a pass the app would refuse or misread.
+    #[error("the pass can't be signed ({0})")]
+    Unsignable(&'static str),
     /// The machine ID could not be read, or the system returned an error or a placeholder instead.
     #[error("this computer's ID could not be read ({0})")]
     MachineId(String),
