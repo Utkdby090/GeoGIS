@@ -227,7 +227,7 @@ impl HelperBackend {
     }
 
     /// Whether a photo is being measured now.
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     fn is_busy(&self) -> bool {
         matches!(self.state.try_lock(), Err(TryLockError::WouldBlock))
     }
@@ -339,19 +339,26 @@ mod tests {
         }
     }
 
+    /// Reads exactly `n` bytes of the request and drops them. Not `head -c`: macOS's `head` reads
+    /// ahead into its buffer, swallowing the photo that follows, so the next read waits forever.
+    fn skip(n: usize) -> String {
+        format!("dd bs=1 count={n} of=/dev/null 2>/dev/null")
+    }
+
     /// A script that introduces itself properly, swallows GeoGIS's hello, then runs `then`.
     fn greets_then(name: &str, then: &str) -> HelperConfig {
         let hello = r#"{"type":"hello","protocol":1,"helper":"t","sdk":"t"}"#;
         let head = format!("GFD1\\{:03o}\\000\\000\\000", hello.len());
-        fake(name, &format!("printf '{head}{hello}\\000\\000\\000\\000'\nhead -c 64 >/dev/null\n{then}"))
+        fake(name, &format!("printf '{head}{hello}\\000\\000\\000\\000'\n{}\n{then}", skip(64)))
     }
 
     #[test]
     fn a_crash_or_hang_mid_photo_costs_that_photo_only() {
-        for (name, then, want) in
-            [("crash", "head -c 8 >/dev/null; exit 1", ThermalError::HelperCrashed), ("hang", "exec sleep 30", ThermalError::HelperTimeout)]
-        {
-            let b = HelperBackend::new(greets_then(name, then));
+        for (name, then, want) in [
+            ("crash", format!("{}; exit 1", skip(8)), ThermalError::HelperCrashed),
+            ("hang", "exec sleep 30".into(), ThermalError::HelperTimeout),
+        ] {
+            let b = HelperBackend::new(greets_then(name, &then));
             let started = std::time::Instant::now();
             assert_eq!(b.measure(JPEG, &SceneOverrides::default()), Err(want.clone()), "{name}");
             assert!(started.elapsed() < Duration::from_secs(5), "{name} took {:?}", started.elapsed());
