@@ -1,0 +1,31 @@
+[package]
+name = "geoflux-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "GeoFlux Cloud account server: sign-in for GeoGIS and the web app, organisations, and survey upload"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "geoflux-server"
+path = "src/main.rs"
+
+[dependencies]
+geoflux-cloud = { workspace = true }
+geoflux-domain = { workspace = true }
+geoflux-licence = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+log = { workspace = true }
+axum = "0.8"
+http-body-util = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "signal", "sync", "time"] }
+argon2 = "0.5"
+getrandom = "0.3"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

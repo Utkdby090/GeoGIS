@@ -105,6 +105,8 @@ pub struct Device {
     pub id: DeviceId,
     pub org: OrgId,
     pub user: UserId,
+    /// The computer's ID (`MachineId::as_str`); a renewal from another computer is refused.
+    pub machine: String,
     /// As GeoGIS reports it (the computer's name), for people to tell their computers apart.
     pub name: String,
     pub signed_in: i64,
