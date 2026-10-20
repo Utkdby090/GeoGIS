@@ -91,15 +91,6 @@ impl MemoryBackend {
     }
 }
 
-fn random_id() -> [u8; 16] {
-    let mut b = [0u8; 16];
-    // Ids only need to be unique here; fall back to a counter-like value if the OS source fails.
-    if getrandom::fill(&mut b).is_err() {
-        b = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()).to_le_bytes();
-    }
-    b
-}
-
 impl Backend for MemoryBackend {
     type Accounts = Self;
     type Devices = Self;
@@ -357,7 +348,7 @@ impl DeviceStore for MemoryBackend {
             return Ok(Err(SeatsInUse { devices: used }));
         }
         let d = Device {
-            id: DeviceId::from_random(random_id()),
+            id: DeviceId::from_random(crate::crypto::random_id()),
             org: org.clone(),
             user: user.clone(),
             machine: machine.to_string(),
@@ -450,7 +441,7 @@ impl SurveyStore for MemoryBackend {
                 counts[i] = counts[i].saturating_add(1);
             }
         }
-        let id = SurveyId::from_random(random_id());
+        let id = SurveyId::from_random(crate::crypto::random_id());
         let expected: HashMap<Sha256, (u64, PhotoType)> = photos.into_iter().map(|(h, b, k)| (h, (b, k))).collect();
         let summary = SurveySummary {
             id: id.clone(),

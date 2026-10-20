@@ -1,4 +1,6 @@
-//! End to end through the HTTP router with the in-memory backend: what GeoGIS and the web app do.
+//! End to end through the HTTP router: what GeoGIS and the web app do. Each flow runs on the
+//! in-memory backend, and on PostgreSQL too when `GEOFLUX_TEST_DATABASE_URL` names a database the
+//! tests may create databases next to (CI sets it; locally the PostgreSQL runs are skipped without it).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::sync::Arc;
@@ -12,9 +14,14 @@ use geoflux_cloud::sync::{MANIFEST_FORMAT, PhotoRef, PhotoType, SurveyAsset, Sur
 use geoflux_cloud::{OrgId, Sha256};
 use geoflux_domain::{Asset, AssetDraft, GeoPoint};
 use geoflux_licence::{Ed25519Keys, Ed25519Signer, Feature, MachineId, Pass, PassStatus, Plan};
+use geoflux_server::blobs::DiskBlobs;
 use geoflux_server::crypto::{Argon2Hasher, MemoryRateLimiter, OsRandom};
 use geoflux_server::memory::MemoryBackend;
-use geoflux_server::{Server, Settings, router};
+use geoflux_server::postgres::{PgBackend, PgStore};
+use geoflux_server::{Backend, Server, Settings, router};
+
+#[path = "common/pg.rs"]
+mod pg;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -29,11 +36,13 @@ impl Clock for TestClock {
     }
 }
 
-struct App {
-    server: Arc<Server<MemoryBackend>>,
+/// A server on backend `B`, which records mail in memory so tests can follow emailed links.
+struct App<B: Backend<Mail = MemoryBackend>> {
+    server: Arc<Server<B>>,
     clock: Arc<TestClock>,
     keys: Ed25519Keys,
     upload_dir: tempdir::Dir,
+    _db: Option<pg::TestDb>,
 }
 
 mod tempdir {
@@ -52,8 +61,21 @@ struct Res {
     body: Value,
 }
 
-impl App {
-    fn new() -> App {
+fn memory() -> App<MemoryBackend> {
+    App::new(MemoryBackend::default(), None)
+}
+
+/// `None` (and the test returns early) without `GEOFLUX_TEST_DATABASE_URL`.
+async fn postgres() -> Option<App<PgBackend<DiskBlobs, MemoryBackend>>> {
+    let db = pg::TestDb::create().await?;
+    let store = PgStore::from_pool(db.pool().await);
+    store.migrate().await.unwrap();
+    let photos = db.photos_dir();
+    Some(App::new(PgBackend { store, blobs: DiskBlobs::new(photos), mail: MemoryBackend::default() }, Some(db)))
+}
+
+impl<B: Backend<Mail = MemoryBackend>> App<B> {
+    fn new(backend: B, db: Option<pg::TestDb>) -> App<B> {
         let signer = Ed25519Signer::from_pkcs8("t1", &Ed25519Signer::generate_pkcs8().unwrap()).unwrap();
         let keys = Ed25519Keys::from_base64(&[("t1", &signer.public_key_base64())]).unwrap();
         let clock = Arc::new(TestClock(AtomicI64::new(T0)));
@@ -61,7 +83,7 @@ impl App {
         getrandom_fill(&mut n);
         let dir = std::env::temp_dir().join(format!("geoflux-server-test-{}", u64::from_le_bytes(n)));
         let server = Arc::new(Server {
-            backend: MemoryBackend::default(),
+            backend,
             hasher: Arc::new(Argon2Hasher::fast().unwrap()),
             random: Arc::new(OsRandom),
             limiter: Arc::new(MemoryRateLimiter::default()),
@@ -74,7 +96,7 @@ impl App {
                 trust_proxy: false,
             },
         });
-        App { server, clock, keys, upload_dir: tempdir::Dir(dir) }
+        App { server, clock, keys, upload_dir: tempdir::Dir(dir), _db: db }
     }
 
     fn advance(&self, secs: i64) {
@@ -107,7 +129,7 @@ impl App {
     }
 
     fn mail_token(&self, to: &str) -> String {
-        let (_, email) = self.server.backend.sent_mail().into_iter().rev().find(|(t, _)| t == to).expect("mail");
+        let (_, email) = self.server.backend.mail().sent_mail().into_iter().rev().find(|(t, _)| t == to).expect("mail");
         let link = match email {
             Email::VerifyAddress { link } | Email::ResetPassword { link } | Email::Invite { link, .. } => link,
         };
@@ -192,7 +214,17 @@ fn manifest(photos: &[(&str, &[u8])]) -> SurveyManifest {
 
 #[tokio::test]
 async fn sign_up_sign_in_on_geogis_and_upload_a_survey() {
-    let app = App::new();
+    sign_up_sign_in_on_geogis_and_upload_a_survey_on(memory()).await;
+}
+
+#[tokio::test]
+async fn sign_up_sign_in_on_geogis_and_upload_a_survey_on_postgres() {
+    if let Some(app) = postgres().await {
+        sign_up_sign_in_on_geogis_and_upload_a_survey_on(app).await;
+    }
+}
+
+async fn sign_up_sign_in_on_geogis_and_upload_a_survey_on<B: Backend<Mail = MemoryBackend>>(app: App<B>) {
     let session = app.sign_up("asha@example.in").await;
     let me = app.send("GET", "/api/v1/me", Auth::Web(&session), Body::empty()).await;
     assert_eq!(me.body["effectivePlan"], "pro");
@@ -283,7 +315,17 @@ async fn sign_up_sign_in_on_geogis_and_upload_a_survey() {
 
 #[tokio::test]
 async fn passwords_sessions_and_limits() {
-    let app = App::new();
+    passwords_sessions_and_limits_on(memory()).await;
+}
+
+#[tokio::test]
+async fn passwords_sessions_and_limits_on_postgres() {
+    if let Some(app) = postgres().await {
+        passwords_sessions_and_limits_on(app).await;
+    }
+}
+
+async fn passwords_sessions_and_limits_on<B: Backend<Mail = MemoryBackend>>(app: App<B>) {
     let session = app.sign_up("ravi@example.in").await;
     let login =
         |pw: &'static str, email: &'static str| app.json("POST", "/api/v1/auth/login", Auth::None, json!({"email": email, "password": pw}));
@@ -336,7 +378,17 @@ async fn passwords_sessions_and_limits() {
 
 #[tokio::test]
 async fn seats_members_and_organisations_stay_apart() {
-    let app = App::new();
+    seats_members_and_organisations_stay_apart_on(memory()).await;
+}
+
+#[tokio::test]
+async fn seats_members_and_organisations_stay_apart_on_postgres() {
+    if let Some(app) = postgres().await {
+        seats_members_and_organisations_stay_apart_on(app).await;
+    }
+}
+
+async fn seats_members_and_organisations_stay_apart_on<B: Backend<Mail = MemoryBackend>>(app: App<B>) {
     let admin = app.sign_up("lead@example.in").await;
     // Two computers per person; a third is refused.
     for m in ["machine-a", "machine-b"] {
@@ -354,6 +406,7 @@ async fn seats_members_and_organisations_stay_apart() {
     let org = OrgId::parse(me.body["organisation"]["id"].as_str().unwrap()).unwrap();
     app.server
         .backend
+        .accounts()
         .set_subscription(Subscription {
             org,
             plan: Plan::Organisation,

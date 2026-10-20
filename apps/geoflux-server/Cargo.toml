@@ -26,6 +26,7 @@ http-body-util = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "signal", "sync", "time"] }
 argon2 = "0.5"
 getrandom = "0.3"
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

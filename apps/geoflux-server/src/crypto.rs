@@ -67,6 +67,16 @@ pub fn random_bytes<const N: usize>(r: &dyn Random) -> Result<[u8; N], String> {
     Ok(b)
 }
 
+/// 16 random bytes for a new id. Ids only need to be unique, so if the OS source fails the
+/// current time in nanoseconds is used instead.
+pub fn random_id() -> [u8; 16] {
+    let mut b = [0u8; 16];
+    if getrandom::fill(&mut b).is_err() {
+        b = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()).to_le_bytes();
+    }
+    b
+}
+
 pub struct SystemClock;
 
 impl Clock for SystemClock {
