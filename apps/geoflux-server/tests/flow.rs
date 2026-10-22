@@ -583,3 +583,33 @@ async fn the_web_app_reads_a_synced_survey_on<B: Backend<Mail = MemoryBackend>>(
     let anon = app.send("GET", &format!("/api/v1/device/pending?code={user_code}"), Auth::None, Body::empty()).await;
     assert_eq!(anon.status, StatusCode::UNAUTHORIZED);
 }
+
+/// Every address the API doesn't answer is the web app: its pages get index.html (or, in a build
+/// without the app, a page saying how to build it) with a strict policy; unknown API addresses,
+/// missing files and writes get plain errors, never the app.
+#[tokio::test]
+async fn the_web_app_is_served_at_every_other_address() {
+    let app = memory();
+    for page in ["/", "/surveys/abc?tower=t1", "/device"] {
+        let (status, headers, body) = app.raw(page, Auth::None).await;
+        assert_eq!(status, StatusCode::OK, "{page}");
+        assert_eq!(headers[header::CONTENT_TYPE], "text/html; charset=utf-8");
+        assert_eq!(headers[header::CACHE_CONTROL], "no-cache");
+        assert_eq!(headers[header::X_FRAME_OPTIONS], "DENY");
+        let csp = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+        assert!(csp.contains("script-src 'self'") && csp.contains("frame-ancestors 'none'"));
+        assert!(String::from_utf8(body).unwrap().contains("GeoFlux"));
+    }
+    let api = app.send("GET", "/api/v1/no-such-thing", Auth::None, Body::empty()).await;
+    assert_eq!(api.status, StatusCode::NOT_FOUND);
+    assert!(api.body.is_object(), "the API answers JSON: {:?}", api.body);
+    let (missing, _, _) = app.raw("/assets/index-gone.js", Auth::None).await;
+    assert_eq!(missing, StatusCode::NOT_FOUND);
+    let write = app.send("POST", "/surveys", Auth::None, Body::empty()).await;
+    assert_eq!(write.status, StatusCode::METHOD_NOT_ALLOWED);
+    if geoflux_server::web::built_in() {
+        let (status, headers, _) = app.raw("/sw.js", Auth::None).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers["service-worker-allowed"], "/");
+    }
+}

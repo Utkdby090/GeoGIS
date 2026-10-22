@@ -15,6 +15,7 @@ pub mod memory;
 pub mod postgres;
 pub mod reports;
 mod routes;
+pub mod web;
 
 use std::path::PathBuf;
 use std::sync::Arc;

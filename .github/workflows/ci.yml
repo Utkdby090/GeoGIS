@@ -64,6 +64,49 @@ jobs:
       - name: Build
         run: npx vite build
 
+  geoflux-web-e2e:
+    name: Web app in a browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/geoflux-web/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the app
+        working-directory: apps/geoflux-web
+        run: |
+          npm ci --no-audit --no-fund
+          npx vite build
+      - name: Build the server with the app inside
+        run: cargo build --locked -p geoflux-server
+      - name: Start the server
+        run: |
+          GEOFLUX_DATA_DIR="$RUNNER_TEMP/geoflux-data" target/debug/geoflux-server > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/api/v1/health && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/server.log"; exit 1
+      - name: Browser
+        working-directory: apps/geoflux-web
+        run: npx playwright install --with-deps chromium
+      - name: Smoke test
+        working-directory: apps/geoflux-web
+        env:
+          GEOFLUX_E2E_LOG: ${{ runner.temp }}/server.log
+        run: npm run e2e
+      - name: Keep the report and server log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e
+          path: |
+            apps/geoflux-web/playwright-report/
+            apps/geoflux-web/test-results/
+            ${{ runner.temp }}/server.log
+          retention-days: 7
+
   postgres:
     name: Account server on PostgreSQL
     runs-on: ubuntu-latest

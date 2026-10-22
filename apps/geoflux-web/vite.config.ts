@@ -13,5 +13,5 @@ export default defineConfig({
   },
   // MapLibre alone is about 1 MB; it loads only on the survey page.
   build: { outDir: "dist", sourcemap: false, assetsInlineLimit: 0, chunkSizeWarningLimit: 1100 },
-  test: { environment: "jsdom", restoreMocks: true },
+  test: { environment: "jsdom", restoreMocks: true, include: ["src/**/*.test.{ts,tsx}"] },
 });
