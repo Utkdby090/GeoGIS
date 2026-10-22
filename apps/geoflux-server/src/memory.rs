@@ -581,6 +581,8 @@ impl BlobStore for MemoryBackend {
 
 impl Mailer for MemoryBackend {
     async fn send(&self, to: &str, _name: &str, email: Email) -> Result<(), String> {
+        // In-memory storage is only for trying the server out, so the links go to the log.
+        crate::mail::log_email(to, &email);
         self.lock().mail.push((to.to_string(), email));
         Ok(())
     }
