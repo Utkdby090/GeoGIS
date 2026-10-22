@@ -11,6 +11,7 @@ export default defineConfig({
     strictPort: true,
     proxy: { "/api": { target: "http://localhost:8080", changeOrigin: false } },
   },
-  build: { outDir: "dist", sourcemap: false, assetsInlineLimit: 0 },
+  // MapLibre alone is about 1 MB; it loads only on the survey page.
+  build: { outDir: "dist", sourcemap: false, assetsInlineLimit: 0, chunkSizeWarningLimit: 1100 },
   test: { environment: "jsdom", restoreMocks: true },
 });
