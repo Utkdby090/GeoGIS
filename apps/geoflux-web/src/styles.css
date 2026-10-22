@@ -120,7 +120,7 @@ table.list th { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
 .sev-critical { color: var(--sev-critical); }
 
 @media (max-width: 40rem) {
-  table.list th:nth-child(2), table.list td:nth-child(2) { display: none; }
+  table.surveys th:nth-child(2), table.surveys td:nth-child(2) { display: none; }
 }
 
 a.button {
@@ -192,4 +192,18 @@ main.survey { display: flex; flex-direction: column; height: calc(100vh - 3.2rem
   .map-wrap { height: 50vh; order: -1; }
   .tower-list { max-height: 40vh; border-right: 0; }
   .tower-panel { order: -1; border-left: 0; }
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+button.link.danger { color: var(--danger); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-top: 1.5rem; }
+.card h2 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+.inline-form { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.inline-form .field { flex: 1 1 14rem; margin-bottom: 0; }
+.inline-form button { margin-top: 1.7rem; }
+select { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.inline-form select { width: 100%; padding: 0.5rem 0.65rem; }
+.wide > table.list { margin-top: 0.5rem; }
+@media (max-width: 40rem) {
+  .wide table.list { display: block; overflow-x: auto; }
 }
