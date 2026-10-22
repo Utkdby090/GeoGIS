@@ -89,6 +89,8 @@ impl<B: Backend<Mail = MemoryBackend>> App<B> {
             limiter: Arc::new(MemoryRateLimiter::default()),
             clock: clock.clone(),
             signer: Arc::new(signer),
+            reports: Arc::new(geoflux_server::reports::Reports),
+            report_slots: Arc::new(tokio::sync::Semaphore::new(geoflux_server::reports::REPORTS_AT_ONCE)),
             settings: Settings {
                 public_url: "https://cloud.test".into(),
                 upload_dir: dir.clone(),
@@ -122,6 +124,18 @@ impl<B: Backend<Mail = MemoryBackend>> App<B> {
         let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
         let body = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
         Res { status, cookie, body }
+    }
+
+    /// A file response: status, headers and bytes.
+    async fn raw(&self, uri: &str, auth: Auth<'_>) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+        let mut b = Request::builder().method("GET").uri(uri);
+        if let Auth::Web(c) = auth {
+            b = b.header(header::COOKIE, format!("gf_session={c}"));
+        }
+        let res = router(self.server.clone()).oneshot(b.body(Body::empty()).unwrap()).await.unwrap();
+        let (parts, body) = res.into_parts();
+        let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+        (parts.status, parts.headers, bytes.to_vec())
     }
 
     async fn json(&self, method: &str, uri: &str, auth: Auth<'_>, body: Value) -> Res {
@@ -450,4 +464,122 @@ async fn seats_members_and_organisations_stay_apart_on<B: Backend<Mail = MemoryB
     let device = mine.body["devices"][0]["id"].as_str().unwrap();
     let steal = app.send("DELETE", &format!("/api/v1/devices/{device}"), Auth::Web(&other), Body::empty()).await;
     assert_eq!(steal.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_web_app_reads_a_synced_survey() {
+    the_web_app_reads_a_synced_survey_on(memory()).await;
+}
+
+#[tokio::test]
+async fn the_web_app_reads_a_synced_survey_on_postgres() {
+    if let Some(app) = postgres().await {
+        the_web_app_reads_a_synced_survey_on(app).await;
+    }
+}
+
+async fn the_web_app_reads_a_synced_survey_on<B: Backend<Mail = MemoryBackend>>(app: App<B>) {
+    use geoflux_domain::annotation::{Annotation, AnnotationSet, NormPoint, Shape};
+
+    let session = app.sign_up("asha@example.in").await;
+    let g = app.desktop_sign_in(&session, "machine-a").await;
+    let access = g.body["accessToken"].as_str().unwrap().to_string();
+    let (one, two) = (jpeg(b"one"), jpeg(b"two"));
+    let mut m = manifest(&[("THERMAL", &one), ("STRUCTURE", &two)]);
+    m.assets[0].asset.properties.set("towerNumber", "101");
+    m.assets[0].photos[0].markup =
+        Some(AnnotationSet::from_shapes(vec![Annotation::new(Shape::Marker { at: NormPoint::new(0.5, 0.5), number: 1 })]).unwrap());
+    let mut second = m.assets[0].clone();
+    second.asset.id = "T/002 ..".into();
+    second.asset.position = 1;
+    second.asset.location = None;
+    second.asset.properties = Default::default();
+    second.photos.truncate(1);
+    m.assets.push(second);
+    let created = app.json("POST", "/api/v1/surveys", Auth::Bearer(&access), serde_json::to_value(&m).unwrap()).await;
+    assert_eq!(created.status, StatusCode::CREATED, "{}", created.body);
+    let id = created.body["survey"].as_str().unwrap().to_string();
+    let base = format!("/api/v1/surveys/{id}");
+
+    // Still uploading: not on the web yet.
+    let early = app.send("GET", &base, Auth::Web(&session), Body::empty()).await;
+    assert_eq!(early.status, StatusCode::NOT_FOUND);
+    for b in [&one, &two] {
+        let r = app.send("PUT", &format!("{base}/photos/{}", Sha256::of(b)), Auth::Bearer(&access), Body::from(b.clone())).await;
+        assert_eq!(r.status, StatusCode::NO_CONTENT, "{}", r.body);
+    }
+    let done = app.send("POST", &format!("{base}/commit"), Auth::Bearer(&access), Body::empty()).await;
+    assert_eq!(done.status, StatusCode::OK, "{}", done.body);
+
+    let survey = app.send("GET", &base, Auth::Web(&session), Body::empty()).await;
+    assert_eq!(survey.status, StatusCode::OK, "{}", survey.body);
+    assert_eq!(survey.body["bounds"], json!([85.1, 25.6, 85.1, 25.6]));
+    assert_eq!(survey.body["revisions"].as_array().unwrap().len(), 1);
+
+    let towers = app.send("GET", &format!("{base}/towers"), Auth::Web(&session), Body::empty()).await;
+    let f = towers.body["features"].as_array().unwrap();
+    assert_eq!(f.len(), 2);
+    assert_eq!(f[0]["properties"]["label"], "101");
+    assert_eq!(f[0]["geometry"]["coordinates"], json!([85.1, 25.6]));
+    assert!(f[1]["geometry"].is_null());
+
+    // A tower id with a slash and dots, percent-encoded as the web app sends it.
+    let odd = app.send("GET", &format!("{base}/assets/T%2F002%20%2E%2E"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(odd.status, StatusCode::OK, "{}", odd.body);
+    assert_eq!(odd.body["asset"]["id"], "T/002 ..");
+    let tower = app.send("GET", &format!("{base}/assets/T-001"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(tower.body["photos"][0]["markup"][0]["kind"], "marker");
+    let none = app.send("GET", &format!("{base}/assets/T-999"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(none.status, StatusCode::NOT_FOUND);
+
+    // Photos: only ones the survey lists, with the right type, cacheable for good.
+    let (st, h, bytes) = app.raw(&format!("{base}/photos/{}", Sha256::of(&one)), Auth::Web(&session)).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(bytes, one);
+    assert_eq!(h[header::CONTENT_TYPE], "image/jpeg");
+    assert!(h[header::CACHE_CONTROL].to_str().unwrap().contains("immutable"));
+    let (st, _, _) = app.raw(&format!("{base}/photos/{}", Sha256::of(b"other")), Auth::Web(&session)).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, _, _) = app.raw(&format!("{base}/photos/{}", Sha256::of(&one)), Auth::None).await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+
+    // Reports from the desktop's own templates.
+    let (st, h, pdf) = app.raw(&format!("{base}/assets/T-001/report.pdf"), Auth::Web(&session)).await;
+    assert_eq!(st, StatusCode::OK, "{}", String::from_utf8_lossy(&pdf));
+    assert!(pdf.starts_with(b"%PDF-"));
+    assert_eq!(h[header::CONTENT_DISPOSITION], "attachment; filename=\"Line_4-T-001-r1.pdf\"");
+    let (st, h, zip) = app.raw(&format!("{base}/report.zip"), Auth::Web(&session)).await;
+    assert_eq!(st, StatusCode::OK, "{}", String::from_utf8_lossy(&zip));
+    assert!(zip.starts_with(b"PK\x03\x04"));
+    assert_eq!(h[header::CONTENT_LENGTH].to_str().unwrap(), zip.len().to_string());
+    // The ZIP's temporary file is gone once it was sent.
+    assert_eq!(std::fs::read_dir(&app.upload_dir.0).unwrap().count(), 0);
+
+    // Schemas are open; unknown ones aren't found.
+    let schema = app.send("GET", "/api/v1/schemas/com.geo.telecom", Auth::None, Body::empty()).await;
+    assert_eq!(schema.body["labelField"], "towerNumber");
+    let unknown = app.send("GET", "/api/v1/schemas/nope", Auth::None, Body::empty()).await;
+    assert_eq!(unknown.status, StatusCode::NOT_FOUND);
+
+    // Another organisation sees none of it, not even that it exists.
+    let other = app.sign_up("ravi@example.in").await;
+    for uri in [base.clone(), format!("{base}/towers"), format!("{base}/assets/T-001"), format!("{base}/report.zip")] {
+        let r = app.send("GET", &uri, Auth::Web(&other), Body::empty()).await;
+        assert_eq!(r.status, StatusCode::NOT_FOUND, "{uri}");
+    }
+    let (st, _, _) = app.raw(&format!("{base}/photos/{}", Sha256::of(&one)), Auth::Web(&other)).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let list = app.send("GET", "/api/v1/surveys", Auth::Web(&other), Body::empty()).await;
+    assert_eq!(list.body["surveys"].as_array().unwrap().len(), 0);
+
+    // The approve page shows which computer a code would sign in, before approving.
+    let c = app.json("POST", "/api/v1/device/code", Auth::None, json!({"machine": "machine-b", "deviceName": "Ravi's <b>PC</b>"})).await;
+    let user_code = c.body["userCode"].as_str().unwrap().to_string();
+    let pending = app.send("GET", &format!("/api/v1/device/pending?code={user_code}"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(pending.status, StatusCode::OK, "{}", pending.body);
+    assert_eq!(pending.body["deviceName"], "Ravi's <b>PC</b>");
+    let bad = app.send("GET", "/api/v1/device/pending?code=AAAA-AAAA", Auth::Web(&session), Body::empty()).await;
+    assert_eq!(bad.status, StatusCode::NOT_FOUND);
+    let anon = app.send("GET", &format!("/api/v1/device/pending?code={user_code}"), Auth::None, Body::empty()).await;
+    assert_eq!(anon.status, StatusCode::UNAUTHORIZED);
 }

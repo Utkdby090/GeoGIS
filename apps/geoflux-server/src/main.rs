@@ -107,6 +107,8 @@ async fn serve<B: Backend>(backend: B, settings: Settings, bind: SocketAddr) -> 
         limiter: Arc::new(MemoryRateLimiter::default()),
         clock: Arc::new(SystemClock),
         signer: Arc::new(signer()?),
+        reports: Arc::new(geoflux_server::reports::Reports),
+        report_slots: Arc::new(tokio::sync::Semaphore::new(geoflux_server::reports::REPORTS_AT_ONCE)),
         settings,
     });
     // Expired tokens and sign-in codes are deleted hourly.

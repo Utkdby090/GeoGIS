@@ -97,7 +97,7 @@ impl TowerCollection {
     /// one bad tower can't break the map; the tower stays in the list.
     pub fn from_assets(assets: &[SurveyAsset], label_field: &str) -> Self {
         let mut sorted: Vec<&SurveyAsset> = assets.iter().take(MAX_TOWERS).collect();
-        sorted.sort_by(|a, b| a.asset.position.cmp(&b.asset.position).then_with(|| a.asset.id.cmp(&b.asset.id)));
+        sorted.sort_by(|a, b| walking_order(a, b));
         let features = sorted
             .into_iter()
             .map(|a| {
@@ -129,6 +129,18 @@ impl TowerCollection {
         let [x, y] = it.next()?;
         Some(it.fold([x, y, x, y], |[w, s, e, n], [x, y]| [w.min(x), s.min(y), e.max(x), n.max(y)]))
     }
+}
+
+/// `[west, south, east, north]` of the towers that have a usable position.
+pub fn bounds_of(assets: &[SurveyAsset]) -> Option<[f64; 4]> {
+    let mut it = assets.iter().filter_map(|a| a.asset.location).filter(|p| valid_lon_lat(p.lon, p.lat)).map(|p| [p.lon, p.lat]);
+    let [x, y] = it.next()?;
+    Some(it.fold([x, y, x, y], |[w, s, e, n], [x, y]| [w.min(x), s.min(y), e.max(x), n.max(y)]))
+}
+
+/// Walking order: by position, then id (ids are unique within a survey, so the order is total).
+pub fn walking_order(a: &SurveyAsset, b: &SurveyAsset) -> std::cmp::Ordering {
+    a.asset.position.cmp(&b.asset.position).then_with(|| a.asset.id.cmp(&b.asset.id))
 }
 
 fn valid_lon_lat(lon: f64, lat: f64) -> bool {

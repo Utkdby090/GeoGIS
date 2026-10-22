@@ -2,6 +2,7 @@
 //!
 //! - [`template`]: what a report shows, as data ([`ReportTemplate`]), one per schema.
 //! - [`page`]: one page with every value resolved ([`Page`]), the photos as their original bytes.
+//! - [`plan`]: one asset's page from its template, shared by GeoGIS and the web server.
 //!
 //! The PDF is written with vectors: text stays selectable and searchable, lines stay sharp, photo
 //! markup is drawn over the photo as shapes, and JPEG photos are embedded as the original files
@@ -17,6 +18,7 @@ mod error;
 mod image;
 pub mod page;
 mod pdf;
+pub mod plan;
 pub mod template;
 
 pub use bulk::{MAX_BULK_PAGES, write_bulk};
@@ -26,6 +28,7 @@ pub use page::{
     BulkEntry, Image, ImageInfo, ImageKind, Page, PagePhoto, PageRow, PageSection, PhotoSource, PlannedPage, Progress, Summary,
 };
 pub use pdf::write_pdf;
+pub use plan::{CellPhoto, PageInput, plan_page};
 pub use template::{Branding, FieldSection, PageSize, PhotoCell, ReportTemplate};
 
 #[cfg(test)]

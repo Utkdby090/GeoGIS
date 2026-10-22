@@ -17,12 +17,15 @@ path = "src/main.rs"
 geoflux-cloud = { workspace = true }
 geoflux-domain = { workspace = true }
 geoflux-licence = { workspace = true }
+geoflux-report = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 log = { workspace = true }
 axum = "0.8"
 http-body-util = "0.1"
+futures-core = "0.3"
+tokio-util = { version = "0.7", default-features = false, features = ["io"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "signal", "sync", "time"] }
 argon2 = "0.5"
 getrandom = "0.3"

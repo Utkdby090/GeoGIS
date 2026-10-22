@@ -11,10 +11,7 @@ use std::collections::HashMap;
 use geoflux_domain::annotation::{Annotation, AnnotationSet};
 use geoflux_domain::{DomainSchema, Severity, form};
 use geoflux_report::page::MAX_SMALL_IMAGE_BYTES;
-use geoflux_report::template::{expand, safe_name};
-use geoflux_report::{
-    BulkEntry, Image, Page, PagePhoto, PageRow, PageSection, PhotoIssue, PhotoSource, PlannedPage, ReportTemplate, Summary,
-};
+use geoflux_report::{BulkEntry, CellPhoto, Image, PageInput, PhotoIssue, PhotoSource, PlannedPage, ReportTemplate, Summary, plan_page};
 use serde_json::{Value, json};
 
 use super::geoflux::{self, MAX_MARKUP, PhotoMarkup, SEVERITY_FIELD};
@@ -231,77 +228,24 @@ pub fn plan(s: &Session, layer: u32, rows: Option<&[usize]>, p: &Value, include_
         }
         let label = asset.property(schema.label_key()).trim().to_string();
         let severity = sev_col.map_or(Severity::None, |c| Severity::from_name(&ds.value(row, c).to_string()));
-        let value = |k: &str| -> Option<String> {
-            match k {
-                "label" => Some(label.clone()),
-                "severity" => Some(severity.as_str().to_string()),
-                "status" => Some(if severity > Severity::None { "FAULT" } else { "NORMAL" }.to_string()),
-                _ => values.get(k).cloned().or_else(|| asset.properties.contains(k).then(|| asset.property(k).to_string())),
-            }
-        };
-        let text = |k: &str| value(k).map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
-        let header: Vec<String> = t.header.iter().filter_map(|k| text(k)).collect();
         let at = order.get(&row).copied();
         let near = |i: Option<usize>| i.and_then(|i| stops.get(i)).map(|st| st.label.clone()).filter(|l| !l.trim().is_empty());
-        let (previous, next) = if t.neighbours { (near(at.and_then(|i| i.checked_sub(1))), near(at.map(|i| i + 1))) } else { (None, None) };
         let slots = index.slots(&schema, &label);
         let label_key = label.to_lowercase();
-        let mut photos = Vec::new();
-        let mut paths = Vec::new();
-        for cell in &t.photos {
-            let sp = slots.iter().find(|sp| sp.slot.id == cell.slot);
-            let path = sp.and_then(|sp| sp.photos.first().cloned());
-            let caption = if cell.caption.trim().is_empty() {
-                sp.map_or(cell.slot.clone(), |sp| sp.slot.label.clone())
-            } else {
-                cell.caption.clone()
-            };
-            let annotations = path
-                .as_deref()
-                .and_then(|ph| marks.get(&(label_key.clone(), cell.slot.as_str(), markup_key(s, layer, ph))))
-                .map(|set| (*set).clone())
-                .unwrap_or_default();
-            photos.push(PagePhoto { caption, image: Ok(None), annotations });
-            paths.push(path);
-        }
-        let sections = t
-            .sections
-            .iter()
-            .map(|sec| PageSection {
-                title: sec.title.clone(),
-                rows: sec
-                    .fields
-                    .iter()
-                    .map(|k| PageRow {
-                        label: schema.field(k).map_or_else(|| k.clone(), |f| f.label.clone()),
-                        value: text(k).unwrap_or_else(|| "N/A".into()),
-                        wide: sec.wide.contains(k),
-                    })
-                    .collect(),
-            })
-            .collect();
-        let company =
-            if t.branding.company.trim().is_empty() { text("companyName").unwrap_or_default() } else { t.branding.company.clone() };
-        let footer = expand(&t.branding.footer, |k| (k == "company").then(|| company.clone()).or_else(|| value(k)));
-        let file = safe_name(&expand(&t.file_name, value));
-        let folder = safe_name(&expand(&t.folder, value));
-        let path = if t.folder.trim().is_empty() { file } else { format!("{folder}/{file}") };
-        let page = Page {
-            size: t.page,
-            title: expand(&t.title, value),
-            header: header.join(" | "),
-            severity: (t.severity && schema.severity.is_some()).then_some(severity),
-            label,
-            previous,
-            next,
-            photos,
-            sections,
-            map: None,
+        let input = PageInput {
+            schema: &schema,
+            template: &t,
+            asset: &asset,
+            severity,
+            previous: near(at.and_then(|i| i.checked_sub(1))),
+            next: near(at.map(|i| i + 1)),
             logo: logo.clone(),
-            accent: t.branding.accent,
-            footer: footer.trim().to_string(),
         };
-        out.pages.push(PlannedPage { path, page, photos: paths });
+        out.pages.push(plan_page(input, &mut |slot| {
+            let path = slots.iter().find(|sp| sp.slot.id == slot).and_then(|sp| sp.photos.first().cloned())?;
+            let markup = marks.get(&(label_key.clone(), slot, markup_key(s, layer, &path))).map(|set| (*set).clone()).unwrap_or_default();
+            Some(CellPhoto { key: path, markup })
+        }));
     }
     Ok(out)
 }

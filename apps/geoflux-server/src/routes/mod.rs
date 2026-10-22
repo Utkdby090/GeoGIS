@@ -4,6 +4,7 @@ mod auth;
 mod device;
 mod org;
 mod surveys;
+mod view;
 
 use std::sync::Arc;
 
@@ -45,6 +46,15 @@ pub fn router<B: Backend>(server: Arc<Server<B>>) -> Router {
         .route(r::PUT_PHOTO.1, put(surveys::put_photo::<B>).layer(DefaultBodyLimit::disable()))
         .route(r::COMMIT_SURVEY.1, post(surveys::commit::<B>))
         .route(r::SURVEYS.1, get(surveys::list::<B>))
+        .route(r::SURVEY.1, get(view::survey::<B>))
+        .route(r::SURVEY_TOWERS.1, get(view::towers::<B>))
+        .route(r::SURVEY_ASSET.1, get(view::asset::<B>))
+        // GET beside the upload's PUT on the same path.
+        .route(r::PHOTO.1, get(view::photo::<B>))
+        .route(r::TOWER_REPORT.1, get(view::tower_report::<B>))
+        .route(r::LINE_REPORT.1, get(view::line_report::<B>))
+        .route(r::SCHEMA.1, get(view::schema))
+        .route(r::DEVICE_PENDING.1, get(view::pending_device::<B>))
         .route(r::HEALTH.1, get(health))
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(server)

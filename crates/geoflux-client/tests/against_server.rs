@@ -43,6 +43,8 @@ fn start() -> Local {
         limiter: Arc::new(MemoryRateLimiter::default()),
         clock: Arc::new(SystemClock),
         signer: Arc::new(signer),
+        reports: Arc::new(geoflux_server::reports::Reports),
+        report_slots: Arc::new(tokio::sync::Semaphore::new(geoflux_server::reports::REPORTS_AT_ONCE)),
         settings: Settings {
             public_url: "http://localhost".into(),
             upload_dir: dir.join("uploads"),

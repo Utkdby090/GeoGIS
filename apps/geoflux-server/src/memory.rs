@@ -10,9 +10,10 @@ use geoflux_cloud::auth::{OrgScope, TokenKind, UserCode};
 use geoflux_cloud::model::{Device, Membership, Organisation, Role, Subscription, SurveyState, SurveySummary, User};
 use geoflux_cloud::ports::{
     AccountStore, BlobSource, BlobStore, DeviceCodeRecord, DeviceCodeState, DeviceStore, Email, Mailer, NewOrganisation, Seats, SeatsInUse,
-    StoreError, StoreResult, SurveyStore, TokenRecord, UserRecord,
+    StoreError, StoreResult, SurveyReader, SurveyStore, TokenRecord, UserRecord,
 };
-use geoflux_cloud::sync::{PhotoType, SurveyCreated, SurveyManifest};
+use geoflux_cloud::sync::{PhotoType, SurveyAsset, SurveyCreated, SurveyManifest};
+use geoflux_cloud::view::{RevisionRef, SurveyDetail, bounds_of, walking_order};
 use geoflux_cloud::{DeviceId, OrgId, Sha256, SurveyId, UserId};
 use geoflux_domain::Severity;
 
@@ -21,6 +22,8 @@ use crate::Backend;
 struct SurveyRec {
     summary: SurveySummary,
     expected: HashMap<Sha256, (u64, PhotoType)>,
+    /// In walking order.
+    assets: Vec<SurveyAsset>,
 }
 
 #[derive(Default)]
@@ -462,7 +465,9 @@ impl SurveyStore for MemoryBackend {
         };
         let missing = missing(&g, scope.org(), &expected);
         g.survey_keys.insert(key, id.clone());
-        g.surveys.insert(id.clone(), SurveyRec { summary, expected });
+        let mut assets = manifest.assets.clone();
+        assets.sort_by(walking_order);
+        g.surveys.insert(id.clone(), SurveyRec { summary, expected, assets });
         Ok(SurveyCreated { survey: id, missing, existing: false })
     }
 
@@ -504,6 +509,59 @@ impl SurveyStore for MemoryBackend {
     }
 }
 
+impl MemoryBackend {
+    /// A committed survey of the scope's organisation.
+    fn committed<'a>(g: &'a Inner, scope: &OrgScope, survey: &SurveyId) -> Option<&'a SurveyRec> {
+        g.surveys.get(survey).filter(|s| &s.summary.org == scope.org() && s.summary.state == SurveyState::Committed)
+    }
+}
+
+impl SurveyReader for MemoryBackend {
+    async fn survey(&self, scope: &OrgScope, survey: &SurveyId) -> StoreResult<Option<SurveyDetail>> {
+        let g = self.lock();
+        let Some(rec) = Self::committed(&g, scope, survey) else { return Ok(None) };
+        let mut revisions: Vec<RevisionRef> = g
+            .surveys
+            .values()
+            .filter(|s| {
+                s.summary.org == rec.summary.org
+                    && s.summary.client_survey_id == rec.summary.client_survey_id
+                    && s.summary.state == SurveyState::Committed
+            })
+            .map(|s| RevisionRef { id: s.summary.id.clone(), revision: s.summary.revision, committed: s.summary.committed })
+            .collect();
+        revisions.sort_by_key(|r| std::cmp::Reverse(r.revision));
+        Ok(Some(SurveyDetail { summary: rec.summary.clone(), bounds: bounds_of(&rec.assets), revisions }))
+    }
+
+    async fn survey_assets(&self, scope: &OrgScope, survey: &SurveyId) -> StoreResult<Option<Vec<SurveyAsset>>> {
+        Ok(Self::committed(&self.lock(), scope, survey).map(|r| r.assets.clone()))
+    }
+
+    async fn survey_asset(&self, scope: &OrgScope, survey: &SurveyId, asset: &str) -> StoreResult<Option<SurveyAsset>> {
+        let g = self.lock();
+        Ok(Self::committed(&g, scope, survey).and_then(|r| r.assets.iter().find(|a| a.asset.id == asset).cloned()))
+    }
+
+    async fn neighbours(
+        &self,
+        scope: &OrgScope,
+        survey: &SurveyId,
+        asset: &str,
+    ) -> StoreResult<Option<(Option<SurveyAsset>, Option<SurveyAsset>)>> {
+        let g = self.lock();
+        let Some(rec) = Self::committed(&g, scope, survey) else { return Ok(None) };
+        let Some(i) = rec.assets.iter().position(|a| a.asset.id == asset) else { return Ok(None) };
+        let previous = i.checked_sub(1).and_then(|j| rec.assets.get(j)).cloned();
+        Ok(Some((previous, rec.assets.get(i + 1).cloned())))
+    }
+
+    async fn survey_photo(&self, scope: &OrgScope, survey: &SurveyId, sha: &Sha256) -> StoreResult<Option<PhotoType>> {
+        let g = self.lock();
+        Ok(Self::committed(&g, scope, survey).and_then(|r| r.expected.get(sha)).map(|(_, kind)| *kind))
+    }
+}
+
 impl BlobStore for MemoryBackend {
     async fn exists(&self, org: &OrgId, sha: &Sha256) -> StoreResult<bool> {
         Ok(self.lock().blobs.contains_key(&(org.clone(), sha.clone())))
@@ -517,12 +575,7 @@ impl BlobStore for MemoryBackend {
     }
 
     async fn source(&self, org: &OrgId, sha: &Sha256, _now: i64) -> StoreResult<BlobSource> {
-        // Tests only check presence; a real deployment uses disk or object storage.
-        if self.lock().blobs.contains_key(&(org.clone(), sha.clone())) {
-            Ok(BlobSource::Url(format!("memory://{org}/{sha}")))
-        } else {
-            Err(StoreError::NotFound)
-        }
+        self.lock().blobs.get(&(org.clone(), sha.clone())).map(|b| BlobSource::Bytes(b.clone())).ok_or(StoreError::NotFound)
     }
 }
 
