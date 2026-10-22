@@ -17,6 +17,8 @@ use crate::{OrgId, UserId};
 
 /// How long the Pro trial of a new organisation lasts.
 pub const TRIAL_DAYS: i64 = 15;
+/// Inspector and admin seats in the trial: enough for a small crew to try GeoFlux together.
+pub const TRIAL_SEATS: u32 = 3;
 /// Computers one person may have signed in at once.
 pub const DEVICES_PER_SEAT: u32 = 2;
 const DAY: i64 = 86_400;
@@ -114,7 +116,7 @@ pub fn trial(org: OrgId, now: i64) -> Subscription {
         plan: Plan::Pro,
         state: SubscriptionState::Trial { ends: now.saturating_add(TRIAL_DAYS * DAY) },
         billing: crate::model::Billing::Trial,
-        seats: 1,
+        seats: TRIAL_SEATS,
         viewer_seats: 0,
     }
 }
