@@ -56,6 +56,8 @@ pub fn router<B: Backend>(server: Arc<Server<B>>) -> Router {
         .route(r::SCHEMA.1, get(view::schema))
         .route(r::DEVICE_PENDING.1, get(view::pending_device::<B>))
         .route(r::HEALTH.1, get(health))
+        // Everything else is the web app (or the API's "not found").
+        .fallback(crate::web::serve)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(server)
 }

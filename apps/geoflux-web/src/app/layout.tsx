@@ -8,6 +8,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react
 import type { Me } from "../api/schemas";
 import { describeFailure } from "../api/http";
 import { useApi } from "./api-context";
+import { forgetAccountData, useOnline } from "./offline";
 import { ME_KEY, hereAsNext, useMe } from "./session";
 import { Loading, Notice } from "./ui";
 
@@ -37,7 +38,8 @@ export function useLogOut() {
   const navigate = useNavigate();
   return useMutation({
     mutationFn: () => api.logOut(),
-    onSettled: (_data, _error, next: string | undefined) => {
+    onSettled: async (_data, _error, next: string | undefined) => {
+      await forgetAccountData();
       // Even if the server couldn't be told, nothing of this account stays in the page.
       qc.clear();
       qc.setQueryData(ME_KEY, null);
@@ -49,6 +51,7 @@ export function useLogOut() {
 export function AppLayout() {
   const me = useMe().data;
   const logOut = useLogOut();
+  const online = useOnline();
   if (!me) return null;
   return (
     <div className="app">
@@ -74,6 +77,12 @@ export function AppLayout() {
           </button>
         </span>
       </header>
+      {!online ? (
+        <Notice kind="info">
+          You're offline. GeoFlux shows what this browser saved the last time it was online; changes and downloads wait
+          for the connection.
+        </Notice>
+      ) : null}
       {!me.user.emailVerified ? (
         <Notice kind="info">
           Confirm your email address: we sent a link to <strong>{me.user.email}</strong>. Until then GeoGIS can't be

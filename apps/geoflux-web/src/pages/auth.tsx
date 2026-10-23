@@ -7,6 +7,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 
 import { describeFailure, fieldReason, hasFieldErrors } from "../api/http";
 import { useApi } from "../app/api-context";
+import { forgetAccountData } from "../app/offline";
 import { ME_KEY, safeNext, useMe } from "../app/session";
 import { AuthCard, Field, Loading, Notice, PASSWORD_HINT, reasonText } from "../app/ui";
 
@@ -32,7 +33,12 @@ export function LogInPage() {
   const next = safeNext(params.get("next"));
   const me = useMe();
   const logIn = useMutation({
-    mutationFn: (v: Record<string, string>) => api.logIn(v["email"] ?? "", v["password"] ?? ""),
+    mutationFn: async (v: Record<string, string>) => {
+      const who = await api.logIn(v["email"] ?? "", v["password"] ?? "");
+      // Whatever an earlier account left for offline use isn't this person's.
+      await forgetAccountData();
+      return who;
+    },
     onSuccess: (who) => {
       qc.setQueryData(ME_KEY, who);
       void navigate(next, { replace: true });

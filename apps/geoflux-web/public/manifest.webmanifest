@@ -1,0 +1,11 @@
+{
+  "name": "GeoFlux",
+  "short_name": "GeoFlux",
+  "description": "Line surveys from GeoGIS: towers on a map, photos with markup, inspection reports.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#0b6bcb",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
