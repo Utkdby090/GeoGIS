@@ -1,6 +1,7 @@
 // The surveys GeoGIS has synced, newest first. The map and tower pages build on this list.
 
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 
 import { describeFailure } from "../api/http";
 import { SEVERITIES, type SurveySummary } from "../api/schemas";
@@ -37,7 +38,8 @@ export function SurveysPage() {
             {surveys.data.map((s) => (
               <tr key={s.id}>
                 <td>
-                  {s.line ?? "—"} <span className="muted">r{s.revision}</span>
+                  <Link to={`/surveys/${encodeURIComponent(s.id)}`}>{s.line ?? s.project}</Link>{" "}
+                  <span className="muted">r{s.revision}</span>
                 </td>
                 <td>{s.project}</td>
                 <td>{s.assets}</td>

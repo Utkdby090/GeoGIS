@@ -16,6 +16,7 @@ import {
 } from "./pages/auth";
 import { DevicePage } from "./pages/device";
 import { SurveysPage } from "./pages/surveys";
+import { SurveyPage } from "./survey/SurveyPage";
 
 export function App() {
   return (
@@ -34,6 +35,7 @@ export function App() {
         }
       >
         <Route index element={<SurveysPage />} />
+        <Route path="/surveys/:id" element={<SurveyPage />} />
         <Route path={PAGES.device} element={<DevicePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
