@@ -14,6 +14,9 @@
 //!   database's direct (session) address, not a transaction-mode pooler such as Supabase's port
 //!   6543: the server keeps prepared statements per connection.
 //!   Without a database URL everything is kept in memory and lost when the server stops.
+//! - `GEOFLUX_MAIL_LOG=1`: no mail service yet, so write each email's link (address check,
+//!   password reset, invite) to the log instead. Only on your own computer: the links are secrets.
+//!   In-memory storage always does this.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -23,7 +26,7 @@ use geoflux_cloud::ports::AccountStore;
 use geoflux_licence::Ed25519Signer;
 use geoflux_server::blobs::DiskBlobs;
 use geoflux_server::crypto::{Argon2Hasher, MemoryRateLimiter, OsRandom, SystemClock};
-use geoflux_server::mail::NoMail;
+use geoflux_server::mail::{LogMail, NoMail};
 use geoflux_server::memory::MemoryBackend;
 use geoflux_server::postgres::{PgBackend, PgStore};
 use geoflux_server::{Backend, Server, Settings, router};
@@ -90,7 +93,13 @@ async fn run() -> Result<(), String> {
             let store = PgStore::connect(&url, connections).await.map_err(|e| format!("connecting to the database: {e}"))?;
             store.migrate().await.map_err(|e| format!("updating the database: {e}"))?;
             log::info!("records in PostgreSQL, photos in {}", data.join("photos").display());
-            serve(PgBackend { store, blobs: DiskBlobs::new(data.join("photos")), mail: NoMail }, settings, bind).await
+            let blobs = DiskBlobs::new(data.join("photos"));
+            if env("GEOFLUX_MAIL_LOG", "0") == "1" {
+                log::warn!("GEOFLUX_MAIL_LOG=1: email links are written to this log, not sent; never use this on a shared server");
+                serve(PgBackend { store, blobs, mail: LogMail }, settings, bind).await
+            } else {
+                serve(PgBackend { store, blobs, mail: NoMail }, settings, bind).await
+            }
         }
         _ => {
             log::warn!("no GEOFLUX_DATABASE_URL: storage is in memory and everything is lost when the server stops");
