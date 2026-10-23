@@ -413,6 +413,14 @@ async fn seats_members_and_organisations_stay_apart_on<B: Backend<Mail = MemoryB
     // The same computer again reuses its seat.
     assert_eq!(app.desktop_sign_in(&admin, "machine-a").await.status, StatusCode::OK);
 
+    // The trial has room for a small crew: an inspector can join straight away.
+    let i = app.json("POST", "/api/v1/org/invites", Auth::Web(&admin), json!({"email": "trial@example.in", "role": "inspector"})).await;
+    assert_eq!(i.status, StatusCode::ACCEPTED, "{}", i.body);
+    let token = app.mail_token("trial@example.in");
+    let acc = app
+        .json("POST", "/api/v1/invites/accept", Auth::None, json!({"token": token, "name": "Trial", "password": "a long passphrase"}))
+        .await;
+    assert_eq!(acc.status, StatusCode::CREATED, "{}", acc.body);
     // Viewers need the Organisation plan.
     let v = app.json("POST", "/api/v1/org/invites", Auth::Web(&admin), json!({"email": "client@utility.in", "role": "viewer"})).await;
     assert_eq!(v.body["error"], "plan_required");
@@ -426,7 +434,7 @@ async fn seats_members_and_organisations_stay_apart_on<B: Backend<Mail = MemoryB
             plan: Plan::Organisation,
             state: SubscriptionState::Active { until: T0 + 365 * DAY },
             billing: Billing::Invoice,
-            seats: 2,
+            seats: 3,
             viewer_seats: 1,
         })
         .await
@@ -448,7 +456,7 @@ async fn seats_members_and_organisations_stay_apart_on<B: Backend<Mail = MemoryB
         .await;
     assert_eq!(full.body["error"], "seat_limit");
     let members = app.send("GET", "/api/v1/org/members", Auth::Web(&admin), Body::empty()).await;
-    assert_eq!(members.body["members"].as_array().unwrap().len(), 3);
+    assert_eq!(members.body["members"].as_array().unwrap().len(), 4);
     // The last admin can't remove themselves.
     let my_id = me.body["user"]["id"].as_str().unwrap();
     let last = app.send("DELETE", &format!("/api/v1/org/members/{my_id}"), Auth::Web(&admin), Body::empty()).await;
