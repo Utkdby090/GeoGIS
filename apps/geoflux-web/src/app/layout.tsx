@@ -60,6 +60,8 @@ export function AppLayout() {
           <NavLink to="/" end>
             Surveys
           </NavLink>
+          <NavLink to="/computers">Computers</NavLink>
+          {me.membership.role === "admin" ? <NavLink to="/team">Team</NavLink> : null}
         </nav>
         <span className="who">
           <span className="org">{me.organisation.name}</span>

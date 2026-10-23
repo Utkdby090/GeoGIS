@@ -16,6 +16,7 @@ import {
 } from "./pages/auth";
 import { DevicePage } from "./pages/device";
 import { SurveysPage } from "./pages/surveys";
+import { ComputersPage, TeamPage } from "./pages/team";
 import { SurveyPage } from "./survey/SurveyPage";
 
 export function App() {
@@ -36,6 +37,8 @@ export function App() {
       >
         <Route index element={<SurveysPage />} />
         <Route path="/surveys/:id" element={<SurveyPage />} />
+        <Route path="/team" element={<TeamPage />} />
+        <Route path="/computers" element={<ComputersPage />} />
         <Route path={PAGES.device} element={<DevicePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />

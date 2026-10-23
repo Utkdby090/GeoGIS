@@ -24,7 +24,7 @@ export function SurveysPage() {
           the upload finishes.
         </p>
       ) : (
-        <table className="list">
+        <table className="list surveys">
           <thead>
             <tr>
               <th scope="col">Line</th>
