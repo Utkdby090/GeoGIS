@@ -16,6 +16,7 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.scanPhotos` | Reads where every JPEG under `folder` (sub-folders too) was taken, from the head of each file only, into a point layer (`name`, `kind` thermal/visual/wide/zoom/other from DJI's `_T`/`_V`/`_W`/`_Z` suffix, `shot` pairing a thermal photo with its visual one, `time`, `altitude`, `direction`, `camera`, `path`), coloured by kind. Photos without a GPS position or unreadable are counted and listed. |
 | `geoflux.sortPhotos` | Gives each photo of a scanned photo layer (`photos`, default: the newest) to the nearest tower of the tower layer (`layer`), with no distance limit; a thermal photo and the visual one of the same shot go to the same tower. Each photo is added to its tower's slot (thermal to the thermal slot, visual and zoom to RGB, wide to structure) without copying, and the photo layer gains `tower` and `metres` columns. Sorting again replaces what the same photos were given. |
 | `geoflux.towerFolders` | Copies each sorted photo into `folder`/`<tower>`/`<visit>` (`visit` default `C1`; `34/1` becomes `34_1`). Originals are never moved or changed; a copy already there with the same size is skipped, and a different file of the same name is kept and reported, so a stopped copy can be run again. |
+| `geoflux.reportPhoto` | Makes one of a slot's photos (`layer`, `row`, `slot`, `path` as `geoflux.photos` lists it) the one the slot shows first and the PDF report uses. Kept by tower and slot; sorting or linking again keeps it while the photo is still in the slot. |
 | `geoflux.importGeox` | Reads a GeoFlux 1.x project (`path`, a `.geox`) into a power-line tower layer, rated and styled by severity like a survey CSV. The photos stored in the project are written to a new folder (`photos`, default `<name> photos` beside the `.geox`) and added to their towers' slots. See [GeoFlux projects](#geoflux-projects-geox). |
 | `geoflux.classify` | Rates every asset of the layer again from its schema's rule, after edits. Returns the count per level. |
 | `geoflux.validate` | Checks every asset against the schema (required fields, numbers, dates, options, coordinates) and lists the problems. |
@@ -72,6 +73,10 @@ carry their tower and their distance from it, so a photo that went to the wrong 
 **Make Tower Folders** then copies the sorted photos into one folder per tower, for example
 `TOWERWISE DATA\34_1\C1\`. The original photos stay where they are, and running it again only
 copies what is missing.
+
+In the Inspection pane, a slot with several photos shows a strip of them under the big one: click
+one to look at it, and **★** makes it the photo the PDF report uses for that slot (it then
+comes first, marked with a star).
 
 ## GeoFlux projects (.geox)
 

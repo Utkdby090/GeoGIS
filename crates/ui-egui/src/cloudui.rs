@@ -27,7 +27,9 @@ const SERVER_PREF: &str = "cloudServer";
 /// photos, the Inspection pane read-only) needs none.
 pub fn feature_of(id: &str) -> Option<Feature> {
     Some(match id {
-        "geoflux.setValues" | "geoflux.addPhotos" | "geoflux.removePhoto" | "geoflux.classify" => Feature::EditForms,
+        "geoflux.setValues" | "geoflux.addPhotos" | "geoflux.removePhoto" | "geoflux.reportPhoto" | "geoflux.classify" => {
+            Feature::EditForms
+        }
         "geoflux.annotate" => Feature::Markup,
         "geoflux.report" | "ui.geofluxReport" => Feature::Reports,
         "geoflux.reportBulk" | "ui.geofluxReportBulk" => Feature::BulkReports,

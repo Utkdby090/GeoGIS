@@ -821,6 +821,8 @@ enum SlotAction {
     Remove(String, String),
     /// Open the markup editor on a photo of the slot.
     Markup(String, String),
+    /// Make a photo the one the slot's report shows.
+    Choose(String, String),
 }
 
 /// Asks for photo files to add to a slot.
@@ -850,6 +852,14 @@ fn slot_action(app: &mut RustGisApp, layer: u32, row: usize, action: SlotAction)
             crate::markupview::open(app, layer, row, &slot, &path);
             return;
         }
+        SlotAction::Choose(slot, path) => {
+            let r = app
+                .run("geoflux.reportPhoto", json!({"layer": layer, "row": row, "slot": slot, "path": path}))
+                .map(|_| tl!("This photo is now the one in the report.").to_string());
+            // The chosen photo moves to the front of its slot.
+            app.inspection.shown.insert(slot, 0);
+            r
+        }
     };
     let st = &mut app.inspection;
     st.photo_note = Some(match result {
@@ -873,6 +883,14 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
             && ui.small_button("✎").on_hover_text(tl!("Mark up this photo for the report")).clicked()
         {
             action = Some(SlotAction::Markup(slot.slot.id.clone(), p.clone()));
+        }
+        if let Some(p) = slot.photos.get(i).filter(|_| i > 0)
+            && ui.small_button("★").on_hover_text(tl!("Use this photo in the report")).clicked()
+        {
+            action = Some(SlotAction::Choose(slot.slot.id.clone(), p.clone()));
+        }
+        if n > 1 && i == 0 {
+            ui.label(RichText::new("★").small().color(t.accent)).on_hover_text(tl!("This photo is the one in the report"));
         }
         if let Some(p) = slot.photos.get(i).filter(|p| picked.contains(p))
             && ui.small_button("×").on_hover_text(tl!("Take this photo out of the slot (the file is kept)")).clicked()
@@ -936,7 +954,48 @@ fn slot_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos,
             ui.put(r, egui::Spinner::new());
         }
     }
+    if n > 1 {
+        strip(st, ui, t, slot, i, w);
+    }
     action
+}
+
+/// Photos shown at once in a slot's strip: the shown one and its neighbours, so a tower with
+/// dozens of sorted photos decodes only these (they share the slot's thumbnail cache).
+const STRIP: usize = 7;
+
+/// A row of small thumbnails under a slot's photo; clicking one shows it. The first photo, the
+/// one in the report, is marked with a star.
+fn strip(st: &mut InspectionState, ui: &mut Ui, t: &Tokens, slot: &SlotPhotos, shown: usize, w: f32) {
+    let n = slot.photos.len();
+    let start = shown.saturating_sub(STRIP / 2).min(n.saturating_sub(STRIP));
+    let side = ((w - 4.0 * (STRIP as f32 - 1.0)) / STRIP as f32).max(16.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        for (j, path) in slot.photos.iter().enumerate().skip(start).take(STRIP) {
+            let (r, resp) = ui.allocate_exact_size(vec2(side, side), egui::Sense::click());
+            match st.cache.get(path, THUMB_SIDE) {
+                Some(Ok(tex)) => {
+                    egui::Image::from_texture(tex).maintain_aspect_ratio(false).paint_at(ui, r);
+                }
+                Some(Err(_)) => {
+                    ui.painter().rect_filled(r, 2.0, t.red.gamma_multiply(0.3));
+                }
+                None => {
+                    ui.painter().rect_filled(r, 2.0, t.border);
+                }
+            }
+            let line = if j == shown { egui::Stroke::new(2.0, t.accent) } else { egui::Stroke::new(1.0, t.border) };
+            ui.painter().rect_stroke(r, 2.0, line, egui::StrokeKind::Inside);
+            if j == 0 {
+                ui.painter().text(r.left_top() + vec2(2.0, 1.0), egui::Align2::LEFT_TOP, "★", egui::FontId::proportional(10.0), t.accent);
+            }
+            let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+            if resp.on_hover_text(name).clicked() {
+                st.shown.insert(slot.slot.id.clone(), j);
+            }
+        }
+    });
 }
 
 /// The full view of one photo, in its own window.

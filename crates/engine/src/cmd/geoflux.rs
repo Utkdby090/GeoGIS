@@ -85,6 +85,9 @@ pub fn commands() -> Vec<C> {
         C::new("geoflux.addPhotos", "Add Tower Photos", "GeoFlux › Inspection", add_photos)
             .when(need_feature_layer)
             .params(r#"{"layer"?, "row": number, "slot": "an image slot id", "paths": ["photo files"]}"#),
+        C::new("geoflux.reportPhoto", "Use Photo in Report", "GeoFlux › Inspection", report_photo)
+            .when(need_feature_layer)
+            .params(r#"{"layer"?, "row": number, "slot": "an image slot id", "path": "one of the slot's photos, as geoflux.photos lists it"}"#),
         C::new("geoflux.removePhoto", "Remove Tower Photo", "GeoFlux › Inspection", remove_photo)
             .when(need_feature_layer)
             .params(r#"{"layer"?, "row": number, "slot": "an image slot id", "path": "a photo added with geoflux.addPhotos"}"#),
@@ -118,6 +121,17 @@ pub struct PickedPhoto {
     pub path: String,
 }
 
+/// The photo an engineer chose for one slot of one asset's report: shown first in the slot and
+/// put in the PDF. Kept by the asset's label and the photo's full path; a choice whose photo is no
+/// longer in the slot is ignored (the slot's first photo is used).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChosenPhoto {
+    pub layer: u32,
+    pub label: String,
+    pub slot: String,
+    pub path: String,
+}
+
 /// Markup on one photo (see [`geoflux_domain::annotation`]). Kept by the asset's label and the
 /// photo as its slot lists it (relative to the linked folder, or the picked path), so it survives
 /// a relink; markup whose photo is gone is kept until the project is saved without it.
@@ -144,6 +158,8 @@ pub struct GeoFlux {
     pub picked: Vec<PickedPhoto>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markup: Vec<PhotoMarkup>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chosen: Vec<ChosenPhoto>,
     /// The survey this project syncs to GeoFlux Cloud as.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cloud: Option<super::cloud_sync::CloudLink>,
@@ -156,6 +172,7 @@ impl GeoFlux {
             && self.photos.is_empty()
             && self.picked.is_empty()
             && self.markup.is_empty()
+            && self.chosen.is_empty()
             && self.cloud.is_none()
     }
 
@@ -178,6 +195,8 @@ impl GeoFlux {
         }
         self.picked.retain(|p| !p.path.trim().is_empty() && p.path.len() <= MAX_PICKED_PATH && images::is_image(&p.path));
         self.picked.truncate(MAX_PICKED);
+        self.chosen.retain(|c| !c.path.trim().is_empty() && c.path.len() <= MAX_PICKED_PATH);
+        self.chosen.truncate(MAX_PICKED);
         // Shapes are checked again, as a command would: one bad entry drops only its own photo's markup.
         self.markup.retain_mut(|m| match AnnotationSet::from_shapes(std::mem::take(&mut m.shapes).into_shapes()) {
             Ok(set) => {
@@ -681,11 +700,25 @@ pub fn photos(s: &Session, layer: u32, row: usize) -> Result<Vec<SlotPhotos>, St
         .iter()
         .filter(|p| p.layer == layer && p.label.trim().chars().flat_map(char::to_lowercase).eq(label.chars()))
         .collect();
-    Ok(slot_photos(&schema, folder, found, &picked))
+    let chosen: Vec<&ChosenPhoto> = s
+        .project
+        .geoflux
+        .chosen
+        .iter()
+        .filter(|c| c.layer == layer && c.label.trim().chars().flat_map(char::to_lowercase).eq(label.chars()))
+        .collect();
+    Ok(slot_photos(&schema, folder, found, &picked, &chosen))
 }
 
-/// The slots of an asset with its folder photos (full paths), then its picked ones, once each.
-fn slot_photos(schema: &DomainSchema, folder: &std::path::Path, found: Option<&AssetPhotos>, picked: &[&PickedPhoto]) -> Vec<SlotPhotos> {
+/// The slots of an asset with its folder photos (full paths), then its picked ones, once each;
+/// a slot's chosen report photo comes first.
+fn slot_photos(
+    schema: &DomainSchema,
+    folder: &std::path::Path,
+    found: Option<&AssetPhotos>,
+    picked: &[&PickedPhoto],
+    chosen: &[&ChosenPhoto],
+) -> Vec<SlotPhotos> {
     schema
         .image_slots
         .iter()
@@ -702,6 +735,9 @@ fn slot_photos(schema: &DomainSchema, folder: &std::path::Path, found: Option<&A
                     photos.push(p.path.clone());
                 }
             }
+            if let Some(at) = chosen.iter().find(|c| c.slot == slot.id).and_then(|c| photos.iter().position(|p| *p == c.path)) {
+                photos[..=at].rotate_right(1);
+            }
             SlotPhotos { slot: slot.clone(), photos }
         })
         .collect()
@@ -713,6 +749,7 @@ pub struct PhotoIndex<'a> {
     folder: &'a std::path::Path,
     assets: std::collections::HashMap<String, &'a AssetPhotos>,
     picked: std::collections::HashMap<String, Vec<&'a PickedPhoto>>,
+    chosen: std::collections::HashMap<String, Vec<&'a ChosenPhoto>>,
 }
 
 impl<'a> PhotoIndex<'a> {
@@ -726,14 +763,19 @@ impl<'a> PhotoIndex<'a> {
         for p in g.picked.iter().filter(|p| p.layer == layer) {
             picked.entry(p.label.trim().to_lowercase()).or_default().push(p);
         }
-        Self { folder: std::path::Path::new(link.map_or("", |l| l.folder.as_str())), assets, picked }
+        let mut chosen: std::collections::HashMap<String, Vec<&ChosenPhoto>> = std::collections::HashMap::new();
+        for c in g.chosen.iter().filter(|c| c.layer == layer) {
+            chosen.entry(c.label.trim().to_lowercase()).or_default().push(c);
+        }
+        Self { folder: std::path::Path::new(link.map_or("", |l| l.folder.as_str())), assets, picked, chosen }
     }
 
     /// The slots of the asset labelled `label`, as [`photos`] gives them.
     pub fn slots(&self, schema: &DomainSchema, label: &str) -> Vec<SlotPhotos> {
         let key = label.trim().to_lowercase();
         let picked = self.picked.get(&key).map_or(&[][..], Vec::as_slice);
-        slot_photos(schema, self.folder, self.assets.get(&key).copied(), picked)
+        let chosen = self.chosen.get(&key).map_or(&[][..], Vec::as_slice);
+        slot_photos(schema, self.folder, self.assets.get(&key).copied(), picked, chosen)
     }
 }
 
@@ -805,6 +847,25 @@ pub(crate) fn add_picked(g: &mut GeoFlux, layer: u32, label: &str, slot: &str, p
         g.picked.push(PickedPhoto { layer, label: label.to_string(), slot: slot.to_string(), path: path.to_string() });
     }
     true
+}
+
+/// Makes one of a slot's photos the one its report shows (and the slot shows first).
+fn report_photo(s: &mut Session, p: &Value) -> CmdResult {
+    let id = s.layer_id(p)?;
+    let row = row_param(p)?;
+    let (label, slot) = picked_target(s, id, row, p)?;
+    let path = ps(p, "path").ok_or("path is required")?.to_string();
+    let listed = photos(s, id, row)?.into_iter().find(|sp| sp.slot.id == slot).is_some_and(|sp| sp.photos.contains(&path));
+    if !listed {
+        return Err("that photo is not in this slot".into());
+    }
+    let g = &mut s.project.geoflux;
+    g.chosen.retain(|c| !(c.layer == id && c.slot == slot && c.label.eq_ignore_ascii_case(&label)));
+    if g.chosen.len() >= MAX_PICKED {
+        return Err(format!("a project keeps at most {MAX_PICKED} chosen report photos"));
+    }
+    g.chosen.push(ChosenPhoto { layer: id, label, slot, path: path.clone() });
+    Ok(json!({"slot": g.chosen.last().map(|c| c.slot.clone()), "path": path}))
 }
 
 /// Takes a picked photo out of its slot (the file stays where it is).
