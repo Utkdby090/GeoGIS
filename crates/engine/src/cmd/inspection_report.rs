@@ -215,6 +215,7 @@ pub fn plan(s: &Session, layer: u32, rows: Option<&[usize]>, p: &Value, include_
     for m in s.project.geoflux.markup.iter().filter(|m| m.layer == layer) {
         marks.entry((m.label.trim().to_lowercase(), m.slot.as_str(), m.photo.clone())).or_insert(&m.shapes);
     }
+    let found = super::findings::ReportFindings::new(&s.project.geoflux, layer);
     for row in wanted {
         if row >= ds.features.len() {
             return Err("no such row".into());
@@ -244,6 +245,7 @@ pub fn plan(s: &Session, layer: u32, rows: Option<&[usize]>, p: &Value, include_
         out.pages.push(plan_page(input, &mut |slot| {
             let path = slots.iter().find(|sp| sp.slot.id == slot).and_then(|sp| sp.photos.first().cloned())?;
             let markup = marks.get(&(label_key.clone(), slot, markup_key(s, layer, &path))).map(|set| (*set).clone()).unwrap_or_default();
+            let markup = found.add_to(markup, &label, &path, &schema);
             Some(CellPhoto { key: path, markup })
         }));
     }

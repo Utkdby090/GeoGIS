@@ -533,16 +533,21 @@ fn summary_text(r: &serde_json::Value, path: &str) -> String {
     text
 }
 
-/// The markup of each of the asset's photos by (slot, photo), for drawing over the thumbnails.
+/// The markup of each of the asset's photos by (slot, photo), with its confirmed findings, for
+/// drawing over the thumbnails.
 pub fn marks(app: &RustGisApp, layer: u32, row: usize, slots: &[gf::SlotPhotos]) -> Vec<(String, String, AnnotationSet)> {
-    let label = gf::asset(&app.session, layer, row).map(|(schema, a)| a.property(schema.label_key()).to_string()).unwrap_or_default();
     let mut out = Vec::new();
-    if app.session.project.geoflux.markup.is_empty() {
+    let Ok((schema, asset)) = gf::asset(&app.session, layer, row) else { return out };
+    let label = asset.property(schema.label_key()).to_string();
+    let g = &app.session.project.geoflux;
+    if g.markup.is_empty() && g.findings_of(layer).is_none() {
         return out;
     }
+    // Confirmed findings are drawn too, as the report draws them.
+    let found = rustgis_engine::cmd::findings::ReportFindings::new(g, layer);
     for sp in slots {
         for photo in &sp.photos {
-            let set = ir::markup(&app.session, layer, &label, &sp.slot.id, photo);
+            let set = found.add_to(ir::markup(&app.session, layer, &label, &sp.slot.id, photo), &label, photo, &schema);
             if !set.is_empty() {
                 out.push((sp.slot.id.clone(), photo.clone(), set));
             }

@@ -18,6 +18,7 @@ mod cswui;
 mod dialogs;
 mod docpanes;
 mod editpanes;
+mod findingsview;
 mod geocodeui;
 mod geofluxpane;
 pub mod icons;
@@ -1550,6 +1551,7 @@ impl RustGisApp {
             "ui.geofluxScanPhotos" => geofluxpane::scan_photos(self, p.get("folder").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxImportGeox" => geofluxpane::import_geox(self, p.get("path").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
+            "ui.geofluxFindings" => findingsview::open(self)?,
             "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
             "ui.account" | "ui.cloudSync" => cloudui::command(self, id)?,
             "ui.thermal.view" | "ui.thermal.palette" | "ui.thermal.tool" | "ui.thermal.record" | "ui.thermal.scan" => {

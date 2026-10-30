@@ -5,7 +5,7 @@
 //! `geoflux-domain`. Photos are decoded off the frame, shrunk, and kept in a small cache that is
 //! emptied when the pane closes, so memory stays bounded however many photos a line has.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use egui::{Color32, RichText, Ui, vec2};
 use serde_json::{Map, Value, json};
@@ -181,6 +181,8 @@ pub struct InspectionState {
     layout: Vec<(String, Vec<Vec<usize>>)>,
     original: BTreeMap<String, String>,
     values: BTreeMap<String, String>,
+    /// Fields the tower's findings fill (in findings mode): shown, not typed.
+    locked: BTreeSet<String>,
     issues: Vec<FieldIssue>,
     message: Option<(String, bool)>,
     /// The walk, for (layer, flagged only, project revision).
@@ -210,6 +212,10 @@ pub struct InspectionState {
     scan: Option<ScanJob>,
     /// Sorted photos being copied into tower folders on a worker thread.
     copy: Option<CopyJob>,
+    /// The Findings window, while open.
+    pub(crate) review: Option<crate::findingsview::Review>,
+    /// The shown tower's findings, read once per project revision.
+    pub(crate) tower: Option<crate::findingsview::TowerCache>,
 }
 
 /// Tower folders being copied off the frame.
@@ -268,6 +274,22 @@ impl InspectionState {
         self.issues = form::validate(&self.fields, &self.values);
     }
 
+    /// The shown tower's photos by slot, if read for (`layer`, `row`).
+    pub(crate) fn slots(&self, layer: u32, row: usize) -> Option<&[SlotPhotos]> {
+        self.photos.as_ref().filter(|((l, r, _), _)| (*l, *r) == (layer, row)).map(|(_, v)| v.as_slice())
+    }
+
+    /// The photo shown in a slot (its strip's choice, else the first).
+    pub(crate) fn shown_in<'a>(&self, slot: &'a SlotPhotos) -> Option<&'a String> {
+        let i = self.shown.get(&slot.slot.id).copied().unwrap_or(0).min(slot.photos.len().saturating_sub(1));
+        slot.photos.get(i)
+    }
+
+    /// Decoded photos, for windows over one photo.
+    pub(crate) fn photo(&mut self, path: &str, full: bool) -> Option<&Result<egui::TextureHandle, String>> {
+        self.cache.get(path, if full { VIEW_SIDE } else { THUMB_SIDE })
+    }
+
     /// The photo picked in the asset's thermal slot, if its photos are read.
     pub(crate) fn thermal_slot_photo(&self, layer: u32, row: usize) -> Option<String> {
         let ((l, r, _), slots) = self.photos.as_ref()?;
@@ -285,7 +307,7 @@ fn inspection_layers(app: &RustGisApp) -> Vec<(u32, String)> {
     app.session.project.geoflux.links.iter().filter_map(|l| app.session.map().layer(l.layer).map(|x| (x.id, x.name.clone()))).collect()
 }
 
-fn severity_color(s: Severity, t: &Tokens) -> Color32 {
+pub(crate) fn severity_color(s: Severity, t: &Tokens) -> Color32 {
     match s {
         Severity::None => t.text_dim,
         Severity::Low => t.green,
@@ -295,7 +317,7 @@ fn severity_color(s: Severity, t: &Tokens) -> Color32 {
     }
 }
 
-fn severity_label(s: Severity) -> &'static str {
+pub(crate) fn severity_label(s: Severity) -> &'static str {
     match s {
         Severity::None => tl!("No finding"),
         Severity::Low => tl!("Low"),
@@ -433,6 +455,8 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
         save_form(app, layer, row);
     }
     ui.add_space(8.0);
+    crate::findingsview::summary_ui(app, ui, t, layer, row);
+    ui.add_space(8.0);
     photos_ui(app, ui, t, &ctx, layer, row, rev);
     ui.add_space(8.0);
     crate::markupview::reports_ui(app, ui, t, layer, row);
@@ -444,6 +468,10 @@ fn load(app: &mut RustGisApp, layer: u32, row: usize, rev: u64) {
     st.loaded = Some((layer, row, rev));
     match gf::asset(&app.session, layer, row) {
         Ok((schema, asset)) => {
+            st.locked = match app.session.project.geoflux.findings_of(layer) {
+                Some(_) => schema.finding_fields.iter().map(|d| d.key.clone()).collect(),
+                None => BTreeSet::new(),
+            };
             st.fields = schema.fields_for(&asset);
             st.values = form::values(&asset, &st.fields);
             st.original = st.values.clone();
@@ -452,6 +480,7 @@ fn load(app: &mut RustGisApp, layer: u32, row: usize, rev: u64) {
         }
         Err(e) => {
             st.fields.clear();
+            st.locked.clear();
             st.layout.clear();
             st.values.clear();
             st.original.clear();
@@ -550,7 +579,7 @@ fn navigator(st: &mut InspectionState, ui: &mut Ui, t: &Tokens) -> Option<usize>
 
 /// Moves to another asset: unsaved edits are saved first (and the move is cancelled if they
 /// can't be), then the asset is selected and the map centred on it.
-fn go(app: &mut RustGisApp, layer: u32, row: usize) {
+pub(crate) fn go(app: &mut RustGisApp, layer: u32, row: usize) {
     if app.inspection.dirty() {
         let Some(from) = app.inspection.row else { return };
         if !save_form(app, layer, from) {
@@ -591,7 +620,7 @@ fn save_form(app: &mut RustGisApp, layer: u32, row: usize) -> bool {
 /// The form, group by group. Returns whether Save was pressed.
 fn form_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens) -> bool {
     let mut changed = false;
-    let InspectionState { fields, layout, values, issues, .. } = st;
+    let InspectionState { fields, layout, values, issues, locked, .. } = st;
     for (group, rows) in layout.iter() {
         ui.add_space(6.0);
         let title = if group.is_empty() { tl!("Details") } else { group.as_str() };
@@ -613,10 +642,15 @@ fn form_ui(st: &mut InspectionState, ui: &mut Ui, t: &Tokens) -> bool {
                         if !values.contains_key(&f.key) {
                             values.insert(f.key.clone(), String::new());
                         }
-                        if let Some(value) = values.get_mut(&f.key)
-                            && field_widget(ui, f, value, w)
-                        {
-                            changed = true;
+                        if let Some(value) = values.get_mut(&f.key) {
+                            if locked.contains(&f.key) {
+                                // Filled from the tower's findings: shown, never typed over.
+                                let shown = if value.is_empty() { "—" } else { value.as_str() };
+                                ui.add_sized([w - 8.0, 20.0], egui::Label::new(RichText::new(shown).color(t.text_dim)).truncate())
+                                    .on_hover_text(tl!("Filled from this tower's findings. Change a finding to change it."));
+                            } else if field_widget(ui, f, value, w) {
+                                changed = true;
+                            }
                         }
                         if let Some(k) = issue {
                             ui.label(RichText::new(issue_text(k)).small().color(t.red));
@@ -803,6 +837,7 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     viewer(st, ctx, t);
     let texture = st.markup.as_ref().and_then(|e| st.cache.get(e.photo(), VIEW_SIDE).cloned());
     crate::markupview::show(app, ctx, t, texture);
+    crate::findingsview::show(app, ctx, t, layer, row);
     if let Some(a) = action {
         slot_action(app, layer, row, a);
     }

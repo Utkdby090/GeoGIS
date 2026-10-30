@@ -21,7 +21,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::annotation::NormPoint;
+use crate::annotation::{Annotation, Color, MAX_PEN_POINTS, MAX_TEXT_CHARS, NormPoint, Shape};
 use crate::asset::{Properties, Severity};
 use crate::defect::DefectId;
 use crate::photo_id::PhotoId;
@@ -973,6 +973,56 @@ impl FindingSet {
         });
         Some(id)
     }
+}
+
+/// The colour a finding of `severity` is drawn in, on photos and in reports (the map's colours).
+pub fn severity_color(severity: Severity) -> Color {
+    Color(match severity {
+        Severity::None => [0xF8, 0xF9, 0xFA, 0xFF],
+        Severity::Low => [0xFF, 0xD4, 0x3B, 0xFF],
+        Severity::Medium => [0xFF, 0x92, 0x2B, 0xFF],
+        Severity::High => [0xF0, 0x3E, 0x3E, 0xFF],
+        Severity::Critical => [0x86, 0x0F, 0x0F, 0xFF],
+    })
+}
+
+/// Findings drawn as markup: each region in its severity's colour with the defect's label above
+/// it, so a report photo shows what the page's text says. Findings on the whole photo draw nothing.
+pub fn findings_markup<'a>(findings: impl IntoIterator<Item = &'a Finding>, schema: &DomainSchema) -> Vec<Annotation> {
+    /// Text height and line width, in thousandths of the photo's shorter side.
+    const TEXT: f32 = 32.0;
+    const LINE: f32 = 6.0;
+    /// A point finding's ring radius, as a fraction of the photo.
+    const RING: f32 = 0.035;
+    let mut out = Vec::new();
+    for f in findings {
+        let color = severity_color(f.severity);
+        let (shape, top_left) = match &f.region {
+            Region::Whole => continue,
+            Region::Point { at } => {
+                let a = NormPoint::new((at.x - RING).max(0.0), (at.y - RING).max(0.0));
+                let b = NormPoint::new((at.x + RING).min(1.0), (at.y + RING).min(1.0));
+                (Shape::Ellipse { a, b }, a)
+            }
+            Region::Box { a, b } => {
+                let tl = NormPoint::new(a.x.min(b.x), a.y.min(b.y));
+                (Shape::Rect { a: *a, b: *b }, tl)
+            }
+            Region::Polygon { points } => {
+                let Some(first) = points.first() else { continue };
+                let mut ring: Vec<NormPoint> = points.iter().copied().take(MAX_PEN_POINTS - 1).collect();
+                ring.push(*first);
+                let tl = ring.iter().fold(*first, |m, p| NormPoint::new(m.x.min(p.x), m.y.min(p.y)));
+                (Shape::Pen { points: ring }, tl)
+            }
+        };
+        out.push(Annotation { shape, color, width: LINE });
+        let label: String = schema.defect_label(&f.defect).chars().take(MAX_TEXT_CHARS.min(60)).collect();
+        // Above the region, or inside its top when it touches the photo's top edge.
+        let y = if top_left.y >= 0.05 { top_left.y - 0.045 } else { top_left.y + 0.01 };
+        out.push(Annotation { shape: Shape::Text { at: NormPoint::new(top_left.x, y), text: label, size: TEXT }, color, width: LINE });
+    }
+    out
 }
 
 #[cfg(test)]

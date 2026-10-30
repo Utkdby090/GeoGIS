@@ -1055,6 +1055,16 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
                 Value::Null,
                 false,
             );
+            small(
+                ui,
+                app,
+                "zoom_box",
+                "Review Findings",
+                "Mark faults on this tower's photos and confirm or reject suggestions.",
+                "ui.geofluxFindings",
+                Value::Null,
+                false,
+            );
             small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
         });
         col(ui, |ui| {

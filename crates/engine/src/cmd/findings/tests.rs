@@ -199,3 +199,20 @@ fn photo_ids_read_both_ends_of_the_file() {
     assert_eq!(photo_id_of(&p.display().to_string()), Ok(PhotoId::of_bytes(&big)));
     assert!(photo_id_of(&dir.0.join("missing.jpg").display().to_string()).is_err());
 }
+
+#[test]
+fn confirmed_findings_are_drawn_on_the_report_photo() {
+    let dir = TempDir::new("report");
+    let (mut s, layer, path) = session(&dir);
+    s.run("geoflux.addFinding", &json!({"layer": layer, "row": 1, "path": path, "defect": "hotspot.joint", "region": hot_box()}))
+        .expect("confirmed");
+    let r =
+        s.run("geoflux.thermal.scan", &json!({"layer": layer, "results": [{"row": 1, "maxC": 90.0, "referenceC": 30.0}]})).expect("scan");
+    assert_eq!(r["proposals"]["proposed"], 1, "{r}");
+    let plan = crate::cmd::inspection_report::plan(&s, layer, Some(&[1]), &json!({}), true).expect("planned");
+    let page = &plan.pages[0];
+    let cell = page.photos.iter().position(|p| p.as_deref() == Some(path.as_str())).expect("thermal photo printed");
+    let shapes = page.page.photos[cell].annotations.shapes();
+    assert_eq!(shapes.len(), 2, "the confirmed box and its label; the proposal isn't drawn");
+    assert!(matches!(&shapes[1].shape, geoflux_domain::annotation::Shape::Text { text, .. } if text == "Hot joint or connector"));
+}

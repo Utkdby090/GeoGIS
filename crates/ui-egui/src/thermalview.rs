@@ -526,6 +526,19 @@ pub fn poll_scan(app: &mut RustGisApp) {
         return;
     }
     let message = match app.run("geoflux.thermal.scan", json!({"layer": job.layer, "results": results})) {
+        // With findings, the scan suggests hot spots for review instead of writing the forms.
+        Ok(r) if r.get("proposals").is_some() => {
+            let p = &r["proposals"];
+            let n = |k: &str| p[k].as_u64().unwrap_or(0).to_string();
+            app.inspection.forget_marks();
+            (
+                crate::i18n::fmt(
+                    "{proposed} hot spots suggested for review; {already} photos already looked at; {failed} could not be measured",
+                    &[("proposed", &n("proposed")), ("already", &n("already")), ("failed", &n("failed"))],
+                ),
+                p["failed"].as_u64().is_some_and(|n| n > 0),
+            )
+        }
         Ok(r) => (
             crate::i18n::fmt(
                 "Recorded {recorded} towers; {failed} photos could not be measured",
@@ -551,13 +564,20 @@ pub fn record(app: &mut RustGisApp) -> Result<(), String> {
     let st = &app.inspection.thermal;
     let frame = st.frame_for(&key).ok_or(wait)?;
     let f = th::finding(frame, st.region, st.reference)?;
+    let findings_mode = app.session.project.geoflux.findings_of(layer).is_some();
+    if findings_mode && app.inspection.dirty() {
+        // The finding fills the form's fault fields, which unsaved typing would then overwrite.
+        return Err(tl!("Save or revert this tower's changes first.").into());
+    }
     if app.inspection.dirty() {
         app.inspection.enter_values(f.form_values(&FormBinding::default()));
         app.inspection.thermal.message = Some((tl!("Fault and rise temperatures entered. Save to keep them.").into(), false));
         return Ok(());
     }
     let found = json!({"maxC": f.max_c, "referenceC": f.reference.map(|r| r.temp_c())});
-    app.run("geoflux.thermal.record", json!({"layer": layer, "row": row, "found": found}))?;
+    let by = if findings_mode { crate::findingsview::who(app) } else { String::new() };
+    app.run("geoflux.thermal.record", json!({"layer": layer, "row": row, "found": found, "by": by}))?;
+    app.inspection.forget_marks();
     app.inspection.thermal.message = Some((tl!("Finding recorded.").into(), false));
     Ok(())
 }
