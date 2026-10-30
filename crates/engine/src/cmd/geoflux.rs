@@ -163,6 +163,13 @@ pub struct GeoFlux {
     /// The survey this project syncs to GeoFlux Cloud as.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cloud: Option<super::cloud_sync::CloudLink>,
+    /// Each layer's findings, once it has any (see [`super::findings`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<super::findings::LayerFindings>,
+    /// Where each photo a finding is on was last seen, by its content id, so a finding can show
+    /// its photo before that photo is opened again.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub photo_paths: BTreeMap<geoflux_domain::PhotoId, String>,
 }
 
 impl GeoFlux {
@@ -174,6 +181,8 @@ impl GeoFlux {
             && self.markup.is_empty()
             && self.chosen.is_empty()
             && self.cloud.is_none()
+            && self.findings.is_empty()
+            && self.photo_paths.is_empty()
     }
 
     /// Files skip the commands' checks: schemas that fail them are dropped, photo paths that
@@ -206,6 +215,12 @@ impl GeoFlux {
             Err(_) => false,
         });
         self.markup.truncate(MAX_MARKUP);
+        super::findings::clamp(self);
+    }
+
+    /// A layer's findings, once it has any.
+    pub fn findings_of(&self, layer: u32) -> Option<&geoflux_domain::FindingSet> {
+        self.findings.iter().find(|f| f.layer == layer).map(|f| &f.set)
     }
 
     /// The photos linked to a layer.
@@ -450,14 +465,22 @@ pub(crate) fn layer_schema(s: &Session, p: &Value) -> Result<(u32, DomainSchema)
 
 fn classify(s: &mut Session, p: &Value) -> CmdResult {
     let (id, schema) = layer_schema(s, p)?;
-    if schema.severity.is_none() {
+    if schema.severity.is_none() && s.project.geoflux.findings_of(id).is_none() {
         return Err(format!("schema '{}' has no severity rule", schema.id));
     }
     let layer = s.map_mut().layer_mut(id).ok_or("no such layer")?;
     if layer.dataset.windowed {
         return Err("this layer is read in place; load all its features first".into());
     }
-    rate(&schema, &mut layer.dataset);
+    if s.project.geoflux.findings_of(id).is_some() {
+        let rows = s.map().layer(id).map_or(0, |l| l.dataset.features.len());
+        for row in 0..rows {
+            rate_row(s, id, row, &schema);
+        }
+    } else if let Some(layer) = s.map_mut().layer_mut(id) {
+        rate(&schema, &mut layer.dataset);
+    }
+    let layer = s.map().layer(id).ok_or("no such layer")?;
     let col = layer.dataset.field_index(SEVERITY_FIELD);
     let mut counts = serde_json::Map::new();
     for level in Severity::ALL {
@@ -578,12 +601,19 @@ pub(crate) fn set_values(s: &mut Session, p: &Value) -> CmdResult {
     let fields = schema.fields_for(&before);
     // The form's current values, with the given ones over them, so a partial edit is checked whole.
     let mut values = form::values(&before, &fields);
+    // A layer with findings fills these fields from them; typing over them would make the form
+    // disagree with its findings.
+    let derived = super::findings::derived_keys(&s.project.geoflux, id, &schema);
     for (k, v) in given {
         let text = match v {
             Value::String(t) => t.clone(),
             Value::Null => String::new(),
             other => other.to_string(),
         };
+        if derived.contains(&k.as_str()) && values.get(k).map_or("", |v| v.trim()) != text.trim() {
+            let label = schema.field(k).map_or(k.as_str(), |f| f.label.as_str());
+            return Err(format!("{label} is filled from the tower's findings; add or edit a finding instead"));
+        }
         values.insert(k.clone(), text);
     }
     let issues = form::validate(&fields, &values);
@@ -596,18 +626,61 @@ pub(crate) fn set_values(s: &mut Session, p: &Value) -> CmdResult {
         return Err("this layer is read in place; load all its features first".into());
     }
     write_asset(&schema, &mut layer.dataset, row, &after, &values)?;
-    let level = match &schema.severity {
-        Some(rule) => {
-            let level = rule.classify(&properties(&layer.dataset, row));
-            let col = layer.dataset.ensure_field(SEVERITY_FIELD, FieldType::Text);
-            if let Some(cell) = layer.dataset.features.get_mut(row).and_then(|f| f.attrs.get_mut(col)) {
-                *cell = V::Text(level.as_str().into());
-            }
-            Some(level)
-        }
+    let level = rate_row(s, id, row, &schema);
+    Ok(json!({"layer": id, "row": row, "severity": level}))
+}
+
+/// Rates one asset and writes its severity: from its findings when the layer has findings, else
+/// from the schema's rule. `None` when neither applies.
+pub(crate) fn rate_row(s: &mut Session, layer: u32, row: usize, schema: &DomainSchema) -> Option<Severity> {
+    let from_findings = match s.project.geoflux.findings_of(layer) {
+        Some(set) => Some(set.for_asset(&label_at(&s.map().layer(layer)?.dataset, schema, row)).severity()),
         None => None,
     };
-    Ok(json!({"layer": id, "row": row, "severity": level}))
+    let ds = &mut s.map_mut().layer_mut(layer)?.dataset;
+    let level = match (from_findings, &schema.severity) {
+        (Some(level), _) => level,
+        (None, Some(rule)) => rule.classify(&properties(ds, row)),
+        (None, None) => return None,
+    };
+    let col = ds.ensure_field(SEVERITY_FIELD, FieldType::Text);
+    if let Some(cell) = ds.features.get_mut(row).and_then(|f| f.attrs.get_mut(col)) {
+        *cell = V::Text(level.as_str().into());
+    }
+    Some(level)
+}
+
+/// The label of the asset at `row` (its tower number), trimmed; empty when it has none.
+pub(crate) fn label_at(ds: &Dataset, schema: &DomainSchema, row: usize) -> String {
+    match ds.field_index(schema.label_key()).map(|c| ds.value(row, c)) {
+        Some(V::Null) | None => String::new(),
+        Some(v) => v.to_string().trim().to_string(),
+    }
+}
+
+/// Writes fields filled from findings into one asset's row, checking each value against its
+/// field's type only (an empty value just clears the field; the rest of the form is not checked,
+/// so a tower missing a required field can still get findings).
+pub(crate) fn write_derived(
+    s: &mut Session,
+    layer: u32,
+    row: usize,
+    schema: &DomainSchema,
+    derived: Vec<(String, String)>,
+) -> Result<(), String> {
+    let (_, before) = asset(s, layer, row)?;
+    let values: BTreeMap<String, String> = derived.into_iter().collect();
+    let fields: Vec<_> = schema.fields.iter().filter(|f| values.contains_key(&f.key)).cloned().collect();
+    let issues: Vec<FieldIssue> =
+        form::validate(&fields, &values).into_iter().filter(|i| i.kind != geoflux_domain::IssueKind::Missing).collect();
+    if !issues.is_empty() {
+        return Err(describe_issues(schema, &issues));
+    }
+    let ds = &mut s.map_mut().layer_mut(layer).ok_or("no such layer")?.dataset;
+    if ds.windowed {
+        return Err("this layer is read in place; load all its features first".into());
+    }
+    write_asset(schema, ds, row, &before, &values)
 }
 
 /// The issues as one sentence, by field label.

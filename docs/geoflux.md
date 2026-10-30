@@ -29,7 +29,12 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.removePhoto` | Takes an added photo out of its slot; the file is kept. |
 | `geoflux.thermal.measure` | Temperatures of a tower's thermal photo (`row`, `photo` index): min, max and mean over the whole photo or a `region` (`[x0, y0, x1, y1]` in pixels), the reference (a `reference` box, else the ambient temperature) and the rise. The form's emissivity, ambient temperature and humidity are used, and any the camera's library refused are listed. |
 | `geoflux.thermal.record` | Writes the hottest pixel (Fault Temp) and its rise over the reference (Rise Temp) into the form as one undoable edit. |
-| `geoflux.thermal.scan` | Measures every tower's thermal photo and records each, all as one undoable edit. Towers without a thermal photo are skipped; photos that can't be read are counted and listed. |
+| `geoflux.thermal.scan` | Measures every tower's thermal photo and records each, all as one undoable edit. Towers without a thermal photo are skipped; photos that can't be read are counted and listed. In findings mode it proposes a hot spot finding for each rise at or above the schema's lowest threshold instead, and skips photos this rule version has already looked at. |
+| `geoflux.findings` | One asset's findings (`row`; `path` also lists those on that photo), the defect types its schema offers, the fields findings fill, and the counts of pending and rejected ones. |
+| `geoflux.addFinding` | Adds an engineer's finding to an asset (`row`, `defect`, optional `path` of one of its photos, `region`, `severity`, `measurements`, `note`, `by`). The first finding on a layer turns it to findings mode: every asset's typed fault values become one finding each, and from then on the schema's `findingFields` and the severity come from confirmed findings. |
+| `geoflux.decideFinding` | Confirms or rejects a proposed finding (`id`, `decision` `confirm` or `reject`). Only confirmed findings fill the form and the report. |
+| `geoflux.editFinding` | Changes a finding's defect type, severity, region, measurements or note; a proposal stays proposed until decided. |
+| `geoflux.removeFinding` | Deletes an engineer's finding. Proposals are rejected instead, so a rule doesn't propose them again. |
 
 **Analyze › Inspection** opens the Inspection pane: the asset's form laid out from its schema,
 previous and next (Page Up and Page Down) through the towers, a flagged-only filter, and the
@@ -136,6 +141,11 @@ Findings themselves (`geoflux_domain::finding`) record the photo (by content id)
 it, the defect type, the severity, the measurements, who or what found it, and whether a person
 has confirmed, edited or rejected it. Automatic inspections implement
 `geoflux_domain::inspector::Inspector` and only ever propose findings.
+
+In findings mode, `geoflux.setValues` refuses a different value in a field findings fill (add or
+edit a finding instead); the other fields are typed as before. A photo's content id doesn't change
+when its folder moves, so findings follow a relinked photo. All finding commands are one undoable
+edit each, and the first one's undo leaves findings mode again.
 
 ## Thermal photos
 

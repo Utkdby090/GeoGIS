@@ -7,6 +7,7 @@ pub mod deeplearning;
 pub mod design;
 pub mod edit;
 pub mod effects;
+pub mod findings;
 pub mod geocode;
 pub mod geoflux;
 pub mod geoflux_style;
@@ -87,6 +88,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(portals::commands());
     v.extend(catalogs::commands());
     v.extend(geoflux::commands());
+    v.extend(findings::commands());
     v.extend(geox::commands());
     v.extend(line_kml::commands());
     v.extend(photo_scan::commands());

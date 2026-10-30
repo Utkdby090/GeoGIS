@@ -106,6 +106,10 @@ fn proposals_count_only_after_a_person_decides() {
     let summary = set.for_asset("1/0");
     assert_eq!(summary.severity(), Severity::Critical);
     assert_eq!(summary.counted.iter().map(|f| &f.id).collect::<Vec<_>>(), vec![&ids[1], &ids[0]], "worst first");
+    let grouped = set.by_asset();
+    let one = grouped.get("1/0").expect("grouped");
+    assert_eq!(one.counted.iter().map(|f| &f.id).collect::<Vec<_>>(), vec![&ids[1], &ids[0]], "the same as for_asset");
+    assert_eq!((one.pending, one.rejected), (summary.pending, summary.rejected));
     assert_eq!(set.labelled_examples().count(), 2);
 
     set.reject(&ids[1], "lead", 300).expect("rejected");

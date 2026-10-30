@@ -27,9 +27,15 @@ const SERVER_PREF: &str = "cloudServer";
 /// photos, the Inspection pane read-only) needs none.
 pub fn feature_of(id: &str) -> Option<Feature> {
     Some(match id {
-        "geoflux.setValues" | "geoflux.addPhotos" | "geoflux.removePhoto" | "geoflux.reportPhoto" | "geoflux.classify" => {
-            Feature::EditForms
-        }
+        "geoflux.setValues"
+        | "geoflux.addPhotos"
+        | "geoflux.removePhoto"
+        | "geoflux.reportPhoto"
+        | "geoflux.classify"
+        | "geoflux.addFinding"
+        | "geoflux.decideFinding"
+        | "geoflux.editFinding"
+        | "geoflux.removeFinding" => Feature::EditForms,
         "geoflux.annotate" => Feature::Markup,
         "geoflux.report" | "ui.geofluxReport" => Feature::Reports,
         "geoflux.reportBulk" | "ui.geofluxReportBulk" => Feature::BulkReports,
@@ -791,7 +797,16 @@ mod tests {
         assert_eq!(feature_of("ui.thermal.view"), Some(Feature::Thermal));
         assert_eq!(feature_of("ui.cloudSync"), Some(Feature::CloudSync));
         assert_eq!(feature_of("geoflux.annotate"), Some(Feature::Markup));
-        for free in ["geoflux.importCsv", "geoflux.linkPhotos", "geoflux.photos", "ui.pane.inspection", "ui.account", "map.zoomIn"] {
+        assert_eq!(feature_of("geoflux.decideFinding"), Some(Feature::EditForms));
+        for free in [
+            "geoflux.importCsv",
+            "geoflux.linkPhotos",
+            "geoflux.photos",
+            "geoflux.findings",
+            "ui.pane.inspection",
+            "ui.account",
+            "map.zoomIn",
+        ] {
             assert_eq!(feature_of(free), None, "{free}");
         }
     }
