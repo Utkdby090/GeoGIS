@@ -444,6 +444,31 @@ mod tests {
     }
 
     #[test]
+    fn the_chosen_report_photo_comes_first_and_survives_sorting_again() {
+        let raw = TempDir::new("chosen");
+        let (mut s, towers, _) = session(&raw.0);
+        s.run("geoflux.sortPhotos", &json!({})).expect("sort");
+        let extra = raw.0.join("DJI_0003_T.JPG");
+        std::fs::write(&extra, b"x").expect("photo");
+        let extra = extra.display().to_string();
+        s.run("geoflux.addPhotos", &json!({"layer": towers, "row": 0, "slot": "THERMAL", "paths": [extra]})).expect("add");
+        let thermal =
+            |s: &Session| geoflux::photos(s, towers, 0).expect("photos").into_iter().find(|x| x.slot.id == "THERMAL").expect("slot").photos;
+        assert!(thermal(&s)[0].ends_with("DJI_0001_T.JPG"));
+
+        s.run("geoflux.reportPhoto", &json!({"layer": towers, "row": 0, "slot": "THERMAL", "path": extra})).expect("choose");
+        assert_eq!(thermal(&s)[0], extra);
+        assert_eq!(thermal(&s).len(), 2);
+        s.run("geoflux.sortPhotos", &json!({})).expect("again");
+        assert_eq!(thermal(&s)[0], extra, "kept through a new sort");
+
+        let e =
+            s.run("geoflux.reportPhoto", &json!({"layer": towers, "row": 0, "slot": "RGB_ZOOM", "path": extra})).expect_err("not there");
+        assert!(e.contains("not in this slot"), "{e}");
+        assert_eq!(s.project.geoflux.chosen.len(), 1);
+    }
+
+    #[test]
     fn sorting_needs_a_tower_layer_and_a_photo_layer() {
         let mut s = Session::new(Project::default());
         assert!(s.run("geoflux.sortPhotos", &json!({})).is_err());
