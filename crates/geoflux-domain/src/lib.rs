@@ -9,6 +9,10 @@
 //! - [`severity`]: how urgent a finding is, from the schema's rule.
 //! - [`sequence`]: the natural order assets are walked in (`9_0` before `10_0`).
 //! - [`annotation`]: markup on a photo, kept as editable shapes (the photo is never changed).
+//! - [`photo_id`]: a photo's identity from its content, so moving a folder never orphans findings.
+//! - [`defect`]: the schema's defect types, the classes findings use.
+//! - [`finding`]: findings as records with provenance and review status; form fields derived from them.
+//! - [`inspector`]: the contract for automatic inspections (thermal rules now, AI models later).
 //! - [`images`]: a folder of inspection photos linked to assets and their image slots.
 //! - [`line_kml`]: a line's KML (towers as named points) to tower drafts.
 //! - [`survey_photos`]: a survey day's raw drone photos (thermal/visual pairs) to sort onto towers.
@@ -22,10 +26,14 @@ pub mod annotation;
 pub mod asset;
 pub mod coords;
 pub mod csv_import;
+pub mod defect;
+pub mod finding;
 pub mod form;
 pub mod images;
+pub mod inspector;
 pub mod legacy;
 pub mod line_kml;
+pub mod photo_id;
 pub mod schema;
 pub mod sequence;
 pub mod severity;
@@ -34,9 +42,14 @@ pub mod tower_photos;
 
 pub use asset::{Asset, AssetDraft, GeoPoint, Properties, RecordStatus, Severity};
 pub use csv_import::{ImportError, ImportReport};
+pub use defect::{DefectDef, DefectId};
+pub use finding::{Finding, FindingError, FindingId, FindingSet, FindingSource, FindingStatus, Observation, Region};
 pub use form::{FieldIssue, IssueKind};
+pub use inspector::Inspector;
+pub use photo_id::PhotoId;
 pub use schema::{
-    CsvColumn, CsvProfile, DomainSchema, FieldDef, FieldType, FlagMatch, ImageSlotDef, SchemaError, SeverityRule, Thresholds,
+    CsvColumn, CsvProfile, Derivation, DerivedField, DomainSchema, FieldDef, FieldType, FlagMatch, ImageSlotDef, SchemaError, SeverityRule,
+    Thresholds,
 };
 
 /// The schemas that ship with GeoFlux, as `(id, JSON)`.

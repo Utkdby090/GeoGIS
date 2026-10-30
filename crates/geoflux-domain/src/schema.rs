@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::asset::Asset;
+use crate::defect::{DefectDef, DefectId, MAX_DEFECTS};
 
 /// Form keys for the coordinates, which are core [`Asset`] fields rather than properties.
 pub mod core_fields {
@@ -20,7 +21,8 @@ pub mod core_fields {
 }
 
 /// The schema format this build reads. Files with a higher number come from a newer GeoFlux.
-pub const SCHEMA_VERSION: u32 = 1;
+/// 2 added `defects` and `findingFields`; format 1 files read unchanged.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Bounds on a schema, so a hostile or broken file cannot make the app allocate without limit.
 pub const MAX_FIELDS: usize = 1_000;
@@ -174,6 +176,29 @@ pub struct SeverityRule {
     pub thresholds: Thresholds,
 }
 
+/// How a form field is filled from an asset's counted findings (confirmed or edited; see
+/// [`crate::finding`]). The form then shows the findings, so it can never disagree with them.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "from", rename_all = "camelCase")]
+pub enum Derivation {
+    /// The labels of the findings' defect types, worst first, joined by "; ".
+    Defects,
+    /// The findings' notes, worst first, joined by "; ".
+    Notes,
+    /// The highest value of one measurement (`maxC`, `riseC`…), one decimal.
+    Max { measure: String },
+    /// The asset's severity name (`high`…).
+    Severity,
+}
+
+/// One form field filled from findings.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DerivedField {
+    pub key: String,
+    #[serde(flatten)]
+    pub from: Derivation,
+}
+
 /// An industry's schema.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -197,6 +222,12 @@ pub struct DomainSchema {
     pub csv: Option<CsvProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub severity: Option<SeverityRule>,
+    /// The defect types findings are classed by (format 2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub defects: Vec<DefectDef>,
+    /// Form fields filled from findings rather than typed (format 2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub finding_fields: Vec<DerivedField>,
 }
 
 /// Why a schema file cannot be used.
@@ -224,6 +255,10 @@ pub enum SchemaError {
     BadCsv(String),
     #[error("the severity rule: {0}")]
     BadSeverity(String),
+    #[error("defect type \"{id}\": {problem}")]
+    BadDefect { id: String, problem: &'static str },
+    #[error("findingFields: {0}")]
+    BadFindingField(String),
 }
 
 impl DomainSchema {
@@ -332,7 +367,24 @@ impl DomainSchema {
         if let Some(rule) = &self.severity {
             check_severity(rule, &keys)?;
         }
+        check_defects(&self.defects, &slots)?;
+        check_finding_fields(&self.finding_fields, &keys)?;
         Ok(())
+    }
+
+    /// The defect type with this id.
+    pub fn defect(&self, id: &DefectId) -> Option<&DefectDef> {
+        self.defects.iter().find(|d| d.id == *id)
+    }
+
+    /// What people read for a defect id: its label, "Unclassified", or the id itself when the
+    /// schema no longer lists it (a finding outlives a schema edit).
+    pub fn defect_label<'a>(&'a self, id: &'a DefectId) -> &'a str {
+        match self.defect(id) {
+            Some(d) => &d.label,
+            None if id.is_unclassified() => "Unclassified",
+            None => id.as_str(),
+        }
     }
 
     /// The key of the field that names an asset ([`DomainSchema::label_field`]).
@@ -368,6 +420,54 @@ impl DomainSchema {
         }
         fields
     }
+}
+
+fn check_defects(defects: &[DefectDef], slots: &HashSet<&str>) -> Result<(), SchemaError> {
+    if defects.len() > MAX_DEFECTS {
+        return Err(SchemaError::TooMany { what: "defect types", limit: MAX_DEFECTS });
+    }
+    let mut ids = HashSet::new();
+    for d in defects {
+        let bad = |problem| Err(SchemaError::BadDefect { id: d.id.to_string(), problem });
+        if d.id.is_unclassified() {
+            return bad("this id is reserved for findings carried over from form values");
+        }
+        if !ids.insert(&d.id) {
+            return bad("appears more than once");
+        }
+        if d.label.trim().is_empty() {
+            return bad("no label");
+        }
+        if d.slots.len() > MAX_SLOTS {
+            return Err(SchemaError::TooMany { what: "slots on a defect type", limit: MAX_SLOTS });
+        }
+        if d.slots.iter().any(|s| !slots.contains(s.as_str())) {
+            return bad("names an image slot the schema doesn't have");
+        }
+    }
+    Ok(())
+}
+
+fn check_finding_fields(derived: &[DerivedField], keys: &HashSet<&str>) -> Result<(), SchemaError> {
+    let bad = |m: String| Err(SchemaError::BadFindingField(m));
+    if derived.len() > MAX_FIELDS {
+        return Err(SchemaError::TooMany { what: "finding fields", limit: MAX_FIELDS });
+    }
+    let mut seen = HashSet::new();
+    for d in derived {
+        if !keys.contains(d.key.as_str()) || core_fields::is_coordinate(&d.key) {
+            return bad(format!("\"{}\" isn't a form field that findings can fill", d.key));
+        }
+        if !seen.insert(d.key.as_str()) {
+            return bad(format!("\"{}\" is listed more than once", d.key));
+        }
+        if let Derivation::Max { measure } = &d.from
+            && !crate::finding::is_measure_key(measure)
+        {
+            return bad(format!("\"{}\": \"{measure}\" isn't a measurement name", d.key));
+        }
+    }
+    Ok(())
 }
 
 fn check_csv(csv: &CsvProfile, keys: &HashSet<&str>) -> Result<(), SchemaError> {
@@ -484,6 +584,43 @@ mod tests {
             Err(SchemaError::BadCsv(_))
         ));
         assert_eq!(DomainSchema::from_json(&" ".repeat(MAX_SCHEMA_BYTES + 1)), Err(SchemaError::TooLarge));
+    }
+
+    #[test]
+    fn defect_types_and_finding_fields_are_checked() {
+        let defects = |d: serde_json::Value| with(|v| v["defects"] = d);
+        assert!(defects(serde_json::json!([{"id":"bird_nest","label":"Bird nest","severity":"low"}])).is_ok());
+        assert!(matches!(defects(serde_json::json!([{"id":"Bird Nest","label":"B"}])), Err(SchemaError::Json(_))));
+        assert!(matches!(
+            defects(serde_json::json!([{"id":"a","label":"A"},{"id":"a","label":"B"}])),
+            Err(SchemaError::BadDefect { problem: "appears more than once", .. })
+        ));
+        assert!(matches!(defects(serde_json::json!([{"id":"unclassified","label":"U"}])), Err(SchemaError::BadDefect { .. })));
+        assert!(matches!(defects(serde_json::json!([{"id":"a","label":" "}])), Err(SchemaError::BadDefect { .. })));
+        assert!(matches!(defects(serde_json::json!([{"id":"a","label":"A","slots":["NOPE"]}])), Err(SchemaError::BadDefect { .. })));
+
+        let derived = |d: serde_json::Value| with(|v| v["findingFields"] = d);
+        assert!(derived(serde_json::json!([{"key":"a","from":"max","measure":"maxC"}])).is_ok());
+        assert!(matches!(derived(serde_json::json!([{"key":"b","from":"defects"}])), Err(SchemaError::BadFindingField(_))));
+        assert!(matches!(
+            derived(serde_json::json!([{"key":"a","from":"notes"},{"key":"a","from":"severity"}])),
+            Err(SchemaError::BadFindingField(_))
+        ));
+        assert!(matches!(derived(serde_json::json!([{"key":"a","from":"max","measure":"max C"}])), Err(SchemaError::BadFindingField(_))));
+        assert!(matches!(derived(serde_json::json!([{"key":"a","from":"guess"}])), Err(SchemaError::Json(_))));
+    }
+
+    #[test]
+    fn telecom_lists_defect_types_and_derives_its_fault_fields() {
+        let s = crate::builtin_schema("com.geo.telecom").expect("listed").expect("valid");
+        assert_eq!(s.schema_version, SCHEMA_VERSION);
+        let hot = DefectId::parse("hotspot.joint").expect("valid");
+        assert_eq!(s.defect(&hot).map(|d| d.slots.clone()), Some(vec!["THERMAL".to_string()]));
+        assert_eq!(s.defect_label(&DefectId::unclassified()), "Unclassified");
+        let gone = DefectId::parse("retired.type").expect("valid");
+        assert_eq!(s.defect_label(&gone), "retired.type");
+        let keys: Vec<&str> = s.finding_fields.iter().map(|d| d.key.as_str()).collect();
+        assert_eq!(keys, ["faultDescription", "faultTemp", "riseTemp"]);
     }
 
     #[test]

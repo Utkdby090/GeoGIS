@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "com.geo.telecom",
   "name": "Electric Grid Inspection",
   "version": "1.0.0",
@@ -65,5 +65,31 @@
       { "key": "reportType", "contains": "fault" }
     ],
     "thresholds": { "low": 1.0, "medium": 4.0, "high": 16.0, "critical": 40.0 }
-  }
+  },
+  "defects": [
+    { "id": "hotspot.joint", "label": "Hot joint or connector", "severity": "medium", "slots": ["THERMAL"] },
+    { "id": "hotspot.clamp", "label": "Hot clamp or fitting", "severity": "medium", "slots": ["THERMAL"] },
+    { "id": "hotspot.conductor", "label": "Hot conductor", "severity": "medium", "slots": ["THERMAL"] },
+    { "id": "hotspot.insulator", "label": "Hot insulator", "severity": "medium", "slots": ["THERMAL"] },
+    { "id": "hotspot.other", "label": "Other hot spot", "severity": "low", "slots": ["THERMAL"] },
+    { "id": "insulator.broken_disc", "label": "Broken or missing insulator disc", "severity": "high" },
+    { "id": "insulator.flashover", "label": "Flashover marks on insulator", "severity": "medium" },
+    { "id": "insulator.contamination", "label": "Insulator contamination", "severity": "low" },
+    { "id": "conductor.strand_damage", "label": "Damaged conductor strands", "severity": "high" },
+    { "id": "conductor.damper", "label": "Damaged or slipped vibration damper", "severity": "medium" },
+    { "id": "hardware.corrosion", "label": "Corroded hardware", "severity": "low" },
+    { "id": "hardware.missing_pin", "label": "Missing or loose bolt, nut or pin", "severity": "medium" },
+    { "id": "tower.missing_member", "label": "Missing tower member", "severity": "high" },
+    { "id": "tower.bent_member", "label": "Bent tower member", "severity": "medium" },
+    { "id": "tower.missing_plate", "label": "Missing number or danger plate", "severity": "low" },
+    { "id": "earthing.damaged", "label": "Damaged or missing earthing", "severity": "medium" },
+    { "id": "bird_nest", "label": "Bird nest", "severity": "low" },
+    { "id": "vegetation", "label": "Vegetation near conductors", "severity": "medium" },
+    { "id": "other", "label": "Other defect", "severity": "low" }
+  ],
+  "findingFields": [
+    { "key": "faultDescription", "from": "defects" },
+    { "key": "faultTemp", "from": "max", "measure": "maxC" },
+    { "key": "riseTemp", "from": "max", "measure": "riseC" }
+  ]
 }
