@@ -206,6 +206,15 @@ pub struct InspectionState {
     pub(crate) report_note: Option<(String, bool)>,
     /// A GeoFlux project (.geox) being read on a worker thread.
     geox: Option<GeoxJob>,
+    /// A folder of raw drone photos being scanned on a worker thread.
+    scan: Option<ScanJob>,
+}
+
+/// A raw photo folder being scanned off the frame; its layer is added when it lands.
+struct ScanJob {
+    name: String,
+    progress: std::sync::Arc<rustgis_engine::geoflux_report::Progress>,
+    result: Slot<Result<rustgis_engine::cmd::photo_scan::PhotoScan, String>>,
 }
 
 /// A GeoFlux project being read off the frame; its layer is added when it lands.
@@ -304,9 +313,10 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     app.inspection.cache.poll(&ctx);
     crate::thermalview::poll_scan(app);
     geox_progress(app, ui, t);
+    scan_progress(app, ui, t);
     let layers = inspection_layers(app);
     if layers.is_empty() {
-        if app.inspection.geox.is_some() {
+        if app.inspection.geox.is_some() || app.inspection.scan.is_some() {
             return;
         }
         ui.label(RichText::new(tl!("No inspection layer yet. Import a line KML, a survey CSV or a GeoFlux project to start.")).weak());
@@ -1080,6 +1090,97 @@ pub fn poll_geox(app: &mut RustGisApp, ctx: &egui::Context) {
             Err(e) => (e, true),
         },
         Err(e) if e == "cancelled" => (tl!("Import cancelled; nothing was added.").to_string(), false),
+        Err(e) => {
+            app.session.notify(e.clone(), true);
+            (e, true)
+        }
+    };
+    app.inspection.message = Some(note);
+    app.ui.right = Some(crate::RightPane::Inspection);
+}
+
+/// GeoFlux › Scan Raw Photos: picks a survey day's folder of drone photos and reads where each
+/// was taken on a worker thread, with progress and cancel in the Inspection pane; [`poll_scan`]
+/// adds the photo layer when it lands.
+pub fn scan_photos(app: &mut RustGisApp, folder: Option<String>) -> Result<(), String> {
+    if app.inspection.scan.is_some() {
+        return Err(tl!("A photo folder is already being scanned.").into());
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let folder = folder
+        .or_else(|| rfd::FileDialog::new().set_title(tl!("Folder of raw drone photos")).pick_folder().map(|d| d.display().to_string()));
+    let Some(folder) = folder else { return Ok(()) };
+    let name = folder.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next().unwrap_or(&folder).to_string();
+    let job = ScanJob { name, progress: rustgis_engine::geoflux_report::Progress::new(), result: Slot::default() };
+    start_scan(folder, &job)?;
+    app.inspection.scan = Some(job);
+    app.inspection.message = None;
+    app.ui.right = Some(crate::RightPane::Inspection);
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn start_scan(folder: String, job: &ScanJob) -> Result<(), String> {
+    let (progress, land) = (job.progress.clone(), job.result.clone());
+    std::thread::Builder::new()
+        .name("geoflux-photo-scan".into())
+        .spawn(move || {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rustgis_engine::cmd::photo_scan::scan(&folder, &progress)))
+                .unwrap_or_else(|_| Err(tl!("Scanning the photos failed unexpectedly.").to_string()));
+            *land.lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+        })
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn start_scan(_: String, _: &ScanJob) -> Result<(), String> {
+    Err(tl!("Scanning photo folders needs the desktop app.").into())
+}
+
+/// The scan's progress bar and Cancel, at the top of the Inspection pane.
+fn scan_progress(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
+    let Some(job) = &app.inspection.scan else { return };
+    let (done, total) = job.progress.get();
+    ui.label(RichText::new(crate::i18n::fmt("Scanning {name}", &[("name", &job.name)])).font(semibold(12.5)));
+    let frac = if total == 0 { 0.0 } else { done as f32 / total as f32 };
+    ui.add(
+        egui::ProgressBar::new(frac)
+            .text(crate::i18n::fmt("{done} of {total} photos", &[("done", &done.to_string()), ("total", &total.to_string())])),
+    );
+    if job.progress.is_cancelled() {
+        ui.label(RichText::new(tl!("Stopping…")).small().color(t.text_dim));
+    } else if ui.small_button(tl!("Cancel")).clicked() {
+        job.progress.cancel();
+    }
+    ui.separator();
+}
+
+/// Adds a scanned folder's photo layer when it lands (called every frame, so it lands with the
+/// Inspection pane closed too). The inspected tower layer stays as it is.
+pub fn poll_scan(app: &mut RustGisApp, ctx: &egui::Context) {
+    let Some(job) = &app.inspection.scan else { return };
+    let done = job.result.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let Some(result) = done else {
+        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        return;
+    };
+    app.inspection.scan = None;
+    let note = match result {
+        Ok(scan) => match rustgis_engine::cmd::photo_scan::apply(&mut app.session, scan, None) {
+            Ok(r) => {
+                let count = |k: &str| r["kinds"][k].as_u64().unwrap_or(0).to_string();
+                (
+                    crate::i18n::fmt(
+                        "Found {n} photos with a position ({thermal} thermal, {visual} visual)",
+                        &[("n", &r["photos"].to_string()), ("thermal", &count("thermal")), ("visual", &count("visual"))],
+                    ),
+                    false,
+                )
+            }
+            Err(e) => (e, true),
+        },
+        Err(e) if e == "cancelled" => (tl!("Scan cancelled; nothing was added.").to_string(), false),
         Err(e) => {
             app.session.notify(e.clone(), true);
             (e, true)

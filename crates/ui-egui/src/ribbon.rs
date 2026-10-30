@@ -1016,6 +1016,16 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             small(
                 ui,
                 app,
+                "locate",
+                "Scan Raw Photos",
+                "Read where each drone photo in a survey day's folder was taken, as points on the map.",
+                "ui.geofluxScanPhotos",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
                 "add_folder",
                 "Link Photos",
                 "Link a folder of tower photos to the inspection layer.",
