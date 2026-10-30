@@ -43,6 +43,8 @@ pub struct Layer {
     pub dataset: Dataset,
     pub report: ReadReport,
     pub styles: Vec<(String, Style)>,
+    /// The name of the document the layer came from (`<Document><name>`), when it has one.
+    pub document: Option<String>,
 }
 
 /// Reads a KML document, or the main document of a KMZ (`doc.kml`, else the first `.kml` in it).
@@ -83,7 +85,10 @@ pub fn read(file_name: &str, bytes: &[u8]) -> Result<Vec<Layer>> {
     };
     r.collect_styles(doc.root());
     r.walk(doc.root(), &mut Vec::new(), 0);
-    Ok(r.layers(&name))
+    let top = doc.root_element();
+    let document = if local(&top) == "Document" { Some(top) } else { child(&top, "Document") };
+    let document = document.and_then(|d| child_text(&d, "name"));
+    Ok(r.layers(&name, document))
 }
 
 /// A ground overlay: a picture laid over a longitude/latitude box.
@@ -439,7 +444,7 @@ impl Reader {
     }
 
     /// The layers: one per kind of geometry, in points, lines, polygons order.
-    fn layers(self, name: &str) -> Vec<Layer> {
+    fn layers(self, name: &str, document: Option<String>) -> Vec<Layer> {
         let kinds = [(GeometryType::Point, "points"), (GeometryType::Polyline, "lines"), (GeometryType::Polygon, "polygons")];
         let present: Vec<_> = kinds.iter().filter(|(k, _)| self.rows.iter().any(|r| r.geometry.kind() == *k)).collect();
         let mut fields = vec![
@@ -487,7 +492,7 @@ impl Reader {
                 }
             }
             let styles = used.into_iter().filter_map(|id| self.styles.get(&id).map(|s| (id, *s))).collect();
-            out.push(Layer { dataset: ds, report, styles });
+            out.push(Layer { dataset: ds, report, styles, document: document.clone() });
         }
         out
     }
@@ -526,6 +531,7 @@ mod tests {
         let layers = read("trip.kml", DOC.as_bytes()).unwrap();
         let names: Vec<&str> = layers.iter().map(|l| l.dataset.name.as_str()).collect();
         assert_eq!(names, ["trip points", "trip lines", "trip polygons"]);
+        assert!(layers.iter().all(|l| l.document.as_deref() == Some("Trip")));
         let pts = &layers[0];
         let ds = &pts.dataset;
         assert_eq!(ds.features.len(), 2, "the start and the park's point");

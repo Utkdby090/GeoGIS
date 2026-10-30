@@ -984,6 +984,16 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             small(
                 ui,
                 app,
+                "line_tool",
+                "Import Line KML",
+                "Read a line's KML or KMZ: its towers become a tower layer, its spans are drawn beneath.",
+                "ui.geofluxImportLineKml",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
                 "add_data",
                 "Import Survey CSV",
                 "Read a survey sheet into a tower layer, rated by severity.",
@@ -1001,6 +1011,8 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
                 Value::Null,
                 false,
             );
+        });
+        col(ui, |ui| {
             small(
                 ui,
                 app,
@@ -1011,9 +1023,9 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
                 Value::Null,
                 false,
             );
+            small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
         });
         col(ui, |ui| {
-            small(ui, app, "classify", "Rate Severity", "Rate every tower again after edits.", "geoflux.classify", Value::Null, false);
             small(
                 ui,
                 app,

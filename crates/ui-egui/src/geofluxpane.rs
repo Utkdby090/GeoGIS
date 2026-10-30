@@ -309,9 +309,12 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
         if app.inspection.geox.is_some() {
             return;
         }
-        ui.label(RichText::new(tl!("No inspection layer yet. Import a survey CSV or a GeoFlux project to start.")).weak());
+        ui.label(RichText::new(tl!("No inspection layer yet. Import a line KML, a survey CSV or a GeoFlux project to start.")).weak());
         ui.add_space(4.0);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
+            if ui.button(tl!("Import Line KML…")).clicked() {
+                let _ = app.run("ui.geofluxImportLineKml", Value::Null);
+            }
             if ui.button(tl!("Import Survey CSV…")).clicked() {
                 let _ = app.run("ui.geofluxImport", Value::Null);
             }
@@ -969,6 +972,27 @@ pub fn import(app: &mut RustGisApp) -> Result<(), String> {
     {
         let _ = app;
         Err(tl!("Importing survey CSVs needs the desktop app for now.").into())
+    }
+}
+
+/// GeoFlux › Import Line KML: picks a line's KML or KMZ, adds its towers as an inspection layer
+/// (and its spans beneath), and opens the Inspection pane on the towers.
+pub fn import_line_kml(app: &mut RustGisApp) -> Result<(), String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let Some(path) = crate::dialogs::pick_open(&["kml", "kmz"], tl!("Line KML")) else { return Ok(()) };
+        let r = app.run("geoflux.importLineKml", json!({"path": path}))?;
+        let st = &mut app.inspection;
+        st.layer = r["layer"].as_u64().map(|v| v as u32);
+        st.row = None;
+        st.loaded = None;
+        app.ui.right = Some(crate::RightPane::Inspection);
+        Ok(())
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = app;
+        Err(tl!("Importing a line KML needs the desktop app for now.").into())
     }
 }
 

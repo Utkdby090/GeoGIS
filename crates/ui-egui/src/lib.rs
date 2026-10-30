@@ -1544,6 +1544,7 @@ impl RustGisApp {
             "ui.pane.shares" => toggle_right(&mut self.ui, RightPane::Shares),
             "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
             "ui.geofluxImport" => geofluxpane::import(self)?,
+            "ui.geofluxImportLineKml" => geofluxpane::import_line_kml(self)?,
             "ui.geofluxImportGeox" => geofluxpane::import_geox(self, p.get("path").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
             "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
