@@ -4802,6 +4802,10 @@ fn keys_read_by_commands() -> Vec<(String, std::collections::BTreeSet<String>)> 
     let mut modules: BTreeMap<String, (String, BTreeMap<String, Fn>)> = BTreeMap::new();
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
+        // A module's own folder holds only its tests.
+        if path.extension().is_none_or(|e| e != "rs") {
+            continue;
+        }
         let stem = path.file_stem().unwrap().to_string_lossy().to_string();
         let src = std::fs::read_to_string(&path).unwrap();
         let mut fns: BTreeMap<String, Fn> = BTreeMap::new();

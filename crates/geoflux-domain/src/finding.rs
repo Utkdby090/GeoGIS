@@ -618,6 +618,12 @@ impl FindingSet {
         Ok(before - self.findings.len() - self.runs.len())
     }
 
+    /// Whether this build can change the set: false for one saved by a newer GeoFlux, which is
+    /// kept as it is so nothing this version can't read is lost.
+    pub fn is_writable(&self) -> bool {
+        self.version <= FINDINGS_VERSION
+    }
+
     pub fn findings(&self) -> &[Finding] {
         &self.findings
     }
@@ -645,6 +651,23 @@ impl FindingSet {
             }
         }
         out.counted.sort_by(|a, b| b.severity.cmp(&a.severity).then(a.created.cmp(&b.created)).then(a.id.cmp(&b.id)));
+        out
+    }
+
+    /// Every asset's findings, in one pass (what [`FindingSet::for_asset`] gives for each).
+    pub fn by_asset(&self) -> std::collections::BTreeMap<&str, AssetFindings<'_>> {
+        let mut out: std::collections::BTreeMap<&str, AssetFindings<'_>> = std::collections::BTreeMap::new();
+        for f in &self.findings {
+            let a = out.entry(f.asset.as_str()).or_default();
+            match f.status {
+                FindingStatus::Proposed => a.pending += 1,
+                FindingStatus::Rejected => a.rejected += 1,
+                _ => a.counted.push(f),
+            }
+        }
+        for a in out.values_mut() {
+            a.counted.sort_by(|a, b| b.severity.cmp(&a.severity).then(a.created.cmp(&b.created)).then(a.id.cmp(&b.id)));
+        }
         out
     }
 

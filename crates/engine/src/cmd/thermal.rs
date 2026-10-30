@@ -69,7 +69,7 @@ pub fn commands() -> Vec<C> {
         C::new("geoflux.thermal.record", "Record Thermal Finding", "GeoFlux › Thermal", record)
             .when(need_feature_layer)
             .params(
-                r#"{"layer"?, "row": number, "photo"?, "region"?, "reference"?, "found"?: {"maxC": number, "referenceC"?: number} (measured already, by the app)}"#,
+                r#"{"layer"?, "row": number, "photo"?, "region"?, "reference"?, "found"?: {"maxC": number, "referenceC"?: number} (measured already, by the app), "by"?: string (who, in findings mode)}"#,
             ),
         C::new("geoflux.thermal.scan", "Scan Line Thermal", "GeoFlux › Thermal", scan)
             .when(need_feature_layer)
@@ -199,23 +199,51 @@ fn measure_cmd(s: &mut Session, p: &Value) -> CmdResult {
     }))
 }
 
-/// Writes a finding into the asset's form (Fault Temp, Rise Temp) as one undoable edit.
+/// Where a hot spot is on the photo, as fractions of its size: the box it was found in, else
+/// its hottest pixel; the whole photo when the size isn't known.
+fn photo_region(f: &ThermalFinding, size: Option<(u32, u32)>) -> geoflux_domain::Region {
+    use geoflux_domain::annotation::NormPoint;
+    let Some((w, h)) = size.filter(|(w, h)| *w > 0 && *h > 0) else { return geoflux_domain::Region::Whole };
+    let (w, h) = (w as f32, h as f32);
+    match f.region {
+        Some(r) => geoflux_domain::Region::Box {
+            a: NormPoint::new(r.a.x.min(r.b.x) as f32 / w, r.a.y.min(r.b.y) as f32 / h),
+            b: NormPoint::new((r.a.x.max(r.b.x) + 1) as f32 / w, (r.a.y.max(r.b.y) + 1) as f32 / h),
+        },
+        None => geoflux_domain::Region::Point { at: NormPoint::new((f.at.x as f32 + 0.5) / w, (f.at.y as f32 + 0.5) / h) },
+    }
+}
+
+/// Writes a finding into the asset's form (Fault Temp, Rise Temp) as one undoable edit. On a
+/// layer with findings it is added as the engineer's finding on that photo instead.
 fn record(s: &mut Session, p: &Value) -> CmdResult {
     let id = s.layer_id(p)?;
     let row = row_param(p)?;
-    let finding = match p.get("found").filter(|v| v.is_object()) {
+    let index = p.get("photo").and_then(Value::as_u64).unwrap_or(0) as usize;
+    let (finding, path, size) = match p.get("found").filter(|v| v.is_object()) {
         Some(found) => {
             let max_c = found.get("maxC").and_then(Value::as_f64).filter(|v| v.is_finite()).ok_or("found.maxC must be a number")? as f32;
             let reference = found.get("referenceC").and_then(Value::as_f64).filter(|v| v.is_finite()).map(|t| Reference::Ambient(t as f32));
-            ThermalFinding { max_c, at: Pixel { x: 0, y: 0 }, region: None, reference }
+            let path = thermal_photos(s, id, row).ok().and_then(|ph| ph.get(index).cloned());
+            (ThermalFinding { max_c, at: Pixel { x: 0, y: 0 }, region: None, reference }, path, None)
         }
         None => {
             let region = region_param(p, "region")?;
             let reference = region_param(p, "reference")?;
-            let (_, _, _, frame) = frame_of(s, p)?;
-            finding(&frame, region, reference)?
+            let (_, _, path, frame) = frame_of(s, p)?;
+            (finding(&frame, region, reference)?, Some(path), Some((frame.width(), frame.height())))
         }
     };
+    if s.project.geoflux.findings_of(id).is_some() {
+        let (_, schema) = geoflux::layer_schema(s, &json!({"layer": id}))?;
+        let slot = schema.image_slots.iter().find(|sl| sl.thermal).map_or("", |sl| sl.id.as_str());
+        let region = if size.is_some() { photo_region(&finding, size) } else { geoflux_domain::Region::Whole };
+        let obs = super::findings::thermal_observation(&schema, slot, finding.max_c, finding.reference.map(|r| r.temp_c()), region);
+        let (fid, severity) = super::findings::record_thermal(s, p, id, row, path.as_deref(), obs)?;
+        return Ok(
+            json!({"layer": id, "row": row, "maxC": finding.max_c, "riseC": finding.rise_c(), "severity": severity, "finding": fid}),
+        );
+    }
     let values: serde_json::Map<String, Value> = finding.form_values(&binding()).into_iter().map(|(k, v)| (k, Value::String(v))).collect();
     if values.is_empty() {
         return Err("this layer's form has no fault or rise temperature field".into());
@@ -229,44 +257,69 @@ fn record(s: &mut Session, p: &Value) -> CmdResult {
 /// be read are counted and listed.
 fn scan(s: &mut Session, p: &Value) -> CmdResult {
     let id = s.layer_id(p)?;
-    let rows: Vec<(usize, Result<ThermalFinding, String>)> = match p.get("results").and_then(Value::as_array) {
-        Some(given) => given
-            .iter()
-            .filter_map(|r| {
-                let row = r.get("row").and_then(Value::as_u64)? as usize;
-                let found = match (r.get("maxC").and_then(Value::as_f64).filter(|v| v.is_finite()), r.get("error").and_then(Value::as_str))
-                {
-                    (Some(max), _) => Ok(ThermalFinding {
-                        max_c: max as f32,
-                        at: Pixel { x: 0, y: 0 },
-                        region: None,
-                        reference: r
-                            .get("referenceC")
-                            .and_then(Value::as_f64)
-                            .filter(|v| v.is_finite())
-                            .map(|t| Reference::Ambient(t as f32)),
-                    }),
-                    (None, Some(e)) => Err(e.chars().take(200).collect()),
-                    (None, None) => return None,
-                };
-                Some((row, found))
-            })
-            .collect(),
-        None => {
-            let stops = geoflux::sequence(s, id, false)?;
-            let mut out = Vec::new();
-            for st in stops {
-                let Some(path) = thermal_photos(s, id, st.row)?.into_iter().next() else { continue };
-                let overrides = form_overrides(s, id, st.row)?;
-                let found =
-                    decode_file(&s.thermal.decoders, &path, &overrides).map_err(|e| e.to_string()).and_then(|f| finding(&f, None, None));
-                out.push((st.row, found));
+    // Each tower's measured photo, its size when known, and what the rule found on it.
+    let rows: Vec<(usize, Option<String>, Option<(u32, u32)>, Result<ThermalFinding, String>)> =
+        match p.get("results").and_then(Value::as_array) {
+            Some(given) => given
+                .iter()
+                .filter_map(|r| {
+                    let row = r.get("row").and_then(Value::as_u64)? as usize;
+                    let found =
+                        match (r.get("maxC").and_then(Value::as_f64).filter(|v| v.is_finite()), r.get("error").and_then(Value::as_str)) {
+                            (Some(max), _) => Ok(ThermalFinding {
+                                max_c: max as f32,
+                                at: Pixel { x: 0, y: 0 },
+                                region: None,
+                                reference: r
+                                    .get("referenceC")
+                                    .and_then(Value::as_f64)
+                                    .filter(|v| v.is_finite())
+                                    .map(|t| Reference::Ambient(t as f32)),
+                            }),
+                            (None, Some(e)) => Err(e.chars().take(200).collect()),
+                            (None, None) => return None,
+                        };
+                    Some((row, found))
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|(row, found)| (row, thermal_photos(s, id, row).ok().and_then(|ph| ph.into_iter().next()), None, found))
+                .collect(),
+            None => {
+                let stops = geoflux::sequence(s, id, false)?;
+                let mut out = Vec::new();
+                for st in stops {
+                    let Some(path) = thermal_photos(s, id, st.row)?.into_iter().next() else { continue };
+                    let overrides = form_overrides(s, id, st.row)?;
+                    let decoded = decode_file(&s.thermal.decoders, &path, &overrides).map_err(|e| e.to_string());
+                    let size = decoded.as_ref().ok().map(|f| (f.width(), f.height()));
+                    let found = decoded.and_then(|f| finding(&f, None, None));
+                    out.push((st.row, Some(path), size, found));
+                }
+                out
             }
-            out
-        }
-    };
+        };
+    if s.project.geoflux.findings_of(id).is_some() {
+        // A layer with findings gets proposals to review, not values written into its forms.
+        let results = rows
+            .into_iter()
+            .filter_map(|(row, path, size, found)| {
+                let result = match found {
+                    Ok(f) => super::findings::RuleResult::Measured {
+                        max_c: f.max_c,
+                        reference_c: f.reference.map(|r| r.temp_c()),
+                        region: photo_region(&f, size),
+                    },
+                    Err(e) => super::findings::RuleResult::Failed(e),
+                };
+                Some((row, path?, result))
+            })
+            .collect();
+        let report = super::findings::propose_thermal(s, id, results)?;
+        return Ok(json!({"layer": id, "proposals": report}));
+    }
     let (mut recorded, mut failed) = (0usize, Vec::new());
-    for (row, found) in rows {
+    for (row, _, _, found) in rows {
         let label = geoflux::asset(s, id, row).map(|(schema, a)| a.property(schema.label_key()).to_string()).unwrap_or_default();
         let result = found.and_then(|f| {
             let values: serde_json::Map<String, Value> =
