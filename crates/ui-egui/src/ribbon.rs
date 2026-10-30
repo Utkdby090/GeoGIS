@@ -1026,6 +1026,28 @@ fn inspection_group(app: &mut RustGisApp, ui: &mut Ui) {
             small(
                 ui,
                 app,
+                "select_loc",
+                "Sort Photos to Towers",
+                "Give each scanned photo to its nearest tower, in that tower's photo slots.",
+                "ui.geofluxSortPhotos",
+                Value::Null,
+                false,
+            );
+            small(
+                ui,
+                app,
+                "package",
+                "Make Tower Folders",
+                "Copy the sorted photos into one folder per tower (34_1\\C1…). The originals stay.",
+                "ui.geofluxTowerFolders",
+                Value::Null,
+                false,
+            );
+        });
+        col(ui, |ui| {
+            small(
+                ui,
+                app,
                 "add_folder",
                 "Link Photos",
                 "Link a folder of tower photos to the inspection layer.",

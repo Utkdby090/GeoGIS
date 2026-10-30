@@ -208,6 +208,16 @@ pub struct InspectionState {
     geox: Option<GeoxJob>,
     /// A folder of raw drone photos being scanned on a worker thread.
     scan: Option<ScanJob>,
+    /// Sorted photos being copied into tower folders on a worker thread.
+    copy: Option<CopyJob>,
+}
+
+/// Tower folders being copied off the frame.
+struct CopyJob {
+    folder: String,
+    plan: std::sync::Arc<rustgis_engine::cmd::photo_sort::FolderPlan>,
+    progress: std::sync::Arc<rustgis_engine::geoflux_report::Progress>,
+    result: Slot<Result<rustgis_engine::cmd::photo_sort::FolderReport, String>>,
 }
 
 /// A raw photo folder being scanned off the frame; its layer is added when it lands.
@@ -314,9 +324,10 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     crate::thermalview::poll_scan(app);
     geox_progress(app, ui, t);
     scan_progress(app, ui, t);
+    copy_progress(app, ui, t);
     let layers = inspection_layers(app);
     if layers.is_empty() {
-        if app.inspection.geox.is_some() || app.inspection.scan.is_some() {
+        if app.inspection.geox.is_some() || app.inspection.scan.is_some() || app.inspection.copy.is_some() {
             return;
         }
         ui.label(RichText::new(tl!("No inspection layer yet. Import a line KML, a survey CSV or a GeoFlux project to start.")).weak());
@@ -1181,6 +1192,127 @@ pub fn poll_scan(app: &mut RustGisApp, ctx: &egui::Context) {
             Err(e) => (e, true),
         },
         Err(e) if e == "cancelled" => (tl!("Scan cancelled; nothing was added.").to_string(), false),
+        Err(e) => {
+            app.session.notify(e.clone(), true);
+            (e, true)
+        }
+    };
+    app.inspection.message = Some(note);
+    app.ui.right = Some(crate::RightPane::Inspection);
+}
+
+/// GeoFlux › Sort Photos to Towers: gives each photo of the newest scanned day to the nearest
+/// tower of the inspected (or active) layer, in that tower's slots.
+pub fn sort_photos(app: &mut RustGisApp) -> Result<(), String> {
+    let layer = app.inspection.layer.or(app.session.active_layer);
+    let r = app.run("geoflux.sortPhotos", json!({"layer": layer}))?;
+    let st = &mut app.inspection;
+    st.layer = r["towerLayer"].as_u64().map(|v| v as u32).or(st.layer);
+    st.cache.clear();
+    st.photos = None;
+    st.message = Some((
+        crate::i18n::fmt(
+            "{n} photos sorted onto {towers} towers; the farthest was {m} m from its tower",
+            &[("n", &r["sorted"].to_string()), ("towers", &r["towers"].to_string()), ("m", &r["farthestMetres"].to_string())],
+        ),
+        false,
+    ));
+    app.ui.right = Some(crate::RightPane::Inspection);
+    Ok(())
+}
+
+/// GeoFlux › Make Tower Folders: picks where the folders go, then copies each sorted photo into
+/// `<that folder>/<tower>/C1/` on a worker thread, with progress and cancel in the Inspection pane.
+pub fn tower_folders(app: &mut RustGisApp, folder: Option<String>) -> Result<(), String> {
+    if app.inspection.copy.is_some() {
+        return Err(tl!("Tower folders are already being made.").into());
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let folder = folder
+        .or_else(|| rfd::FileDialog::new().set_title(tl!("Where the tower folders go")).pick_folder().map(|d| d.display().to_string()));
+    let Some(folder) = folder else { return Ok(()) };
+    let plan = rustgis_engine::cmd::photo_sort::plan_folders(&app.session, &Value::Null, &folder)?;
+    let job = CopyJob {
+        folder,
+        plan: std::sync::Arc::new(plan),
+        progress: rustgis_engine::geoflux_report::Progress::new(),
+        result: Slot::default(),
+    };
+    start_copy(&job)?;
+    app.inspection.copy = Some(job);
+    app.inspection.message = None;
+    app.ui.right = Some(crate::RightPane::Inspection);
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn start_copy(job: &CopyJob) -> Result<(), String> {
+    let (plan, progress, land) = (job.plan.clone(), job.progress.clone(), job.result.clone());
+    std::thread::Builder::new()
+        .name("geoflux-tower-folders".into())
+        .spawn(move || {
+            let r =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rustgis_engine::cmd::photo_sort::copy_folders(&plan, &progress)))
+                    .unwrap_or_else(|_| Err(tl!("Copying the photos failed unexpectedly.").to_string()));
+            *land.lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+        })
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn start_copy(_: &CopyJob) -> Result<(), String> {
+    Err(tl!("Making tower folders needs the desktop app.").into())
+}
+
+/// The copy's progress bar and Cancel, at the top of the Inspection pane.
+fn copy_progress(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
+    let Some(job) = &app.inspection.copy else { return };
+    let (done, total) = job.progress.get();
+    ui.label(RichText::new(crate::i18n::fmt("Copying into {name}", &[("name", &job.folder)])).font(semibold(12.5)));
+    let frac = if total == 0 { 0.0 } else { done as f32 / total as f32 };
+    ui.add(
+        egui::ProgressBar::new(frac)
+            .text(crate::i18n::fmt("{done} of {total} photos", &[("done", &done.to_string()), ("total", &total.to_string())])),
+    );
+    if job.progress.is_cancelled() {
+        ui.label(RichText::new(tl!("Stopping…")).small().color(t.text_dim));
+    } else if ui.small_button(tl!("Cancel")).clicked() {
+        job.progress.cancel();
+    }
+    ui.separator();
+}
+
+/// Says what the copy did when it lands (called every frame).
+pub fn poll_copy(app: &mut RustGisApp, ctx: &egui::Context) {
+    let Some(job) = &app.inspection.copy else { return };
+    let done = job.result.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let Some(result) = done else {
+        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        return;
+    };
+    let plan = job.plan.clone();
+    app.inspection.copy = None;
+    let note = match result {
+        Ok(r) => {
+            let v = rustgis_engine::cmd::photo_sort::folder_result(&plan, &r);
+            let mut text = crate::i18n::fmt(
+                "{copied} photos copied into {towers} tower folders",
+                &[("copied", &v["copied"].to_string()), ("towers", &v["towers"].to_string())],
+            );
+            if r.already > 0 {
+                text.push_str(&crate::i18n::fmt("; {n} were already there", &[("n", &r.already.to_string())]));
+            }
+            if r.clashes + r.failed > 0 {
+                text.push_str(&crate::i18n::fmt("; {n} not copied: ", &[("n", &(r.clashes + r.failed).to_string())]));
+                text.push_str(&r.details.join("; "));
+                app.session.notify(text.clone(), true);
+            }
+            (text, r.clashes + r.failed > 0)
+        }
+        Err(e) if e == "cancelled" => {
+            (tl!("Copy stopped; the photos already copied stay, and copying again carries on.").to_string(), false)
+        }
         Err(e) => {
             app.session.notify(e.clone(), true);
             (e, true)

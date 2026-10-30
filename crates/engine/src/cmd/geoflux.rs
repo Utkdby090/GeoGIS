@@ -35,7 +35,7 @@ const MAX_LISTED: usize = 200;
 const MAX_PHOTO_LINKS: usize = 256;
 const MAX_PHOTO_ASSETS: usize = 100_000;
 /// Most photos picked one by one in a project, and in one slot of one asset.
-const MAX_PICKED: usize = 20_000;
+const MAX_PICKED: usize = 100_000;
 const MAX_PICKED_PER_SLOT: usize = 100;
 /// Most photos with markup in one project.
 pub const MAX_MARKUP: usize = 20_000;
@@ -425,7 +425,7 @@ fn rate(schema: &DomainSchema, ds: &mut Dataset) -> bool {
 }
 
 /// The schema of the layer `p` names (default: the active layer).
-fn layer_schema(s: &Session, p: &Value) -> Result<(u32, DomainSchema), String> {
+pub(crate) fn layer_schema(s: &Session, p: &Value) -> Result<(u32, DomainSchema), String> {
     let id = s.layer_id(p)?;
     let schema_id = s.project.geoflux.schema_of(id).ok_or("this layer has no inspection schema (import it with geoflux.importCsv)")?;
     Ok((id, s.project.geoflux.schema(schema_id)?))
