@@ -2,7 +2,8 @@
 //!
 //! The KML itself is read elsewhere (the desktop's KML reader, or the browser's); this takes its
 //! point placemarks, so the rules stay pure and testable. A placemark is a tower when its name has
-//! a digit in it (`34/1`, `AP8`, `T-12`); the rest (`STORE`, `Site office`) are other places on
+//! a digit in it (`34/1`, `AP8`, `T-12`), and its number is the name without the full stops
+//! surveyors often leave at its end (`8/0.` is tower `8/0`); the rest (`STORE`, `Site office`) are other places on
 //! the line and left out, with the reason, like duplicated tower numbers and unusable positions.
 
 use std::collections::HashSet;
@@ -123,7 +124,7 @@ pub fn towers(placemarks: &[Placemark], schema: &DomainSchema, line_name: &str) 
     // Tower numbers seen, compared as people read them: `34/1` and ` 34/1 ` are the same tower.
     let mut seen: HashSet<String> = HashSet::new();
     for pm in placemarks {
-        let name = pm.name.trim();
+        let name = tower_number(&pm.name);
         let reason = if name.is_empty() {
             Some(LeftOutReason::NoName)
         } else if !name.bytes().any(|b| b.is_ascii_digit()) {
@@ -154,6 +155,11 @@ pub fn towers(placemarks: &[Placemark], schema: &DomainSchema, line_name: &str) 
         report.towers.push(AssetDraft { location: Some(GeoPoint { lat: pm.lat, lon: pm.lon }), properties });
     }
     report
+}
+
+/// A placemark's name as a tower number: trimmed, without full stops at its end.
+pub fn tower_number(name: &str) -> &str {
+    name.trim().trim_end_matches(|c: char| c == '.' || c.is_whitespace())
 }
 
 fn in_range(lon: f64, lat: f64) -> bool {
@@ -187,6 +193,16 @@ mod tests {
         assert_eq!(r.towers[0].properties.get("lineName"), "TW 01");
         assert_eq!(r.left_out_count, 1);
         assert_eq!(r.left_out[0], LeftOut { name: "STORE".into(), reason: LeftOutReason::NotATower });
+    }
+
+    #[test]
+    fn full_stops_at_the_end_of_a_name_are_not_part_of_the_number() {
+        let r = towers(&[pm("8/0.", 77.0, 28.0), pm(" 8/0 ", 77.0, 28.0), pm("10/7. .", 77.0, 28.1)], &schema(), "L");
+        let names: Vec<&str> = r.towers.iter().map(|t| t.properties.get("towerNumber")).collect();
+        assert_eq!(names, ["8/0", "10/7"]);
+        assert_eq!(r.left_out[0].reason, LeftOutReason::Duplicate);
+        assert_eq!(tower_number("AP-73"), "AP-73");
+        assert_eq!(tower_number("..."), "");
     }
 
     #[test]

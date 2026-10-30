@@ -16,7 +16,7 @@ use crate::{CmdResult, CommandSpec as C, Session};
 
 pub fn commands() -> Vec<C> {
     vec![C::new("geoflux.importLineKml", "Import Line KML", "GeoFlux › Inspection", import_line_kml).params(
-        r#"{"path"?: "a line's .kml or .kmz", "text"?: "the KML itself, as text", "schema"?: "a schema id (default com.geo.telecom)", "name"?: "the tower layer (default: the file name)", "line"?: "the line's name on every tower (default: the layer's name)"}"#,
+        r#"{"path"?: "a line's .kml or .kmz", "text"?: "the KML itself, as text", "schema"?: "a schema id (default com.geo.telecom)", "name"?: "the tower layer (default: the file name)", "line"?: "the line's name on every tower (default: the KML document's name, else the layer's)"}"#,
     )]
 }
 
@@ -37,7 +37,8 @@ fn import_line_kml(s: &mut Session, p: &Value) -> CmdResult {
         None => std::path::Path::new(&file_name).file_stem().and_then(|n| n.to_str()).unwrap_or(&schema.name).to_string(),
     };
     let name = ps(p, "name").map(str::trim).filter(|n| !n.is_empty()).map_or(default_name, str::to_string);
-    let line = ps(p, "line").map(str::trim).filter(|n| !n.is_empty()).unwrap_or(&name).to_string();
+    let document = layers.iter().find_map(|l| l.document.clone());
+    let line = ps(p, "line").map(str::trim).filter(|n| !n.is_empty()).map(str::to_string).or(document).unwrap_or_else(|| name.clone());
 
     let mut placemarks = Vec::new();
     let mut others = Vec::new();
@@ -103,12 +104,12 @@ mod tests {
     use crate::Project;
 
     const LINE: &str = r##"<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>TW 01</name>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>BHADLA III TO SIKAR II LINE</name>
   <Style id="span"><LineStyle><color>ff0000ff</color><width>3</width></LineStyle></Style>
   <Folder><name>Towers</name>
     <Placemark><name>AP8</name><Point><coordinates>75.100,27.500,0</coordinates></Point></Placemark>
     <Placemark><name>34/1</name><Point><coordinates>75.102,27.503,0</coordinates></Point></Placemark>
-    <Placemark><name>34/2</name><Point><coordinates>75.104,27.506,0</coordinates></Point></Placemark>
+    <Placemark><name>34/2.</name><Point><coordinates>75.104,27.506,0</coordinates></Point></Placemark>
   </Folder>
   <Placemark><name>STORE</name><Point><coordinates>75.200,27.600,0</coordinates></Point></Placemark>
   <Placemark><name>AP8-34/1</name><styleUrl>#span</styleUrl>
@@ -129,7 +130,7 @@ mod tests {
         let line = ds.field_index("lineName").expect("line field");
         let names: Vec<String> = (0..ds.features.len()).map(|r| ds.value(r, tower).to_string()).collect();
         assert_eq!(names, ["AP8", "34/1", "34/2"]);
-        assert_eq!(ds.value(0, line).to_string(), "TW 01");
+        assert_eq!(ds.value(0, line).to_string(), "BHADLA III TO SIKAR II LINE", "the document's name");
         assert!(matches!(ds.features[1].geometry, Some(Geometry::Point(c)) if (c.x - 75.102).abs() < 1e-9 && (c.y - 27.503).abs() < 1e-9));
 
         let spans = r["lines"].as_array().expect("lines");
