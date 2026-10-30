@@ -1165,11 +1165,19 @@ fn popup(app: &mut RustGisApp, ui: &mut Ui, rect: Rect) {
         tl!("Pixel").to_string()
     } else {
         {
-            // A field called "name" first, then any name-like one (adm0name, NAME_EN…).
+            // What the map labels it by (a tower's number), then a field called "name", then any
+            // name-like one (adm0name, NAME_EN…); blank values don't count.
+            let filled = |v: &Value| v.as_str().map(str::trim).filter(|s| !s.is_empty() && *s != "<Null>").map(str::to_string);
+            let label_field =
+                shown.and_then(|(id, _)| app.session.map().layer(id)).map(|l| l.labels.field.clone()).filter(|f| !f.is_empty());
+            let by_label = label_field.and_then(|f| attrs.get(&f).and_then(filled));
             let named = |exact: bool| {
-                attrs.iter().find(|(k, _)| if exact { k.eq_ignore_ascii_case("name") } else { k.to_lowercase().contains("name") })
+                attrs
+                    .iter()
+                    .filter(|(k, _)| if exact { k.eq_ignore_ascii_case("name") } else { k.to_lowercase().contains("name") })
+                    .find_map(|(_, v)| filled(v))
             };
-            named(true).or_else(|| named(false)).and_then(|(_, v)| v.as_str()).unwrap_or(tl!("Feature")).to_string()
+            by_label.or_else(|| named(true)).or_else(|| named(false)).unwrap_or_else(|| tl!("Feature").to_string())
         }
     };
     let p = ui.painter();

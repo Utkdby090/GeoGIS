@@ -99,13 +99,29 @@ pub fn is_raw_photo_layer(ds: &Dataset) -> bool {
     ds.geometry_type == GeometryType::Point && ds.fields.get(..own.len()) == Some(&own[..])
 }
 
+/// Why a scan gave no photo to place, with what it did find, so the next step is clear.
+fn nothing_found(scan: &PhotoScan) -> String {
+    let found = scan.without_position + scan.unreadable;
+    let mut why = if found == 0 {
+        format!("no JPEG photos (.jpg, .jpeg) in {} or its sub-folders; pick the folder the drone's photos are in", scan.name)
+    } else {
+        format!("none of the {found} JPEG photos in {} has a GPS position", scan.name)
+    };
+    if scan.without_position > 0 {
+        why.push_str(&format!(
+            "; {} have camera details but no position (copies from a phone or an editor, or the drone had no GPS fix)",
+            scan.without_position
+        ));
+    }
+    if scan.unreadable > 0 {
+        why.push_str(&format!("; {} could not be read: {}", scan.unreadable, scan.unreadable_details.join("; ")));
+    }
+    why
+}
+
 fn add(s: &mut Session, scan: PhotoScan, name: Option<&str>) -> CmdResult {
     if scan.photos.is_empty() {
-        let mut why = format!("no photo with a GPS position in {}", scan.name);
-        if scan.without_position > 0 {
-            why.push_str(&format!(" ({} photos have no position)", scan.without_position));
-        }
-        return Err(why);
+        return Err(nothing_found(&scan));
     }
     let name = name.map(str::trim).filter(|n| !n.is_empty()).unwrap_or(&scan.name).to_string();
     let mut ds = Dataset::new(name, GeometryType::Point, fields());
@@ -133,8 +149,8 @@ fn add(s: &mut Session, scan: PhotoScan, name: Option<&str>) -> CmdResult {
         );
     }
     let id = super::layer::add_dataset(s, ds);
-    // A colour per kind, so thermal and visual shots read apart on the map.
-    let _ = super::layer::symbology(s, &json!({"layer": id, "type": "unique", "field": "kind"}));
+    // Small circles, a colour per kind, so photos read apart from towers and thermal from visual.
+    super::geoflux_style::style_photos(s, id, "kind", "name");
     if let Some(e) = s.map().layer(id).map(|l| l.extent()).filter(|e| !e.is_empty()) {
         s.zoom_to(&e);
     }
@@ -393,6 +409,9 @@ mod tests {
         assert_eq!(ds.value(2, col("shot")).to_string(), "DJI_0010");
         assert!(ds.value(0, col("path")).to_string().ends_with("DJI_0009_T.JPG"));
         assert!(s.can_undo());
+        // Small circles by kind, apart from the towers' triangles.
+        assert!(matches!(&layer.renderer, rustgis_map::Renderer::Unique { field, classes, .. }
+            if field == "kind" && classes.iter().all(|(_, sym)| sym.marker == rustgis_map::Marker::Circle)));
     }
 
     #[test]
@@ -406,7 +425,16 @@ mod tests {
         let empty = TempDir::new("empty");
         let mut s = Session::new(Project::default());
         let e = s.run("geoflux.scanPhotos", &json!({"folder": empty.path()})).expect_err("nothing to add");
-        assert!(e.contains("no photo with a GPS position"), "{e}");
+        assert!(e.contains("no JPEG photos"), "{e}");
         assert!(s.run("geoflux.scanPhotos", &json!({})).is_err());
+
+        // Photos without a position, and files that aren't photos, are counted and named.
+        let maps = TempDir::new("maps");
+        std::fs::write(maps.path().join("map1.jpg"), jpeg(None, 10)).expect("write");
+        std::fs::write(maps.path().join("map2.jpg"), b"not a jpeg").expect("write");
+        let e = s.run("geoflux.scanPhotos", &json!({"folder": maps.path()})).expect_err("nothing to add");
+        assert!(e.contains("none of the 2 JPEG photos"), "{e}");
+        assert!(e.contains("1 have camera details but no position"), "{e}");
+        assert!(e.contains("map2.jpg"), "{e}");
     }
 }
