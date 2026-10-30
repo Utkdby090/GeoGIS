@@ -663,7 +663,7 @@ fn ground_overlays(s: &mut Session, file_name: &str, bytes: &[u8]) -> Vec<(Strin
 
 /// Draws a layer in the styles its file declares (KML): unique values of its `style` field, each
 /// style's colours and widths, the layer's default symbol for anything a style leaves unset.
-fn apply_styles(s: &mut Session, id: u32, styles: &[(String, rustgis_data::kml::Style)]) {
+pub(crate) fn apply_styles(s: &mut Session, id: u32, styles: &[(String, rustgis_data::kml::Style)]) {
     use rustgis_map::Symbol;
     // A legend of hundreds of styles helps no one; such files keep the default symbol.
     if styles.is_empty() || styles.len() > 64 {

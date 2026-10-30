@@ -12,6 +12,7 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.schemas` | Lists the built-in schemas, the project's own, and which layers follow which. |
 | `geoflux.addSchema` | Adds a schema to the project from a `.json` file (`path`) or text (`json`). A project schema with a built-in id replaces the built-in one. Schemas travel inside the `.rgis` project. |
 | `geoflux.importCsv` | Reads a survey CSV (`path`, or `text`) with a schema (`schema`, default `com.geo.telecom`) into a point layer. Field labels become aliases; extra columns are kept; rows without a position are kept without geometry; skipped rows are reported with a reason. Each asset is rated and the layer is styled by severity. |
+| `geoflux.importLineKml` | Reads a line's KML or KMZ (`path`, or `text`) into a tower layer: every point named with a number (`34/1`, `AP8`) is a tower, in the file's order, with its name as the tower number and `line` (default: the layer name) as the line name. Points without a number (`STORE`), duplicates and unusable positions are left out and listed. The KML's lines (spans) and polygons are added beneath as plain layers in the KML's styles. |
 | `geoflux.importGeox` | Reads a GeoFlux 1.x project (`path`, a `.geox`) into a power-line tower layer, rated and styled by severity like a survey CSV. The photos stored in the project are written to a new folder (`photos`, default `<name> photos` beside the `.geox`) and added to their towers' slots. See [GeoFlux projects](#geoflux-projects-geox). |
 | `geoflux.classify` | Rates every asset of the layer again from its schema's rule, after edits. Returns the count per level. |
 | `geoflux.validate` | Checks every asset against the schema (required fields, numbers, dates, options, coordinates) and lists the problems. |
@@ -49,6 +50,16 @@ Files from Excel and survey tools are read as they come: UTF-8 with or without a
 UTF-16, or Windows "ANSI" (where `°` is one byte); separated by commas, semicolons or tabs.
 Coordinates can be decimal or degrees/minutes/seconds (`27°30'44.3"N`), and a pair whose
 hemisphere letters show the columns were swapped is put right.
+
+## Line KML
+
+**Analyze › Inspection › Import Line KML** reads the line's KML or KMZ (the one the survey team
+draws the route in) into a tower layer, so a line can be inspected before any survey sheet
+exists. Every point whose name has a number in it (`34/1`, `AP8`, `T-12`) is a tower, kept in
+the file's order; points without one (`STORE`, `Site office`), repeated tower numbers and
+positions out of range are left out and listed in a note. The file's lines (the spans) are
+added beneath the towers in the KML's own colours. Next, the raw drone photos folder is sorted
+onto these towers (see the tower photo sorting plan).
 
 ## GeoFlux projects (.geox)
 

@@ -260,7 +260,7 @@ fn add_schema(s: &mut Session, p: &Value) -> CmdResult {
 }
 
 /// A file's bytes, refusing files larger than `limit` before reading them.
-fn read_file(path: &str, limit: usize) -> Result<Vec<u8>, String> {
+pub(crate) fn read_file(path: &str, limit: usize) -> Result<Vec<u8>, String> {
     #[cfg(target_arch = "wasm32")]
     {
         let _ = limit;

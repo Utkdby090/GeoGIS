@@ -18,6 +18,7 @@ pub mod items;
 pub mod labels;
 pub mod layer;
 pub mod layout;
+pub mod line_kml;
 pub mod navigate;
 pub mod notebook;
 pub mod plugins;
@@ -84,6 +85,7 @@ pub fn all() -> Vec<CommandSpec> {
     v.extend(catalogs::commands());
     v.extend(geoflux::commands());
     v.extend(geox::commands());
+    v.extend(line_kml::commands());
     v.extend(inspection_report::commands());
     v.extend(cloud_sync::commands());
     v.extend(thermal::commands());

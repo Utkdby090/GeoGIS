@@ -398,6 +398,7 @@ pub fn command_search(app: &mut RustGisApp, ctx: &egui::Context) {
             ("ui.exportMap", "Export Map…", "Publish › Output"),
             ("ui.checkUpdate", "Check for Updates…", "Help › Help"),
             ("ui.pane.inspection", "Inspection Pane", "Analyze › Inspection"),
+            ("ui.geofluxImportLineKml", "Import Line KML…", "Analyze › Inspection"),
             ("ui.geofluxImport", "Import Survey CSV…", "Analyze › Inspection"),
             ("ui.geofluxImportGeox", "Import GeoFlux Project…", "Analyze › Inspection"),
             ("ui.geofluxLinkPhotos", "Link Photos…", "Analyze › Inspection"),
