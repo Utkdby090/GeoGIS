@@ -1239,6 +1239,8 @@ pub fn poll_scan(app: &mut RustGisApp, ctx: &egui::Context) {
     let note = match result {
         Ok(scan) => match rustgis_engine::cmd::photo_scan::apply(&mut app.session, scan, None) {
             Ok(r) => {
+                // The photos' table opens under the map, so their details are one look away.
+                app.session.table_layer = r["layer"].as_u64().map(|v| v as u32);
                 let count = |k: &str| r["kinds"][k].as_u64().unwrap_or(0).to_string();
                 (
                     crate::i18n::fmt(
@@ -1265,6 +1267,10 @@ pub fn poll_scan(app: &mut RustGisApp, ctx: &egui::Context) {
 pub fn sort_photos(app: &mut RustGisApp) -> Result<(), String> {
     let layer = app.inspection.layer.or(app.session.active_layer);
     let r = app.run("geoflux.sortPhotos", json!({"layer": layer}))?;
+    // The photo table shows the new tower and metres columns.
+    if let Some(photos) = r["photoLayer"].as_u64().map(|v| v as u32) {
+        app.session.table_layer = Some(photos);
+    }
     let st = &mut app.inspection;
     st.layer = r["towerLayer"].as_u64().map(|v| v as u32).or(st.layer);
     st.cache.clear();

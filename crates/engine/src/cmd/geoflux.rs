@@ -355,13 +355,11 @@ fn import_csv(s: &mut Session, p: &Value) -> CmdResult {
 /// Adds `drafts` as a point layer that follows `schema`, rated by severity and zoomed to.
 pub(crate) fn add_inspection_layer(s: &mut Session, schema: &DomainSchema, name: &str, drafts: &[AssetDraft]) -> u32 {
     let mut ds = dataset(schema, name, drafts);
-    let rated = rate(schema, &mut ds);
+    rate(schema, &mut ds);
     let id = super::layer::add_dataset(s, ds);
     s.project.geoflux.link(id, &schema.id);
-    if rated {
-        // Unique values on severity, so findings stand out at once.
-        let _ = super::layer::symbology(s, &json!({"layer": id, "type": "unique", "field": SEVERITY_FIELD}));
-    }
+    // Triangles by severity, labelled with the tower number: apart from photos at a glance.
+    super::geoflux_style::style_towers(s, id, SEVERITY_FIELD, schema.label_key());
     if let Some(e) = s.map().layer(id).map(|l| l.extent()).filter(|e| !e.is_empty()) {
         s.zoom_to(&e);
     }

@@ -137,6 +137,8 @@ fn sort_photos(s: &mut Session, p: &Value) -> CmdResult {
                 *a = metres;
             }
         }
+        // Its label (off until turned on in Style › Label) now names each photo's tower.
+        super::geoflux_style::set_photo_label(layer, TOWER_FIELD);
     }
 
     // What these photos were given before goes, so sorting again doesn't double them.
@@ -402,6 +404,27 @@ mod tests {
         // Again: replaced, not doubled.
         s.run("geoflux.sortPhotos", &json!({"layer": towers, "photos": photos})).expect("again");
         assert_eq!(s.project.geoflux.picked.len(), 3);
+    }
+
+    #[test]
+    fn towers_and_photos_stay_as_layers_and_look_apart() {
+        let raw = TempDir::new("look");
+        let (mut s, towers, photos) = session(&raw.0);
+        s.run("geoflux.sortPhotos", &json!({})).expect("sort");
+        // The line's towers are still there under the photos.
+        assert!(s.map().layer(towers).is_some() && s.map().layer(photos).is_some());
+        let t = s.map().layer(towers).expect("towers");
+        assert!(t.labels.enabled && t.labels.field == "towerNumber", "towers show their number");
+        match &t.renderer {
+            rustgis_map::Renderer::Unique { field, classes, .. } => {
+                assert_eq!(field, "severity");
+                assert!(classes.iter().all(|(_, sym)| sym.marker == rustgis_map::Marker::Triangle));
+            }
+            _ => panic!("towers are drawn by severity"),
+        }
+        let p = s.map().layer(photos).expect("photos");
+        assert_eq!(p.labels.field, TOWER_FIELD, "a photo's label names its tower");
+        assert!(!p.labels.enabled, "off until turned on, so 700 labels don't hide the map");
     }
 
     #[test]

@@ -10,6 +10,7 @@ pub mod effects;
 pub mod findings;
 pub mod geocode;
 pub mod geoflux;
+pub mod geoflux_style;
 pub mod geox;
 pub mod gp;
 pub mod graphics;

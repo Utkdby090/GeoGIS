@@ -79,6 +79,14 @@ carry their tower and their distance from it, so a photo that went to the wrong 
 `TOWERWISE DATA\34_1\C1\`. The original photos stay where they are, and running it again only
 copies what is missing.
 
+Each step adds a layer and keeps the ones before: the line, its towers and each scanned day stay
+on the map, one above the other. Towers are triangles coloured by severity (white when nothing is
+wrong, then yellow, orange, red and maroon) with their tower number beside them once zoomed in;
+photos are small circles coloured by kind (thermal pink, visual blue, wide teal, zoom violet).
+Scanning and sorting open the photos' attribute table under the map; after sorting, a photo's
+label is its tower, which **Style › Label** turns on. If a scan finds nothing to place, its
+message says whether the folder had no JPEGs at all, or JPEGs without a GPS position.
+
 In the Inspection pane, a slot with several photos shows a strip of them under the big one: click
 one to look at it, and **★** makes it the photo the PDF report uses for that slot (it then
 comes first, marked with a star).
