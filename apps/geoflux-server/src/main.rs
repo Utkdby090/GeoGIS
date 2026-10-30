@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use geoflux_cloud::ports::AccountStore;
-use geoflux_licence::Ed25519Signer;
+use geoflux_licence::{Ed25519Signer, PassSigner};
 use geoflux_server::blobs::DiskBlobs;
 use geoflux_server::crypto::{Argon2Hasher, MemoryRateLimiter, OsRandom, SystemClock};
 use geoflux_server::mail::{LogMail, NoMail};
@@ -63,6 +63,14 @@ fn signer() -> Result<Ed25519Signer, String> {
             let key = Ed25519Signer::from_pkcs8("local-trial", &Ed25519Signer::generate_pkcs8().map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?;
             log::warn!("no GEOFLUX_SIGNING_KEY: using a throwaway key, public half {}", key.public_key_base64());
+            // GeoGIS only accepts passes signed by a key it trusts; a debug build of it can be told
+            // this one (a release build trusts only the production keys).
+            log::warn!(
+                "to sign a debug build of GeoGIS in to this server, start it with GEOFLUX_TRUSTED_KEY={0}:{1} \
+                 (PowerShell: $env:GEOFLUX_TRUSTED_KEY=\"{0}:{1}\"; cargo run -p rustgis). The key changes each time this server starts.",
+                key.kid(),
+                key.public_key_base64()
+            );
             Ok(key)
         }
     }
