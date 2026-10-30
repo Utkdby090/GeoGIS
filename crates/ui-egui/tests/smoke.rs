@@ -738,3 +738,81 @@ fn save_project_dialog_needs_downloads() {
     assert_eq!(h.state().session.project.name, "World Atlas");
     assert!(h.state().session.dirty);
 }
+
+/// A tower line with a thermal photo, findings on it (one suggested, one confirmed), and the
+/// Inspection pane and Findings window drawing them, in both themes.
+#[test]
+fn findings_window_and_summary_render() {
+    let dir = std::env::temp_dir().join(format!("geogis-findings-ui-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let photo = dir.join("DJI_0001_T.JPG");
+    image::RgbImage::from_fn(64, 48, |x, y| image::Rgb([(x * 4) as u8, (y * 5) as u8, 90])).save(&photo).unwrap();
+    let path = photo.display().to_string();
+    let kml = r#"<kml><Document><name>L</name>
+      <Placemark><name>34/1</name><Point><coordinates>75.100,27.500</coordinates></Point></Placemark>
+      <Placemark><name>34/2</name><Point><coordinates>75.104,27.500</coordinates></Point></Placemark>
+    </Document></kml>"#;
+
+    let mut h = harness();
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    let layer = h.state_mut().run("geoflux.importLineKml", json!({"text": kml})).unwrap()["layer"].as_u64().unwrap();
+    h.state_mut().run("geoflux.addPhotos", json!({"layer": layer, "row": 0, "slot": "THERMAL", "paths": [path]})).unwrap();
+    // No tower is open yet: the window asks for one, and opens the pane to pick it.
+    assert!(h.state_mut().run("ui.geofluxFindings", json!(null)).is_err());
+    for _ in 0..4 {
+        h.step();
+    }
+    h.state_mut().run("ui.geofluxFindings", json!(null)).unwrap();
+    for _ in 0..4 {
+        h.step();
+    }
+    let boxed = json!({"kind": "box", "a": {"x": 0.2, "y": 0.2}, "b": {"x": 0.5, "y": 0.6}});
+    h.state_mut()
+        .run("geoflux.addFinding", json!({"layer": layer, "row": 0, "path": path, "defect": "hotspot.joint", "region": boxed, "by": "eng"}))
+        .unwrap();
+    h.state_mut().run("geoflux.thermal.scan", json!({"layer": layer, "results": [{"row": 0, "maxC": 70.0, "referenceC": 30.0}]})).unwrap();
+    for dark in [false, true] {
+        h.state_mut().run("ui.theme", json!({"dark": dark})).unwrap();
+        for _ in 0..6 {
+            h.step();
+        }
+    }
+    let _ = h.get_by_label("Next pending ›");
+    let _ = h.get_by_label("Suggestions to review: 1");
+    // Worst first: the 40 °C rise suggestion, then the engineer's box.
+    let _ = h.get_by_label("1. Other hot spot");
+    let _ = h.get_by_label("2. Hot joint or connector");
+    // Confirming the suggestion makes it count: the tower turns critical.
+    h.get_by_label("Confirm").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    let set = h.state().session.project.geoflux.findings_of(layer as u32).unwrap();
+    assert!(set.findings().iter().all(|f| f.status.counts()), "confirmed");
+    assert_eq!(set.for_asset("34/1").severity(), rustgis_engine::geoflux_domain::Severity::Critical);
+    h.get_by_label("New finding for the whole photo").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    let _ = h.get_by_label("New finding");
+    h.get_by_label("Cancel").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert!(h.query_by_label("New finding").is_none(), "the draft is gone");
+    // A suggestion on the other tower: Next pending goes there.
+    let other = dir.join("DJI_0002_T.JPG");
+    image::RgbImage::from_fn(64, 48, |x, _| image::Rgb([(x * 3) as u8, 20, 200])).save(&other).unwrap();
+    let other = other.display().to_string();
+    h.state_mut().run("geoflux.addPhotos", json!({"layer": layer, "row": 1, "slot": "THERMAL", "paths": [other]})).unwrap();
+    h.state_mut().run("geoflux.thermal.scan", json!({"layer": layer, "results": [{"row": 1, "maxC": 50.0, "referenceC": 30.0}]})).unwrap();
+    h.step();
+    h.get_by_label("Next pending ›").click();
+    for _ in 0..4 {
+        h.step();
+    }
+    assert_eq!(h.state().inspection.row, Some(1));
+    let _ = h.get_by_label("1. Other hot spot");
+    let _ = std::fs::remove_dir_all(&dir);
+}

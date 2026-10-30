@@ -281,3 +281,27 @@ fn engineer_findings_can_be_deleted() {
     assert_eq!(set.remove(&id).map(|f| f.asset), Ok("1/0".to_string()));
     assert_eq!(set.remove(&id), Err(FindingError::NotFound(id.to_string())));
 }
+
+#[test]
+fn findings_draw_as_labelled_regions_in_their_severity_colour() {
+    let s = schema();
+    let mut set = FindingSet::new();
+    let p = photo(3);
+    let boxed = Observation { region: Region::Box { a: NormPoint::new(0.4, 0.5), b: NormPoint::new(0.2, 0.3) }, ..obs("hotspot.joint") };
+    set.add("1/0", Some(p.clone()), "THERMAL", boxed, "", 1, &s).expect("box");
+    let top = Observation { region: Region::Point { at: NormPoint::new(0.01, 0.0) }, ..obs("bird_nest") };
+    set.add("1/0", Some(p.clone()), "THERMAL", top, "", 2, &s).expect("point");
+    set.add("1/0", Some(p), "THERMAL", obs("vegetation"), "", 3, &s).expect("whole photo");
+    let shapes = findings_markup(set.findings(), &s);
+    assert_eq!(shapes.len(), 4, "a region and its label each; the whole-photo finding draws nothing");
+    assert!(matches!(shapes[0].shape, Shape::Rect { .. }));
+    assert_eq!(shapes[0].color, severity_color(Severity::Medium));
+    let Shape::Text { at, text, .. } = &shapes[1].shape else { panic!("label") };
+    assert_eq!(text, "Hot joint or connector");
+    assert!((at.x - 0.2).abs() < 1e-6 && (at.y - 0.255).abs() < 1e-6, "above the box's top-left corner: {at:?}");
+    let Shape::Ellipse { a, .. } = &shapes[2].shape else { panic!("ring") };
+    assert_eq!((a.x, a.y), (0.0, 0.0), "kept on the photo");
+    let Shape::Text { at, .. } = &shapes[3].shape else { panic!("label") };
+    assert!(at.y > 0.0, "inside the photo at its top edge");
+    assert!(crate::annotation::AnnotationSet::from_shapes(shapes).is_ok(), "valid markup");
+}

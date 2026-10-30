@@ -14,8 +14,9 @@
 //! A finding refers to its photo by content ([`PhotoId`]), so moving or relinking the photo folder
 //! never loses it. Where each photo was last seen is kept beside, so a finding can show its photo.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
+use geoflux_domain::annotation::AnnotationSet;
 use geoflux_domain::finding::{FindingEdit, InspectError, InspectorInfo, InspectorKind, measure};
 use geoflux_domain::{DefectId, DomainSchema, FindingId, FindingSet, Observation, PhotoId, Region, Severity};
 use serde::{Deserialize, Serialize};
@@ -114,6 +115,36 @@ pub fn photo_id_of(path: &str) -> Result<PhotoId, String> {
 #[cfg(target_arch = "wasm32")]
 pub fn photo_id_of(path: &str) -> Result<PhotoId, String> {
     Err(format!("{path}: the web app can't read photo files"))
+}
+
+/// Confirmed findings by tower and photo path, looked up once for a whole report: a photo's
+/// findings are drawn on it wherever it was last seen (the review screen and the rules remember
+/// where each photo is).
+pub struct ReportFindings<'a> {
+    by_photo: HashMap<(&'a str, &'a str), Vec<&'a geoflux_domain::Finding>>,
+}
+
+impl<'a> ReportFindings<'a> {
+    pub fn new(g: &'a GeoFlux, layer: u32) -> Self {
+        let mut by_photo: HashMap<(&str, &str), Vec<&geoflux_domain::Finding>> = HashMap::new();
+        if let Some(set) = g.findings_of(layer) {
+            for f in set.findings().iter().filter(|f| f.status.counts()) {
+                if let Some(path) = f.photo.as_ref().and_then(|id| g.photo_paths.get(id)) {
+                    by_photo.entry((f.asset.as_str(), path.as_str())).or_default().push(f);
+                }
+            }
+        }
+        Self { by_photo }
+    }
+
+    /// `markup` with the confirmed findings on the tower's photo at `path` drawn over it; `markup`
+    /// alone when there are none or together they'd be more shapes than a photo may carry.
+    pub fn add_to(&self, markup: AnnotationSet, label: &str, path: &str, schema: &DomainSchema) -> AnnotationSet {
+        let Some(found) = self.by_photo.get(&(label.trim(), path)) else { return markup };
+        let mut shapes = markup.shapes().to_vec();
+        shapes.extend(geoflux_domain::finding::findings_markup(found.iter().copied(), schema));
+        AnnotationSet::from_shapes(shapes).unwrap_or(markup)
+    }
 }
 
 /// Remembers where a photo was seen.

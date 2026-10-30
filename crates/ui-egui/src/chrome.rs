@@ -405,6 +405,7 @@ pub fn command_search(app: &mut RustGisApp, ctx: &egui::Context) {
             ("ui.geofluxTowerFolders", "Make Tower Folders…", "Analyze › Inspection"),
             ("ui.geofluxImportGeox", "Import GeoFlux Project…", "Analyze › Inspection"),
             ("ui.geofluxLinkPhotos", "Link Photos…", "Analyze › Inspection"),
+            ("ui.geofluxFindings", "Review Findings", "Analyze › Inspection"),
             ("ui.geofluxReport", "Tower Report…", "Analyze › Inspection"),
             ("ui.geofluxReportBulk", "Line Reports…", "Analyze › Inspection"),
             ("ui.cloudSync", "Sync to Cloud", "Analyze › Inspection"),

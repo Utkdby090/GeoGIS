@@ -40,6 +40,15 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 previous and next (Page Up and Page Down) through the towers, a flagged-only filter, and the
 photos by slot (click one for the full view). Press **+** in a slot to add photos to it from anywhere, and **×** to take an added one out.
 
+**Analyze › Review Findings** opens the Findings window on the pane's tower: one of its photos
+with its findings drawn on it, numbered worst first, in their severity's colour (suggestions
+dashed). Drag a box (or, with **Point**, click) on the fault, pick the defect type (only those for
+the photo's slot are offered) and press **Add**; select a finding to **Edit**, **Delete** it, or
+**Confirm** or **Reject** a suggestion. **Next pending** goes to the next tower with suggestions
+waiting. Under the form, the pane lists the tower's confirmed findings and how many suggestions
+wait. In findings mode the fields findings fill are shown, not typed. Confirmed findings are drawn
+on the photo thumbnails and on the report's photos, with the defect's name.
+
 **Analyze › Thermal** turns on the Thermal view under the photos: the tower's thermal photo as
 temperatures (Iron, Rainbow, White Hot or Black Hot), a colour bar, the hottest pixel marked, and
 the temperature under the mouse. **Spot** reads one pixel, **Box** measures a component (its
