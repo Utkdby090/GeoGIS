@@ -13,6 +13,7 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.addSchema` | Adds a schema to the project from a `.json` file (`path`) or text (`json`). A project schema with a built-in id replaces the built-in one. Schemas travel inside the `.rgis` project. |
 | `geoflux.importCsv` | Reads a survey CSV (`path`, or `text`) with a schema (`schema`, default `com.geo.telecom`) into a point layer. Field labels become aliases; extra columns are kept; rows without a position are kept without geometry; skipped rows are reported with a reason. Each asset is rated and the layer is styled by severity. |
 | `geoflux.importLineKml` | Reads a line's KML or KMZ (`path`, or `text`) into a tower layer: every point named with a number (`34/1`, `AP8`) is a tower, in the file's order, with its name as the tower number (full stops at the end dropped: `8/0.` is `8/0`) and `line` (default: the KML document's name, else the layer name) as the line name. Points without a number (`STORE`), duplicates and unusable positions are left out and listed. The KML's lines (spans) and polygons are added beneath as plain layers in the KML's styles. |
+| `geoflux.scanPhotos` | Reads where every JPEG under `folder` (sub-folders too) was taken, from the head of each file only, into a point layer (`name`, `kind` thermal/visual/wide/zoom/other from DJI's `_T`/`_V`/`_W`/`_Z` suffix, `shot` pairing a thermal photo with its visual one, `time`, `altitude`, `direction`, `camera`, `path`), coloured by kind. Photos without a GPS position or unreadable are counted and listed. |
 | `geoflux.importGeox` | Reads a GeoFlux 1.x project (`path`, a `.geox`) into a power-line tower layer, rated and styled by severity like a survey CSV. The photos stored in the project are written to a new folder (`photos`, default `<name> photos` beside the `.geox`) and added to their towers' slots. See [GeoFlux projects](#geoflux-projects-geox). |
 | `geoflux.classify` | Rates every asset of the layer again from its schema's rule, after edits. Returns the count per level. |
 | `geoflux.validate` | Checks every asset against the schema (required fields, numbers, dates, options, coordinates) and lists the problems. |
@@ -58,8 +59,12 @@ draws the route in) into a tower layer, so a line can be inspected before any su
 exists. Every point whose name has a number in it (`34/1`, `AP8`, `T-12`) is a tower, kept in
 the file's order (full stops left at the end of a name are dropped, so `8/0.` is tower `8/0`), with the KML document's name as the line name; points without one (`STORE`, `Site office`), repeated tower numbers and
 positions out of range are left out and listed in a note. The file's lines (the spans) are
-added beneath the towers in the KML's own colours. Next, the raw drone photos folder is sorted
-onto these towers (see the tower photo sorting plan).
+added beneath the towers in the KML's own colours. Next, **Scan Raw Photos** reads a survey day's folder of drone photos (for example
+`RAW DATA\01-06-2026`) and puts each photo on the map where it was taken, thermal and visual
+in their own colours. Only the start of each file is read, so a day of several hundred photos
+scans in seconds and the photos are never changed or copied. Point it at one day's folder, not
+at a folder that also holds already-sorted copies, or those are scanned too. Sorting the photos
+onto the nearest tower comes next.
 
 ## GeoFlux projects (.geox)
 

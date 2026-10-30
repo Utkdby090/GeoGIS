@@ -11,6 +11,7 @@
 //! - [`annotation`]: markup on a photo, kept as editable shapes (the photo is never changed).
 //! - [`images`]: a folder of inspection photos linked to assets and their image slots.
 //! - [`line_kml`]: a line's KML (towers as named points) to tower drafts.
+//! - [`survey_photos`]: a survey day's raw drone photos (thermal/visual pairs) to sort onto towers.
 //! - [`legacy`]: GeoFlux 1.x projects (`.geox`) mapped onto assets and image slots.
 //!
 //! Everything works on bytes and strings, so it builds for the browser too.
@@ -27,6 +28,7 @@ pub mod line_kml;
 pub mod schema;
 pub mod sequence;
 pub mod severity;
+pub mod survey_photos;
 
 pub use asset::{Asset, AssetDraft, GeoPoint, Properties, RecordStatus, Severity};
 pub use csv_import::{ImportError, ImportReport};

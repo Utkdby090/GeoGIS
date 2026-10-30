@@ -1545,6 +1545,7 @@ impl RustGisApp {
             "ui.pane.inspection" => toggle_right(&mut self.ui, RightPane::Inspection),
             "ui.geofluxImport" => geofluxpane::import(self)?,
             "ui.geofluxImportLineKml" => geofluxpane::import_line_kml(self)?,
+            "ui.geofluxScanPhotos" => geofluxpane::scan_photos(self, p.get("folder").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxImportGeox" => geofluxpane::import_geox(self, p.get("path").and_then(Value::as_str).map(str::to_string))?,
             "ui.geofluxLinkPhotos" => geofluxpane::link_photos(self)?,
             "ui.geofluxReport" | "ui.geofluxReportBulk" => markupview::command(self, id)?,
@@ -2071,6 +2072,7 @@ impl RustGisApp {
         markupview::poll(self);
         cloudui::poll(self, ctx);
         geofluxpane::poll_geox(self, ctx);
+        geofluxpane::poll_scan(self, ctx);
         self.poll_downloads();
         sqlpane::poll(self, ctx);
         self.poll_service();
