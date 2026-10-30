@@ -92,9 +92,11 @@ pub fn fields() -> Vec<Field> {
     ]
 }
 
-/// Whether a dataset is a raw photo layer made by `geoflux.scanPhotos`.
+/// Whether a dataset is a raw photo layer made by `geoflux.scanPhotos` (its fields start with
+/// [`fields`]; sorting adds more after them).
 pub fn is_raw_photo_layer(ds: &Dataset) -> bool {
-    ds.geometry_type == GeometryType::Point && ds.fields == fields()
+    let own = fields();
+    ds.geometry_type == GeometryType::Point && ds.fields.get(..own.len()) == Some(&own[..])
 }
 
 fn add(s: &mut Session, scan: PhotoScan, name: Option<&str>) -> CmdResult {

@@ -14,6 +14,8 @@ code. The power-line schema (`com.geo.telecom`) is built in.
 | `geoflux.importCsv` | Reads a survey CSV (`path`, or `text`) with a schema (`schema`, default `com.geo.telecom`) into a point layer. Field labels become aliases; extra columns are kept; rows without a position are kept without geometry; skipped rows are reported with a reason. Each asset is rated and the layer is styled by severity. |
 | `geoflux.importLineKml` | Reads a line's KML or KMZ (`path`, or `text`) into a tower layer: every point named with a number (`34/1`, `AP8`) is a tower, in the file's order, with its name as the tower number (full stops at the end dropped: `8/0.` is `8/0`) and `line` (default: the KML document's name, else the layer name) as the line name. Points without a number (`STORE`), duplicates and unusable positions are left out and listed. The KML's lines (spans) and polygons are added beneath as plain layers in the KML's styles. |
 | `geoflux.scanPhotos` | Reads where every JPEG under `folder` (sub-folders too) was taken, from the head of each file only, into a point layer (`name`, `kind` thermal/visual/wide/zoom/other from DJI's `_T`/`_V`/`_W`/`_Z` suffix, `shot` pairing a thermal photo with its visual one, `time`, `altitude`, `direction`, `camera`, `path`), coloured by kind. Photos without a GPS position or unreadable are counted and listed. |
+| `geoflux.sortPhotos` | Gives each photo of a scanned photo layer (`photos`, default: the newest) to the nearest tower of the tower layer (`layer`), with no distance limit; a thermal photo and the visual one of the same shot go to the same tower. Each photo is added to its tower's slot (thermal to the thermal slot, visual and zoom to RGB, wide to structure) without copying, and the photo layer gains `tower` and `metres` columns. Sorting again replaces what the same photos were given. |
+| `geoflux.towerFolders` | Copies each sorted photo into `folder`/`<tower>`/`<visit>` (`visit` default `C1`; `34/1` becomes `34_1`). Originals are never moved or changed; a copy already there with the same size is skipped, and a different file of the same name is kept and reported, so a stopped copy can be run again. |
 | `geoflux.importGeox` | Reads a GeoFlux 1.x project (`path`, a `.geox`) into a power-line tower layer, rated and styled by severity like a survey CSV. The photos stored in the project are written to a new folder (`photos`, default `<name> photos` beside the `.geox`) and added to their towers' slots. See [GeoFlux projects](#geoflux-projects-geox). |
 | `geoflux.classify` | Rates every asset of the layer again from its schema's rule, after edits. Returns the count per level. |
 | `geoflux.validate` | Checks every asset against the schema (required fields, numbers, dates, options, coordinates) and lists the problems. |
@@ -63,8 +65,13 @@ added beneath the towers in the KML's own colours. Next, **Scan Raw Photos** rea
 `RAW DATA\01-06-2026`) and puts each photo on the map where it was taken, thermal and visual
 in their own colours. Only the start of each file is read, so a day of several hundred photos
 scans in seconds and the photos are never changed or copied. Point it at one day's folder, not
-at a folder that also holds already-sorted copies, or those are scanned too. Sorting the photos
-onto the nearest tower comes next.
+at a folder that also holds already-sorted copies, or those are scanned too. Then **Sort Photos to Towers** gives every photo to its nearest tower (a thermal photo and the
+visual one taken with it always go together) and puts it in that tower's photo slots, so the
+Inspection pane shows it straight away. Nothing is copied, and the photo points on the map now
+carry their tower and their distance from it, so a photo that went to the wrong tower stands out.
+**Make Tower Folders** then copies the sorted photos into one folder per tower, for example
+`TOWERWISE DATA\34_1\C1\`. The original photos stay where they are, and running it again only
+copies what is missing.
 
 ## GeoFlux projects (.geox)
 
