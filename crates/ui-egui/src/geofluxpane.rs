@@ -1310,13 +1310,22 @@ pub fn sort_photos(app: &mut RustGisApp) -> Result<(), String> {
     st.layer = r["towerLayer"].as_u64().map(|v| v as u32).or(st.layer);
     st.cache.clear();
     st.photos = None;
-    st.message = Some((
-        crate::i18n::fmt(
-            "{n} photos sorted onto {towers} towers; the farthest was {m} m from its tower",
-            &[("n", &r["sorted"].to_string()), ("towers", &r["towers"].to_string()), ("m", &r["farthestMetres"].to_string())],
-        ),
-        false,
-    ));
+    let sorted = crate::i18n::fmt(
+        "{n} photos sorted onto {towers} towers; the farthest was {m} m from its tower",
+        &[("n", &r["sorted"].to_string()), ("towers", &r["towers"].to_string()), ("m", &r["farthestMetres"].to_string())],
+    );
+    // Photos far from every tower are still sorted, but probably belong to another line: say so in
+    // red, beside the selection the engine made on the photo layer.
+    let far = r["far"].as_u64().unwrap_or(0);
+    st.message = Some(if far == 0 {
+        (sorted, false)
+    } else {
+        let warning = crate::i18n::fmt(
+            "{far} of them are more than {metres} m from every tower and are selected in the photo table. Check the line KML before inspecting.",
+            &[("far", &far.to_string()), ("metres", &format!("{:.0}", r["farMetres"].as_f64().unwrap_or(500.0)))],
+        );
+        (format!("{sorted}. {warning}"), true)
+    });
     app.ui.right = Some(crate::RightPane::Inspection);
     Ok(())
 }

@@ -30,6 +30,9 @@ use crate::{CmdResult, CommandSpec as C, Session};
 /// The columns sorting adds to a photo layer.
 pub const TOWER_FIELD: &str = "tower";
 pub const METRES_FIELD: &str = "metres";
+/// A photo farther than this from every tower is flagged: it was probably taken on another line
+/// (or the tower's position in the KML is wrong). It is still sorted; nothing is blocked.
+pub const FAR_METRES: f64 = 500.0;
 /// How many copy failures are described one by one.
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_DETAILS: usize = 10;
@@ -150,6 +153,8 @@ fn sort_photos(s: &mut Session, p: &Value) -> CmdResult {
     let mut no_slot = 0usize;
     let mut towers_with = HashSet::new();
     let mut farthest = 0.0f64;
+    // Rows of the photo layer farther than FAR_METRES from every tower.
+    let far: Vec<usize> = placed.iter().enumerate().filter(|(_, p)| p.is_some_and(|p| p.metres > FAR_METRES)).map(|(row, _)| row).collect();
     for ((path, kind), place) in paths.iter().zip(&kinds).zip(&placed) {
         let Some(place) = place else { continue };
         let Some(label) = labels.get(place.tower) else { continue };
@@ -172,6 +177,27 @@ fn sort_photos(s: &mut Session, p: &Value) -> CmdResult {
     if no_slot > 0 {
         s.notify(format!("{no_slot} photos have no slot in this schema to go in"), false);
     }
+    if !far.is_empty() {
+        let placed_count = placed.iter().filter(|p| p.is_some()).count();
+        let worst = placed.iter().flatten().map(|p| p.metres).fold(0.0f64, f64::max);
+        let km = (worst / 100.0).round() / 10.0;
+        let text = if far.len() == placed_count {
+            format!(
+                "all {} photos are more than {FAR_METRES:.0} m from every tower (up to {km} km): they look like another line's photos. Check the line KML, then Undo",
+                far.len()
+            )
+        } else {
+            format!(
+                "{} photos are more than {FAR_METRES:.0} m from every tower (up to {km} km); they are selected on the photo layer. Check them before inspecting",
+                far.len()
+            )
+        };
+        s.notify(text, true);
+        // Selected, so the table's Selected only shows just these.
+        if let Some(layer) = s.map_mut().layer_mut(photos_id) {
+            layer.selection = far.clone();
+        }
+    }
     Ok(json!({
         "towerLayer": tower_id,
         "photoLayer": photos_id,
@@ -181,6 +207,8 @@ fn sort_photos(s: &mut Session, p: &Value) -> CmdResult {
         "notAdded": not_added,
         "noSlot": no_slot,
         "farthestMetres": (farthest * 10.0).round() / 10.0,
+        "far": far.len(),
+        "farMetres": FAR_METRES,
     }))
 }
 
@@ -404,6 +432,42 @@ mod tests {
         // Again: replaced, not doubled.
         s.run("geoflux.sortPhotos", &json!({"layer": towers, "photos": photos})).expect("again");
         assert_eq!(s.project.geoflux.picked.len(), 3);
+    }
+
+    #[test]
+    fn photos_far_from_every_tower_are_flagged_and_selected_but_still_sorted() {
+        let raw = TempDir::new("far");
+        let (mut s, _, photos) = session(&raw.0);
+        let move_to = |s: &mut Session, row: usize, lon: f64, lat: f64| {
+            let ds = &mut s.map_mut().layer_mut(photos).expect("photos").dataset;
+            ds.features[row].geometry = Some(Geometry::Point(rustgis_geom::Coord::new(lon, lat)));
+        };
+        // One photo about 1,500 km away (another line).
+        move_to(&mut s, 2, 78.24, 15.64);
+        let mark = s.notice_mark();
+        let r = s.run("geoflux.sortPhotos", &json!({})).expect("sorted anyway");
+        assert_eq!((r["sorted"].as_u64(), r["far"].as_u64()), (Some(3), Some(1)), "{r}");
+        assert_eq!(s.map().layer(photos).expect("photos").selection, vec![2], "the far one is selected");
+        let said: Vec<_> = s.notices_since(mark).iter().map(|n| (n.text.clone(), n.error)).collect();
+        assert!(said.iter().any(|(t, e)| *e && t.starts_with("1 photos are more than 500 m from every tower (up to 1")), "{said:?}");
+
+        // All of them far: the whole folder looks like another line's.
+        move_to(&mut s, 0, 78.24, 15.64);
+        move_to(&mut s, 1, 78.2401, 15.64);
+        let mark = s.notice_mark();
+        let r = s.run("geoflux.sortPhotos", &json!({})).expect("sorted anyway");
+        assert_eq!(r["far"], 3);
+        let said: Vec<String> = s.notices_since(mark).iter().map(|n| n.text.clone()).collect();
+        assert!(said.iter().any(|t| t.starts_with("all 3 photos are more than 500 m") && t.contains("another line")), "{said:?}");
+
+        // Near again: no warning, and the selection isn't touched.
+        for row in 0..3 {
+            move_to(&mut s, row, 75.1001, 27.5);
+        }
+        s.map_mut().layer_mut(photos).expect("photos").selection.clear();
+        let r = s.run("geoflux.sortPhotos", &json!({})).expect("sorted");
+        assert_eq!(r["far"], 0);
+        assert!(s.map().layer(photos).expect("photos").selection.is_empty());
     }
 
     #[test]
