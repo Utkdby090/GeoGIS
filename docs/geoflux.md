@@ -113,6 +113,22 @@ Severity is rated from `rise`, or from `measured − reference` when `rise` is b
 `thresholds` (low, medium, high, critical). An asset matching every `flaggedWhen` entry is never
 rated below low, and is rated medium when it has no usable numbers.
 
+Format 2 (`"schemaVersion": 2`) adds two lists; format 1 files still read unchanged.
+
+- `defects`: the defect types findings are classed by, for example
+  `{ "id": "hotspot.joint", "label": "Hot joint or connector", "severity": "medium", "slots": ["THERMAL"] }`.
+  Ids are dotted lowercase words and are kept for good once findings use them (rename the label
+  instead). `slots` limits a type to some image slots, and leaving it out allows every slot.
+  `unclassified` is reserved.
+- `findingFields`: form fields filled from an asset's confirmed findings instead of being typed.
+  `from` is `defects` (labels and notes, worst first), `notes`, `max` (the highest value of
+  `measure`, for example `maxC` or `riseC`) or `severity`.
+
+Findings themselves (`geoflux_domain::finding`) record the photo (by content id), the region on
+it, the defect type, the severity, the measurements, who or what found it, and whether a person
+has confirmed, edited or rejected it. Automatic inspections implement
+`geoflux_domain::inspector::Inspector` and only ever propose findings.
+
 ## Thermal photos
 
 FLIR radiometric JPEGs are read inside GeoGIS, in pure Rust (the raw sensor values and FLIR's
