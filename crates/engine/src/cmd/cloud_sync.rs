@@ -14,8 +14,8 @@ use std::collections::{HashMap, HashSet};
 
 use geoflux_cloud::Sha256;
 #[cfg(not(target_arch = "wasm32"))]
-use geoflux_cloud::sync::{MANIFEST_FORMAT, MAX_FINDINGS_PER_ASSET, MAX_PHOTO_BYTES, PhotoRef, PhotoType, SurveyAsset, SyncedFinding};
-use geoflux_cloud::sync::{MAX_ASSETS, MAX_PHOTOS_PER_ASSET, SurveyManifest};
+use geoflux_cloud::sync::{MANIFEST_FORMAT, MAX_PHOTO_BYTES, PhotoRef, PhotoType, SurveyAsset, SyncedFinding};
+use geoflux_cloud::sync::{MAX_ASSETS, MAX_FINDINGS_PER_ASSET, MAX_PHOTOS_PER_ASSET, SurveyManifest};
 use geoflux_domain::annotation::AnnotationSet;
 use geoflux_domain::{Asset, Finding, Severity};
 use serde::{Deserialize, Serialize};
