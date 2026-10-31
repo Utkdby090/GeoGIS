@@ -26,6 +26,8 @@ export function fakeApi(overrides: Partial<GeoFluxApi> = {}): GeoFluxApi {
     towers: no("towers"),
     tower: no("tower"),
     schema: no("schema"),
+    lineHealth: no("lineHealth"),
+    towerHealth: no("towerHealth"),
     members: no("members"),
     invite: no("invite"),
     setRole: no("setRole"),

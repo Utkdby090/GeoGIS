@@ -84,9 +84,14 @@ function Survey({ detail, towers, schema }: { detail: SurveyDetail; towers: Towe
             </select>
           </label>
         ) : null}
-        <a className="button" href={api.lineReportUrl(s.id)} download>
-          All tower PDFs (ZIP)
-        </a>
+        <div className="head-actions">
+          <Link className="button" to={`/surveys/${encodeURIComponent(s.id)}/health`}>
+            Line health
+          </Link>
+          <a className="button" href={api.lineReportUrl(s.id)} download>
+            All tower PDFs (ZIP)
+          </a>
+        </div>
       </header>
       <div className={`survey-body${current ? " with-panel" : ""}`}>
         <TowerList towers={towers} selected={selected} onSelect={select} />

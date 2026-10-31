@@ -1,11 +1,12 @@
 // Every page and its address. The addresses in PAGES (client.ts) are linked from emails and from
 // GeoGIS, so they must not change.
 
+import { lazy, Suspense } from "react";
 import { Link, Route, Routes } from "react-router";
 
 import { PAGES } from "./api/client";
 import { AppLayout, RequireSignIn } from "./app/layout";
-import { AuthCard } from "./app/ui";
+import { AuthCard, Loading } from "./app/ui";
 import {
   ForgotPasswordPage,
   InvitePage,
@@ -18,6 +19,9 @@ import { DevicePage } from "./pages/device";
 import { SurveysPage } from "./pages/surveys";
 import { ComputersPage, TeamPage } from "./pages/team";
 import { SurveyPage } from "./survey/SurveyPage";
+
+// The dashboard brings its own grid and chart code, loaded only when someone opens it.
+const HealthPage = lazy(() => import("./health/HealthPage").then((m) => ({ default: m.HealthPage })));
 
 export function App() {
   return (
@@ -37,6 +41,14 @@ export function App() {
       >
         <Route index element={<SurveysPage />} />
         <Route path="/surveys/:id" element={<SurveyPage />} />
+        <Route
+          path="/surveys/:id/health"
+          element={
+            <Suspense fallback={<Loading what="Loading the dashboard" />}>
+              <HealthPage />
+            </Suspense>
+          }
+        />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/computers" element={<ComputersPage />} />
         <Route path={PAGES.device} element={<DevicePage />} />

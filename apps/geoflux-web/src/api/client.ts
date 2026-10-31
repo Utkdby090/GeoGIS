@@ -8,6 +8,8 @@
 import type {
   DeviceList,
   DomainSchema,
+  HealthQuery,
+  LineHealth,
   Me,
   MemberList,
   PendingDevice,
@@ -16,6 +18,7 @@ import type {
   SurveySummary,
   TowerCollection,
   TowerDetail,
+  TowerHealth,
   ApiErrorBody,
   ErrorCode,
 } from "./schemas";
@@ -90,6 +93,10 @@ export interface GeoFluxApi {
   towers(id: string, signal?: AbortSignal): Promise<TowerCollection | null>;
   tower(id: string, assetId: string, signal?: AbortSignal): Promise<TowerDetail | null>;
   schema(id: string, signal?: AbortSignal): Promise<DomainSchema | null>;
+
+  // The line health dashboard. A filter the server refuses rejects with an `invalid_field` failure.
+  lineHealth(id: string, query: HealthQuery, signal?: AbortSignal): Promise<LineHealth | null>;
+  towerHealth(id: string, assetId: string, signal?: AbortSignal): Promise<TowerHealth | null>;
 
   // The organisation (admins).
   members(signal?: AbortSignal): Promise<MemberList>;

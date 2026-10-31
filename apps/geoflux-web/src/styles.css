@@ -146,8 +146,9 @@ main.survey { display: flex; flex-direction: column; height: calc(100vh - 3.2rem
 .survey-head h1 { margin: 0; font-size: 1.25rem; }
 .survey-head p { margin: 0; }
 .survey-head .revision { margin-left: auto; }
-.survey-head > a.button:last-child { margin-left: auto; }
-.survey-head .revision + a.button { margin-left: 0; }
+.survey-head > a.button:last-child, .survey-head .head-actions { margin-left: auto; }
+.survey-head .revision + .head-actions { margin-left: 0; }
+.head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .survey-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 16rem 1fr; border-top: 1px solid var(--border); }
 .survey-body.with-panel { grid-template-columns: 16rem 1fr 26rem; }
 
@@ -207,3 +208,26 @@ select { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border);
 @media (max-width: 40rem) {
   .wide table.list { display: block; overflow-x: auto; }
 }
+
+/* The line health dashboard. */
+main.health { padding-bottom: 2rem; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); }
+.filters label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: var(--muted); }
+.filters select { max-width: 16rem; color: var(--text); }
+.health-body { padding: 0.75rem 1rem; }
+.grid-hint { margin: 0 0 0.5rem; }
+.panel { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.panel-head { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); }
+.react-grid-layout .panel-head { cursor: grab; }
+.panel-head h2 { margin: 0; font-size: 0.95rem; }
+.panel-body { flex: 1; min-height: 0; overflow: auto; padding: 0.5rem 0.75rem; }
+.chart-box { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 12rem; }
+.table-toggle { align-self: flex-end; }
+.echart { flex: 1; min-height: 10rem; width: 100%; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem 1rem; margin: 0; }
+.tile dt { color: var(--muted); font-size: 0.8rem; }
+.tile dd { margin: 0; font-size: 1.6rem; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
+table.list.compact th, table.list.compact td { padding: 0.35rem 0.5rem; font-size: 0.875rem; }
+table.list.compact { border: 0; }
+.sev-tag { display: inline-flex; align-items: center; gap: 0.35rem; }
+.react-grid-item.react-grid-placeholder { background: var(--accent); opacity: 0.15; border-radius: 8px; }
