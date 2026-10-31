@@ -7,6 +7,7 @@ import { CSRF_HEADER, describeFailure, HttpApi } from "./http";
 
 import errorNotFound from "./fixtures/error-not-found.json";
 import errorRateLimited from "./fixtures/error-rate-limited.json";
+import health from "./fixtures/health.json";
 import me from "./fixtures/me.json";
 import pendingDevice from "./fixtures/pending-device.json";
 
@@ -64,6 +65,14 @@ describe("HttpApi", () => {
   it("parses what it reads", async () => {
     const { api } = fake(json(200, pendingDevice));
     expect(await api.pendingDevice("WDJB-MJHT")).toEqual(pendingDevice);
+  });
+
+  it("sends only the health filters that are set", async () => {
+    const { api, sent } = fake(json(200, health), json(200, health));
+    await api.lineHealth("srv_1", {});
+    await api.lineHealth("srv_1", { minSeverity: "high", part: "insulator" });
+    expect(sent[0]!.url).toBe("/api/v1/surveys/srv_1/health");
+    expect(sent[1]!.url).toBe("/api/v1/surveys/srv_1/health?minSeverity=high&part=insulator");
   });
 
   it("turns the server's error into an http failure with its code", async () => {

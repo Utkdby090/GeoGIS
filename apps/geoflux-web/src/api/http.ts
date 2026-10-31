@@ -33,7 +33,7 @@ export class HttpApi implements GeoFluxApi {
   ) {}
 
   private url(route: RouteName, params?: Record<string, string>, query?: Record<string, string>): string {
-    const q = query ? `?${new URLSearchParams(query).toString()}` : "";
+    const q = query && Object.keys(query).length > 0 ? `?${new URLSearchParams(query).toString()}` : "";
     return `${this.base}${path(route, params)}${q}`;
   }
 
@@ -140,6 +140,15 @@ export class HttpApi implements GeoFluxApi {
   }
   schema(id: string, signal?: AbortSignal) {
     return this.maybe(S.DomainSchema, "SCHEMA", { params: { id }, signal });
+  }
+  lineHealth(id: string, query: S.HealthQuery, signal?: AbortSignal) {
+    // Only the filters that are set: the server refuses an empty one.
+    const q: Record<string, string> = {};
+    for (const [k, v] of Object.entries(query)) if (typeof v === "string" && v !== "") q[k] = v;
+    return this.maybe(S.LineHealth, "SURVEY_HEALTH", { params: { id }, query: q, signal });
+  }
+  towerHealth(id: string, assetId: string, signal?: AbortSignal) {
+    return this.maybe(S.TowerHealth, "TOWER_HEALTH", { params: { id, asset: assetId }, signal });
   }
 
   members(signal?: AbortSignal) {
