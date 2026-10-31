@@ -427,6 +427,15 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     let rows = app.session.map().layer(layer).map_or(0, |l| l.dataset.features.len());
     if st.row.is_none_or(|r| r >= rows) {
         st.row = stops.first().map(|s| s.row);
+        // The tower the pane opens on is shown, selected and centred as ‹ › do (keeping any
+        // message, such as an import's result).
+        if let Some(row) = st.row {
+            st.shown.clear();
+            if let Err(e) = app.run("geoflux.goTo", json!({"layer": layer, "row": row})) {
+                app.inspection.message = Some((e, true));
+            }
+            return;
+        }
     }
 
     let target = navigator(st, ui, t);

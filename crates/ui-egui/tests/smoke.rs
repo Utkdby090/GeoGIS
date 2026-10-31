@@ -841,3 +841,34 @@ fn map_tabs_close_and_undo_brings_them_back() {
     h.state_mut().run("edit.undo", json!(null)).unwrap();
     assert_eq!(maps(&mut h), before);
 }
+
+/// Opening the Inspection pane shows its first tower: selected and centred on the map, without
+/// marking the project changed.
+#[test]
+fn inspection_pane_opens_on_its_first_tower() {
+    let kml = r#"<kml><Document><name>L</name>
+      <Placemark><name>34/1</name><Point><coordinates>75.100,27.500</coordinates></Point></Placemark>
+      <Placemark><name>34/2</name><Point><coordinates>75.104,27.500</coordinates></Point></Placemark>
+    </Document></kml>"#;
+    let dir = std::env::temp_dir().join(format!("geogis-first-tower-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut h = harness();
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    let layer = h.state_mut().run("geoflux.importLineKml", json!({"text": kml})).unwrap()["layer"].as_u64().unwrap() as u32;
+    h.state_mut().run("map.zoomWorld", json!(null)).unwrap();
+    h.state_mut().run("project.saveAs", json!({"path": dir.join("first.rgis").display().to_string()})).unwrap();
+    assert!(!h.state().session.dirty);
+    h.state_mut().ui.right = None;
+    h.step();
+    h.state_mut().run("ui.pane.inspection", json!(null)).unwrap();
+    for _ in 0..4 {
+        h.step();
+    }
+    let sel = h.state().session.map().layer(layer).unwrap().selection.clone();
+    assert_eq!(sel.len(), 1, "the first tower is selected");
+    let x = h.state().session.map().camera.center.x;
+    let merc = |lon: f64| lon * 20_037_508.342_789_244 / 180.0;
+    assert!((x - merc(75.100)).abs() < 1.0 || (x - merc(75.104)).abs() < 1.0, "centred on a tower, at x {x}");
+    assert!(!h.state().session.dirty, "showing a tower changes nothing");
+    let _ = std::fs::remove_dir_all(&dir);
+}
