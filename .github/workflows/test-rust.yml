@@ -1,7 +1,7 @@
 name: Rust tests
 
-# The workspace's tests, layering check and release build on each runner in `os` (a JSON list),
-# for CI and CI on label.
+# The workspace's tests and layering check on each runner in `os` (a JSON list), for CI and CI
+# on label, plus the release build on pushes and manual runs.
 
 on:
   workflow_call:
@@ -36,5 +36,8 @@ jobs:
         run: cargo test --workspace --locked
       - name: Layering check
         run: cargo xtask layers
+      # A full optimised build: on pushes (dev, main) and manual runs, not on every pull request,
+      # where the tests above already compile everything.
       - name: Build release apps
+        if: github.event_name != 'pull_request'
         run: cargo build --release --locked -p rustgis -p rustgis-cli
