@@ -867,6 +867,16 @@ fn escape_closes_the_window_in_use() {
     h.step();
     assert_eq!(open(&h), (true, true), "nothing closed from the map");
     assert_eq!(h.state().session.tool.code(), "explore", "Esc on the map still goes back to Explore");
+    // Command Search (a modal) takes Esc itself: the windows behind it stay.
+    h.state_mut().run("ui.commandSearch", json!(null)).unwrap();
+    h.event(egui::Event::PointerGone);
+    h.step();
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert!(h.state().ui.command_search.is_none(), "Command Search closed");
+    assert_eq!(open(&h), (true, true), "only Command Search closed");
     // Pointer over the shortcuts window: it closes, About stays.
     let at = h.get_by_label("Close the window under the pointer").rect().center();
     h.hover_at(at);

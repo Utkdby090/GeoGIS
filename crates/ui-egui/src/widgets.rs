@@ -368,21 +368,25 @@ fn esc_key() -> egui::Id {
 }
 
 /// Esc closes the window being worked in. Call once a frame before anything reads keys: when
-/// Esc was pressed, nothing is being typed and no menu is open, the window under the pointer
-/// (or, with the pointer outside every window and the map, the frontmost window) takes it, and
-/// the key is used up so the map doesn't also go back to Explore. With the pointer over the map,
-/// Esc stays the map's. A first Esc in a text box only leaves the box.
+/// Esc was pressed, nothing is being typed and no menu or modal is open (they take Esc
+/// themselves), the window under the pointer (or, with the pointer outside every window and the
+/// map, the frontmost window) takes it, and the key is used up so the map doesn't also go back to
+/// Explore. With the pointer over the map, Esc stays the map's. A first Esc in a text box only
+/// leaves the box.
 pub fn route_escape(ctx: &egui::Context) {
-    let target = (ctx.input(|i| i.key_pressed(egui::Key::Escape)) && !ctx.egui_wants_keyboard_input() && !egui::Popup::is_any_open(ctx))
-        .then(|| {
-            let under = ctx.input(|i| i.pointer.latest_pos()).and_then(|p| ctx.layer_id_at(p));
-            let layer = match under {
-                Some(l) => ctx.memory(|m| m.areas().parent_layer(l)).unwrap_or(l),
-                None => ctx.top_layer_id()?,
-            };
-            (layer.order == egui::Order::Middle).then_some(layer)
-        })
-        .flatten();
+    let target = (ctx.input(|i| i.key_pressed(egui::Key::Escape))
+        && !ctx.egui_wants_keyboard_input()
+        && !egui::Popup::is_any_open(ctx)
+        && ctx.memory(|m| m.top_modal_layer()).is_none())
+    .then(|| {
+        let under = ctx.input(|i| i.pointer.latest_pos()).and_then(|p| ctx.layer_id_at(p));
+        let layer = match under {
+            Some(l) => ctx.memory(|m| m.areas().parent_layer(l)).unwrap_or(l),
+            None => ctx.top_layer_id()?,
+        };
+        (layer.order == egui::Order::Middle).then_some(layer)
+    })
+    .flatten();
     if target.is_some() {
         ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
     }
