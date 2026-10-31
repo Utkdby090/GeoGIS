@@ -774,7 +774,7 @@ fn findings_window_and_summary_render() {
     }
     let boxed = json!({"kind": "box", "a": {"x": 0.2, "y": 0.2}, "b": {"x": 0.5, "y": 0.6}});
     h.state_mut()
-        .run("geoflux.addFinding", json!({"layer": layer, "row": 0, "path": path, "defect": "hotspot.joint", "region": boxed, "by": "eng"}))
+        .run("geoflux.addFinding", json!({"layer": layer, "row": 0, "path": path, "defect": "hotspot.joint", "part": "insulator.left.r", "region": boxed, "by": "eng"}))
         .unwrap();
     h.state_mut().run("geoflux.thermal.scan", json!({"layer": layer, "results": [{"row": 0, "maxC": 70.0, "referenceC": 30.0}]})).unwrap();
     for dark in [false, true] {
@@ -788,6 +788,8 @@ fn findings_window_and_summary_render() {
     // Worst first: the 40 °C rise suggestion, then the engineer's box.
     let _ = h.get_by_label("1. Other hot spot");
     let _ = h.get_by_label("2. Hot joint or connector");
+    // Where on the tower, in the window and the pane's summary.
+    assert!(h.get_all_by_label("R phase insulator, left circuit").count() >= 1);
     // Confirming the suggestion makes it count: the tower turns critical.
     h.get_by_label("Confirm").click();
     for _ in 0..3 {
@@ -801,6 +803,7 @@ fn findings_window_and_summary_render() {
         h.step();
     }
     let _ = h.get_by_label("New finding");
+    assert!(h.query_by_label("Part").is_some(), "the part picker");
     h.get_by_label("Cancel").click();
     for _ in 0..3 {
         h.step();

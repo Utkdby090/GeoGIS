@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use geoflux_domain::annotation::AnnotationSet;
 use geoflux_domain::finding::{FindingEdit, InspectError, InspectorInfo, InspectorKind, measure};
-use geoflux_domain::{DefectId, DomainSchema, FindingId, FindingSet, Observation, PhotoId, Region, Severity};
+use geoflux_domain::{DefectId, DomainSchema, FindingId, FindingSet, Observation, PartId, PhotoId, Region, Severity};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -57,13 +57,13 @@ pub fn commands() -> Vec<C> {
             r#"{"layer"?, "row": number, "path"?: "a photo of the tower: also list the findings on it"}"#,
         ),
         C::new("geoflux.addFinding", "Add Finding", "GeoFlux › Findings", add_finding).when(need_feature_layer).params(
-            r#"{"layer"?, "row": number, "path"?: "the tower photo it is on (leave out for the whole tower)", "defect": "a defect type id from the schema", "region"?: {"kind": "box", "a": {"x","y"}, "b": {"x","y"}} (fractions of the photo), "severity"?: "none|low|medium|high|critical", "note"?, "measurements"?: {"maxC": number…}, "by"?: "who made it (the signed-in account)"}"#,
+            r#"{"layer"?, "row": number, "path"?: "the tower photo it is on (leave out for the whole tower)", "defect": "a defect type id from the schema", "part"?: "a tower part id from the schema (insulator.left.r…)", "region"?: {"kind": "box", "a": {"x","y"}, "b": {"x","y"}} (fractions of the photo), "severity"?: "none|low|medium|high|critical", "note"?, "measurements"?: {"maxC": number…}, "by"?: "who made it (the signed-in account)"}"#,
         ),
         C::new("geoflux.decideFinding", "Confirm or Reject Finding", "GeoFlux › Findings", decide_finding)
             .when(need_feature_layer)
             .params(r#"{"layer"?, "id": "finding id", "decision": "confirm|reject", "by"?}"#),
         C::new("geoflux.editFinding", "Edit Finding", "GeoFlux › Findings", edit_finding).when(need_feature_layer).params(
-            r#"{"layer"?, "id": "finding id", "defect"?, "region"?, "severity"?, "note"?, "measurements"?, "by"?}"#,
+            r#"{"layer"?, "id": "finding id", "defect"?, "part"?: "a part id, or null for none", "region"?, "severity"?, "note"?, "measurements"?, "by"?}"#,
         ),
         C::new("geoflux.removeFinding", "Delete Finding", "GeoFlux › Findings", remove_finding)
             .when(need_feature_layer)
@@ -272,6 +272,19 @@ fn measurements_param(p: &Value) -> Result<Option<BTreeMap<String, f64>>, String
     }
 }
 
+/// `part`: missing leaves it (`None`); `null` or `""` is no part (`Some(None)`); else a part id.
+fn part_param(p: &Value) -> Result<Option<Option<PartId>>, String> {
+    match p.get("part") {
+        None => Ok(None),
+        Some(Value::Null) => Ok(Some(None)),
+        Some(Value::String(t)) if t.trim().is_empty() => Ok(Some(None)),
+        Some(Value::String(t)) => {
+            PartId::parse(t.trim()).map(|id| Some(Some(id))).ok_or_else(|| format!("'{}' isn't a part id like insulator.left.r", t.trim()))
+        }
+        Some(_) => Err("part must be a part id or null".into()),
+    }
+}
+
 fn defect_param(p: &Value) -> Result<Option<DefectId>, String> {
     match ps(p, "defect").map(str::trim).filter(|d| !d.is_empty()) {
         None => Ok(None),
@@ -284,6 +297,9 @@ fn finding_json(g: &GeoFlux, schema: &DomainSchema, f: &geoflux_domain::Finding)
     let mut v = serde_json::to_value(f).unwrap_or(Value::Null);
     if let Some(obj) = v.as_object_mut() {
         obj.insert("defectLabel".into(), json!(schema.defect_label(&f.defect)));
+        if let Some(part) = &f.part {
+            obj.insert("partLabel".into(), json!(schema.part_label(part)));
+        }
         obj.insert("counts".into(), json!(f.status.counts()));
         if let Some(path) = f.photo.as_ref().and_then(|id| g.photo_paths.get(id)) {
             obj.insert("path".into(), json!(path));
@@ -348,7 +364,7 @@ fn add_finding(s: &mut Session, p: &Value) -> CmdResult {
     let observation = Observation {
         region: region_param(p)?.unwrap_or_default(),
         defect: Some(defect_param(p)?.ok_or("defect is required (a defect type id from the schema)")?),
-        part: None,
+        part: part_param(p)?.flatten(),
         severity: severity_param(p)?,
         measurements: measurements_param(p)?.unwrap_or_default(),
         note: ps(p, "note").unwrap_or("").to_string(),
@@ -408,7 +424,7 @@ fn edit_finding(s: &mut Session, p: &Value) -> CmdResult {
     let edit = FindingEdit {
         region: region_param(p)?,
         defect: defect_param(p)?,
-        part: None,
+        part: part_param(p)?,
         severity: severity_param(p)?,
         measurements: measurements_param(p)?,
         note: ps(p, "note").map(str::to_string),

@@ -44,6 +44,8 @@ struct Draft {
     id: Option<String>,
     region: Region,
     defect: String,
+    /// A schema part id; empty for the whole tower or not said.
+    part: String,
     /// None: the defect type's own severity.
     severity: Option<Severity>,
     note: String,
@@ -237,6 +239,9 @@ pub fn summary_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, layer: u32, row
                 let (r, _) = ui.allocate_exact_size(vec2(8.0, 8.0), egui::Sense::hover());
                 ui.painter().circle_filled(r.center(), 4.0, severity_color(f.severity, t));
                 ui.label(RichText::new(tc.schema.defect_label(&f.defect)).small());
+                if let Some(part) = &f.part {
+                    ui.label(RichText::new(tc.schema.part_label(part)).small().color(t.text_dim));
+                }
                 if let Some(m) = measured(f) {
                     ui.label(RichText::new(m).small().color(t.text_dim));
                 }
@@ -662,6 +667,26 @@ fn draft_ui(rv: &mut Review, ui: &mut Ui, t: &Tokens, schema: &DomainSchema, slo
             }
         }
     });
+    if !schema.parts.is_empty() {
+        let current = schema
+            .parts
+            .iter()
+            .find(|p| p.id.as_str() == d.part)
+            .map_or_else(|| if d.part.is_empty() { tl!("Whole tower").to_string() } else { d.part.clone() }, |p| p.label.clone());
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(tl!("Part")).small());
+            egui::ComboBox::from_id_salt("geoflux_finding_part").selected_text(current).width(PANEL - 70.0).show_ui(ui, |ui| {
+                if ui.selectable_label(d.part.is_empty(), tl!("Whole tower")).clicked() {
+                    d.part.clear();
+                }
+                for p in &schema.parts {
+                    if ui.selectable_label(p.id.as_str() == d.part, p.label.as_str()).clicked() {
+                        d.part = p.id.as_str().to_string();
+                    }
+                }
+            });
+        });
+    }
     let default = applies.iter().find(|x| x.id.as_str() == d.defect).map(|x| x.severity);
     let shown = match (d.severity, default) {
         (Some(s), _) => severity_label(s).to_string(),
@@ -743,6 +768,9 @@ fn item(
             _ => t.text_dim,
         };
         ui.label(RichText::new(format!("{status} · {} · {}", severity_label(f.severity), source_text(f))).small().color(status_color));
+        if let Some(part) = &f.part {
+            ui.label(RichText::new(schema.part_label(part)).small());
+        }
         if let Some(m) = measured(f) {
             ui.label(RichText::new(m).small());
         }
@@ -789,6 +817,7 @@ fn item(
                     id: Some(id.clone()),
                     region: f.region.clone(),
                     defect: f.defect.as_str().to_string(),
+                    part: f.part.as_ref().map(|p| p.as_str().to_string()).unwrap_or_default(),
                     severity: Some(f.severity),
                     note: f.note.clone(),
                 });
@@ -820,13 +849,18 @@ fn run(app: &mut RustGisApp, a: Act, layer: u32, row: usize) {
             if !path.is_empty() {
                 p["path"] = json!(path);
             }
+            if !d.part.is_empty() {
+                p["part"] = json!(d.part);
+            }
             if let Some(s) = d.severity {
                 p["severity"] = json!(s);
             }
             app.run("geoflux.addFinding", p).map(|r| r["id"].as_str().map(str::to_string))
         }
         Act::Save(d) => {
-            let mut p = json!({"layer": layer, "id": d.id, "defect": d.defect, "region": d.region, "note": d.note, "by": by});
+            // An empty part clears it.
+            let mut p =
+                json!({"layer": layer, "id": d.id, "defect": d.defect, "part": d.part, "region": d.region, "note": d.note, "by": by});
             if let Some(s) = d.severity {
                 p["severity"] = json!(s);
             }
