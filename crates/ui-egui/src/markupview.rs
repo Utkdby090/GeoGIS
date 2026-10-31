@@ -217,7 +217,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, texture: Opti
     egui::Window::new(crate::i18n::fmt("Mark up {photo}", &[("photo", &name)]))
         .id(egui::Id::new("geoflux_markup"))
         .open(&mut open)
-        .default_size(vec2(960.0, 720.0))
+        .default_size(crate::widgets::fit_screen(ctx, vec2(960.0, 720.0)))
         .resizable(true)
         .show(ctx, |ui| {
             toolbar(ed, ui, t);
@@ -261,7 +261,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, texture: Opti
                 }
             });
         });
-    if !open {
+    if !open || crate::widgets::esc_closes(ctx, egui::Id::new("geoflux_markup")) {
         if ed.editor.is_dirty() {
             ed.confirm_close = true;
         } else {

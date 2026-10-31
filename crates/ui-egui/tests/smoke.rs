@@ -916,3 +916,55 @@ fn map_tabs_close_and_undo_brings_them_back() {
     h.state_mut().run("edit.undo", json!(null)).unwrap();
     assert_eq!(maps(&mut h), before);
 }
+
+/// Esc closes the frontmost window (or the one under the pointer) one at a time, and with the
+/// pointer over the map it stays the map's (back to Explore) and closes nothing.
+#[test]
+fn escape_closes_the_window_in_use() {
+    let mut h = harness();
+    for _ in 0..4 {
+        h.step();
+    }
+    h.state_mut().run("ui.about", json!(null)).unwrap();
+    h.state_mut().run("ui.shortcuts", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    let open = |h: &egui_kittest::Harness<'static, RustGisApp>| (h.state().ui.about, h.state().ui.shortcuts);
+    assert_eq!(open(&h), (true, true));
+    // Over the map: Esc is the map's.
+    h.state_mut().run("tool.set", json!({"tool": "measure"})).unwrap();
+    h.step();
+    h.hover_at(egui::pos2(420.0, 760.0));
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (true, true), "nothing closed from the map");
+    assert_eq!(h.state().session.tool.code(), "explore", "Esc on the map still goes back to Explore");
+    // Command Search (a modal) takes Esc itself: the windows behind it stay.
+    h.state_mut().run("ui.commandSearch", json!(null)).unwrap();
+    h.event(egui::Event::PointerGone);
+    h.step();
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert!(h.state().ui.command_search.is_none(), "Command Search closed");
+    assert_eq!(open(&h), (true, true), "only Command Search closed");
+    // Pointer over the shortcuts window: it closes, About stays.
+    let at = h.get_by_label("Close the window under the pointer").rect().center();
+    h.hover_at(at);
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (true, false));
+    let at = h.query_by_label_contains("A fast, free and open-source GIS").unwrap().rect().center();
+    h.hover_at(at);
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (false, false));
+}

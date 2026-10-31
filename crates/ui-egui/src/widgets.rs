@@ -362,6 +362,50 @@ pub fn icon_button(ui: &mut Ui, icon: &str, hover: &str) -> Response {
     resp.on_hover_text(hover)
 }
 
+/// Where Esc went this frame: the window it closes, if any.
+fn esc_key() -> egui::Id {
+    egui::Id::new("geogis_esc_window")
+}
+
+/// Esc closes the window being worked in. Call once a frame before anything reads keys: when
+/// Esc was pressed, nothing is being typed and no menu or modal is open (they take Esc
+/// themselves), the window under the pointer (or, with the pointer outside every window and the
+/// map, the frontmost window) takes it, and the key is used up so the map doesn't also go back to
+/// Explore. With the pointer over the map, Esc stays the map's. A first Esc in a text box only
+/// leaves the box.
+pub fn route_escape(ctx: &egui::Context) {
+    let target = (ctx.input(|i| i.key_pressed(egui::Key::Escape))
+        && !ctx.egui_wants_keyboard_input()
+        && !egui::Popup::is_any_open(ctx)
+        && ctx.memory(|m| m.top_modal_layer()).is_none())
+    .then(|| {
+        let under = ctx.input(|i| i.pointer.latest_pos()).and_then(|p| ctx.layer_id_at(p));
+        let layer = match under {
+            Some(l) => ctx.memory(|m| m.areas().parent_layer(l)).unwrap_or(l),
+            None => ctx.top_layer_id()?,
+        };
+        (layer.order == egui::Order::Middle).then_some(layer)
+    })
+    .flatten();
+    if target.is_some() {
+        ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+    }
+    ctx.data_mut(|d| d.insert_temp(esc_key(), target));
+}
+
+/// Whether Esc closed the window with this id this frame (see [`route_escape`]).
+pub fn esc_closes(ctx: &egui::Context, window: egui::Id) -> bool {
+    let target = ctx.data(|d| d.get_temp::<Option<egui::LayerId>>(esc_key())).flatten();
+    target == Some(egui::LayerId::new(egui::Order::Middle, window))
+}
+
+/// A window's size kept within the app's window (a 1366×768 laptop included), leaving room for
+/// the title bar and status bar.
+pub fn fit_screen(ctx: &egui::Context, want: egui::Vec2) -> egui::Vec2 {
+    let room = ctx.content_rect().size() - vec2(32.0, 96.0);
+    want.min(room).max(vec2(240.0, 160.0))
+}
+
 /// Zoom and pan of a photo shown fitted in a box: 1 is the whole photo, up to [`MAX_PHOTO_ZOOM`].
 /// Kept in egui's memory per view, and reset when the view shows another photo.
 #[derive(Clone, Copy, Debug, PartialEq)]
