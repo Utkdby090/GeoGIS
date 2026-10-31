@@ -1,6 +1,6 @@
-//! RustGIS desktop app.
+//! GeoGIS desktop app (built on RustGIS).
 //!
-//! `rustgis [project.rgis | data.geojson|csv|shp …] [--sample]`
+//! `geogis [project.rgis | data.geojson|csv|shp …] [--sample]`
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
@@ -86,7 +86,7 @@ mod crash {
         let used = std::fs::metadata(&path).map_or(0, |m| m.len());
         let thread = std::thread::current();
         let entry = format!(
-            "--- RustGIS {} on {} {}, {} UTC, thread {}\n{info}\n{}\n\n",
+            "--- GeoGIS {} on {} {}, {} UTC, thread {}\n{info}\n{}\n\n",
             env!("CARGO_PKG_VERSION"),
             std::env::consts::OS,
             std::env::consts::ARCH,
@@ -189,7 +189,7 @@ fn main() -> eframe::Result {
         // Notices are shown as written: translate this one now that the language is known.
         rustgis_ui_egui::i18n::set_current(app.lang());
         let text = rustgis_ui_egui::i18n::fmt(
-            "RustGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.",
+            "GeoGIS ran into an internal error last time. The details are in {path}; please attach them to a bug report.",
             &[("path", &log.display().to_string())],
         );
         app.session.notify(text, true);
