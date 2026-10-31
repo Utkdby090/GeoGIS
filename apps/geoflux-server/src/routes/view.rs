@@ -1,5 +1,6 @@
 //! What the web app reads (Phase 7b): one survey, its towers on the map, one tower, its photos,
-//! the tower PDF and the line ZIP, a schema's fields, and a sign-in code before it is approved.
+//! the tower PDF and the line ZIP, the line's and a tower's health for the dashboard, a schema's
+//! fields, and a sign-in code before it is approved.
 //!
 //! Only committed surveys of the caller's organisation are found; anything else is the same 404,
 //! so ids of other organisations can't be probed.
@@ -10,16 +11,18 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::body::Body;
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use geoflux_cloud::auth::UserCode;
+use geoflux_cloud::health::{HealthQuery, LineHealth, TowerHealth};
 use geoflux_cloud::model::SurveySummary;
 use geoflux_cloud::plans::Permission;
 use geoflux_cloud::ports::{BlobSource, BlobStore, DeviceStore, ReportFailure, SurveyReader, limits};
 use geoflux_cloud::sync::SurveyAsset;
 use geoflux_cloud::view::{PendingDevice, ReportRequest, SurveyDetail, TowerCollection, TowerDetail};
-use geoflux_cloud::{ApiError, ErrorCode, Sha256, SurveyId};
+use geoflux_cloud::{ApiError, ErrorCode, FieldError, Sha256, SurveyId};
 
 use crate::crypto::random_bytes;
 use crate::http::{self, Ctx, Fail, Result, bad, internal, limit};
@@ -71,6 +74,43 @@ pub async fn asset<B: Backend>(
     let id = survey_id(&id)?;
     let uploaded = s.backend.surveys().survey_asset(&scope, &id, &asset).await?.ok_or_else(not_found)?;
     Ok(Json(TowerDetail { survey: id, uploaded }))
+}
+
+/// The line at a glance for the dashboard, with optional filters. A filter that can't be an id,
+/// an unknown key or a repeated one is refused, so a typo never shows as an empty dashboard.
+pub async fn line_health<B: Backend>(
+    State(s): State<Arc<Server<B>>>,
+    ctx: Ctx,
+    Path(id): Path<String>,
+    query: std::result::Result<Query<HealthQuery>, QueryRejection>,
+) -> Result<Json<LineHealth>> {
+    let p = http::any(&s, &ctx.method, &ctx.headers).await?;
+    let scope = p.require(Permission::ViewSurveys, s.now())?;
+    let id = survey_id(&id)?;
+    // Checked after the survey's access, like every other route here, but before any reading.
+    let Query(query) = query.map_err(|_| Fail(ApiError::fields(vec![FieldError::new("query", "invalid")])))?;
+    query.check().map_err(|f| Fail(ApiError::fields(f)))?;
+    let surveys = s.backend.surveys();
+    let detail = surveys.survey(&scope, &id).await?.ok_or_else(not_found)?;
+    let assets = surveys.survey_assets(&scope, &id).await?.ok_or_else(not_found)?;
+    let label = label_field(&detail.summary.schema_id);
+    // Up to 100,000 findings to tally and sort: off the async workers.
+    Ok(Json(http::blocking(move || LineHealth::build(id, &assets, &label, query)).await?))
+}
+
+/// One tower for the 3D view: its parts' health and its findings, unfiltered.
+pub async fn tower_health<B: Backend>(
+    State(s): State<Arc<Server<B>>>,
+    ctx: Ctx,
+    Path((id, asset)): Path<(String, String)>,
+) -> Result<Json<TowerHealth>> {
+    let p = http::any(&s, &ctx.method, &ctx.headers).await?;
+    let scope = p.require(Permission::ViewSurveys, s.now())?;
+    let id = survey_id(&id)?;
+    let surveys = s.backend.surveys();
+    let detail = surveys.survey(&scope, &id).await?.ok_or_else(not_found)?;
+    let tower = surveys.survey_asset(&scope, &id, &asset).await?.ok_or_else(not_found)?;
+    Ok(Json(TowerHealth::of(id, &tower, &label_field(&detail.summary.schema_id))))
 }
 
 /// A photo's bytes. Photos are named by their hash, so the browser may keep them for good.

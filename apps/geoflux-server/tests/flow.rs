@@ -593,6 +593,119 @@ async fn the_web_app_reads_a_synced_survey_on<B: Backend<Mail = MemoryBackend>>(
     assert_eq!(anon.status, StatusCode::UNAUTHORIZED);
 }
 
+#[tokio::test]
+async fn the_dashboard_reads_line_and_tower_health() {
+    the_dashboard_reads_line_and_tower_health_on(memory()).await;
+}
+
+#[tokio::test]
+async fn the_dashboard_reads_line_and_tower_health_on_postgres() {
+    if let Some(app) = postgres().await {
+        the_dashboard_reads_line_and_tower_health_on(app).await;
+    }
+}
+
+/// A desktop finding as it arrives in a format 2 manifest.
+fn finding(id: &str, photo: Option<&[u8]>, defect: &str, part: Option<&str>, severity: &str, status: &str) -> Value {
+    let mut f = json!({
+        "id": id,
+        "defect": defect,
+        "severity": severity,
+        "source": {"kind": "engineer", "user": "asha@example.in"},
+        "status": status,
+        "created": 1_790_000_000_000_i64,
+    });
+    if let Some(b) = photo {
+        f["photo"] = json!(Sha256::of(b).to_string());
+        f["region"] = json!({"kind": "box", "a": {"x": 0.25, "y": 0.25}, "b": {"x": 0.5, "y": 0.75}});
+    }
+    if let Some(p) = part {
+        f["part"] = json!(p);
+    }
+    f
+}
+
+async fn the_dashboard_reads_line_and_tower_health_on<B: Backend<Mail = MemoryBackend>>(app: App<B>) {
+    let session = app.sign_up("asha@example.in").await;
+    let g = app.desktop_sign_in(&session, "machine-a").await;
+    let access = g.body["accessToken"].as_str().unwrap().to_string();
+    let one = jpeg(b"one");
+    let mut m = manifest(&[("THERMAL", &one)]);
+    m.assets[0].asset.properties.set("towerNumber", "101");
+    let mut second = m.assets[0].clone();
+    second.asset.id = "T-002".into();
+    second.asset.position = 1;
+    second.asset.properties.set("towerNumber", "102");
+    second.photos.clear();
+    m.assets.push(second);
+    let mut body = serde_json::to_value(&m).unwrap();
+    body["assets"][0]["findings"] = json!([
+        finding("f-hot", Some(&one), "hotspot.joint", Some("insulator.left.y"), "critical", "edited"),
+        finding("f-new", Some(&one), "insulator.flashover", Some("insulator.right.r"), "high", "proposed"),
+        finding("f-veg", None, "vegetation", None, "medium", "confirmed"),
+        finding("f-no", None, "bird_nest", Some("earthwire.left"), "low", "rejected"),
+    ]);
+    body["assets"][0]["findings"][0]["measurements"] = json!({"riseC": 41.7});
+    body["assets"][1]["findings"] = json!([finding("f-leg", None, "hardware.corrosion", Some("leg.a"), "low", "confirmed")]);
+    let created = app.json("POST", "/api/v1/surveys", Auth::Bearer(&access), body).await;
+    assert_eq!(created.status, StatusCode::CREATED, "{}", created.body);
+    let id = created.body["survey"].as_str().unwrap().to_string();
+    let base = format!("/api/v1/surveys/{id}");
+    let r = app.send("PUT", &format!("{base}/photos/{}", Sha256::of(&one)), Auth::Bearer(&access), Body::from(one.clone())).await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT, "{}", r.body);
+
+    // Not on the dashboard until the upload is committed.
+    let early = app.send("GET", &format!("{base}/health"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(early.status, StatusCode::NOT_FOUND);
+    let done = app.send("POST", &format!("{base}/commit"), Auth::Bearer(&access), Body::empty()).await;
+    assert_eq!(done.status, StatusCode::OK, "{}", done.body);
+
+    let line = app.send("GET", &format!("{base}/health"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(line.status, StatusCode::OK, "{}", line.body);
+    let l = &line.body;
+    assert_eq!((l["towers"].as_u64(), l["inspected"].as_u64()), (Some(2), Some(2)));
+    assert_eq!((l["findings"].as_u64(), l["pending"].as_u64()), (Some(3), Some(1)), "{l}");
+    assert_eq!(l["rows"][0]["label"], "101");
+    assert_eq!(l["rows"][0]["severity"], "critical");
+    assert_eq!(l["rows"][0]["top"]["part"], "insulator.left.y");
+    assert_eq!(l["rows"][1]["severity"], "low");
+    assert_eq!(l["peaks"][0], json!({"measure": "riseC", "value": 41.7, "tower": "T-001"}));
+
+    // Filters: a family matches at a dot; a part filter leaves out whole-tower findings.
+    let ins = app.send("GET", &format!("{base}/health?part=insulator&minSeverity=high"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(ins.status, StatusCode::OK, "{}", ins.body);
+    assert_eq!(ins.body["query"], json!({"minSeverity": "high", "part": "insulator"}));
+    assert_eq!((ins.body["findings"].as_u64(), ins.body["pending"].as_u64()), (Some(1), Some(1)));
+    assert_eq!(ins.body["rows"][1]["severity"], "none");
+    for bad in ["part=Leg%20A", "colour=red", "minSeverity=worst", "defect=a&defect=b", "part="] {
+        let r = app.send("GET", &format!("{base}/health?{bad}"), Auth::Web(&session), Body::empty()).await;
+        assert_eq!(r.status, StatusCode::UNPROCESSABLE_ENTITY, "{bad}: {}", r.body);
+        assert_eq!(r.body["error"], "invalid_field", "{bad}");
+    }
+
+    // One tower for the 3D view: parts worst first, counted findings before proposals, no rejected.
+    let tower = app.send("GET", &format!("{base}/assets/T-001/health"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(tower.status, StatusCode::OK, "{}", tower.body);
+    let t = &tower.body;
+    assert_eq!((t["label"].as_str(), t["severity"].as_str()), (Some("101"), Some("critical")));
+    let ids: Vec<&str> = t["findings"].as_array().unwrap().iter().map(|f| f["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["f-hot", "f-veg", "f-new"]);
+    let parts: Vec<&Value> = t["parts"].as_array().unwrap().iter().map(|p| &p["part"]).collect();
+    // The whole tower (medium) outranks a part with only a proposal waiting.
+    assert_eq!(parts, [&json!("insulator.left.y"), &Value::Null, &json!("insulator.right.r")], "{t}");
+    let none = app.send("GET", &format!("{base}/assets/T-999/health"), Auth::Web(&session), Body::empty()).await;
+    assert_eq!(none.status, StatusCode::NOT_FOUND);
+
+    // Another organisation finds nothing, and signed-out callers are asked to sign in.
+    let other = app.sign_up("ravi@example.in").await;
+    for uri in [format!("{base}/health"), format!("{base}/assets/T-001/health")] {
+        let r = app.send("GET", &uri, Auth::Web(&other), Body::empty()).await;
+        assert_eq!(r.status, StatusCode::NOT_FOUND, "{uri}");
+        let r = app.send("GET", &uri, Auth::None, Body::empty()).await;
+        assert_eq!(r.status, StatusCode::UNAUTHORIZED, "{uri}");
+    }
+}
+
 /// Every address the API doesn't answer is the web app: its pages get index.html (or, in a build
 /// without the app, a page saying how to build it) with a strict policy; unknown API addresses,
 /// missing files and writes get plain errors, never the app.
