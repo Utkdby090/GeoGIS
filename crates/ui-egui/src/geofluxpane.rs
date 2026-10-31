@@ -19,6 +19,10 @@ use rustgis_engine::geoflux_domain::{FieldDef, FieldIssue, FieldType, IssueKind,
 /// The longest side of a slot's thumbnail and of the full view, in pixels.
 const THUMB_SIDE: u32 = 384;
 const VIEW_SIDE: u32 = 1600;
+/// The sharper copy decoded once a photo is zoomed in (within what the graphics card takes),
+/// and how many are kept (up to about 50 MB each).
+const SHARP_SIDE: u32 = 4096;
+const MAX_SHARP: usize = 2;
 /// Decoded photos kept: thumbnails (about 0.6 MB each) and full views (up to about 10 MB each).
 const MAX_THUMBS: usize = 48;
 const MAX_VIEWS: usize = 4;
@@ -51,6 +55,16 @@ pub struct PhotoCache {
 }
 
 impl PhotoCache {
+    /// A photo shown `zoom` times its fitted size: past 1.5×, a sharper copy takes over once
+    /// decoded (the full view meanwhile, or if it can't be read).
+    fn view(&mut self, path: &str, zoom: f32, max_texture: usize) -> Option<&Result<egui::TextureHandle, String>> {
+        let sharp = u32::try_from(max_texture).unwrap_or(u32::MAX).min(SHARP_SIDE);
+        if zoom > 1.5 && sharp > VIEW_SIDE && matches!(self.get(path, sharp), Some(Ok(_))) {
+            return self.get(path, sharp);
+        }
+        self.get(path, VIEW_SIDE)
+    }
+
     fn is_empty(&self) -> bool {
         self.ready.is_empty() && self.decoding.is_empty() && self.queued.is_empty()
     }
@@ -97,9 +111,14 @@ impl PhotoCache {
                 None => i += 1,
             }
         }
-        for (side, limit) in [(THUMB_SIDE, MAX_THUMBS), (VIEW_SIDE, MAX_VIEWS)] {
-            while self.ready.iter().filter(|(k, _)| k.side == side).count() > limit {
-                match self.ready.iter().position(|(k, _)| k.side == side) {
+        let tier = |side: u32| match side {
+            THUMB_SIDE => 0,
+            VIEW_SIDE => 1,
+            _ => 2,
+        };
+        for (t, limit) in [(0, MAX_THUMBS), (1, MAX_VIEWS), (2, MAX_SHARP)] {
+            while self.ready.iter().filter(|(k, _)| tier(k.side) == t).count() > limit {
+                match self.ready.iter().position(|(k, _)| tier(k.side) == t) {
                     Some(oldest) => {
                         self.ready.remove(oldest);
                     }
@@ -285,9 +304,10 @@ impl InspectionState {
         slot.photos.get(i)
     }
 
-    /// Decoded photos, for windows over one photo.
-    pub(crate) fn photo(&mut self, path: &str, full: bool) -> Option<&Result<egui::TextureHandle, String>> {
-        self.cache.get(path, if full { VIEW_SIDE } else { THUMB_SIDE })
+    /// The full view of a photo shown `zoom` times its fitted size: past 1.5×, a sharper copy
+    /// takes over once decoded (the full view meanwhile, or if it can't be read).
+    pub(crate) fn photo_view(&mut self, path: &str, zoom: f32, max_texture: usize) -> Option<&Result<egui::TextureHandle, String>> {
+        self.cache.view(path, zoom, max_texture)
     }
 
     /// The photo picked in the asset's thermal slot, if its photos are read.
@@ -853,7 +873,11 @@ fn photos_ui(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, ctx: &egui::Context,
     }
     st.photos = Some(((layer, row, rev), slots));
     viewer(st, ctx, t);
-    let texture = st.markup.as_ref().and_then(|e| st.cache.get(e.photo(), VIEW_SIDE).cloned());
+    let max_texture = ctx.input(|i| i.max_texture_side);
+    let texture = st.markup.as_ref().and_then(|e| {
+        let level = crate::widgets::photo_zoom_level(ctx, egui::Id::new(crate::markupview::ZOOM_ID), e.photo());
+        st.cache.view(e.photo(), level, max_texture).cloned()
+    });
     crate::markupview::show(app, ctx, t, texture);
     crate::findingsview::show(app, ctx, t, layer, row);
     if let Some(a) = action {
@@ -1060,9 +1084,17 @@ fn viewer(st: &mut InspectionState, ctx: &egui::Context, t: &Tokens) {
         ctx,
         |ui| {
             let room = ui.available_size() - vec2(0.0, 28.0);
-            match st.cache.get(&path, VIEW_SIDE) {
+            let zoom_id = egui::Id::new("geoflux_viewer_zoom");
+            let level = crate::widgets::photo_zoom_level(ctx, zoom_id, &path);
+            let max_texture = ctx.input(|i| i.max_texture_side);
+            match st.photo_view(&path, level, max_texture).cloned() {
                 Some(Ok(tex)) => {
-                    ui.add(egui::Image::from_texture(tex).max_size(room));
+                    let size = tex.size_vec2();
+                    let scale = (room.x / size.x).min(room.y / size.y).max(0.01);
+                    let (fit, resp) = ui.allocate_exact_size(size * scale, egui::Sense::click_and_drag());
+                    let rect = crate::widgets::photo_zoom(ui, zoom_id, &path, fit, &resp, true);
+                    let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+                    ui.painter_at(fit).image(tex.id(), rect, uv, egui::Color32::WHITE);
                 }
                 Some(Err(e)) => {
                     ui.label(RichText::new(e.as_str()).color(t.red));

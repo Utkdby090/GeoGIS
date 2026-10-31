@@ -819,6 +819,27 @@ fn findings_window_and_summary_render() {
     }
     assert_eq!(h.state().inspection.row, Some(1));
     let _ = h.get_by_label("1. Other hot spot");
+    // The photo zooms in and back to the whole photo.
+    for _ in 0..20 {
+        if h.query_by_label("Zoom in").is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        h.step();
+    }
+    let _ = h.get_by_label("Zoom 100%");
+    h.get_by_label("Zoom in").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 150%");
+    h.get_by_label("Zoom in").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 225%");
+    h.get_by_label("Fit photo").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 100%");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
