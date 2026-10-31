@@ -49,6 +49,8 @@ pub fn router<B: Backend>(server: Arc<Server<B>>) -> Router {
         .route(r::SURVEY.1, get(view::survey::<B>))
         .route(r::SURVEY_TOWERS.1, get(view::towers::<B>))
         .route(r::SURVEY_ASSET.1, get(view::asset::<B>))
+        .route(r::SURVEY_HEALTH.1, get(view::line_health::<B>))
+        .route(r::TOWER_HEALTH.1, get(view::tower_health::<B>))
         // GET beside the upload's PUT on the same path.
         .route(r::PHOTO.1, get(view::photo::<B>))
         .route(r::TOWER_REPORT.1, get(view::tower_report::<B>))
