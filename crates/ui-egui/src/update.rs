@@ -118,6 +118,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
     let mut again = false;
     let mut visit: Option<String> = None;
     egui::Window::new(tl!("Check for Updates"))
+        .id(egui::Id::new("check_updates"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
@@ -177,7 +178,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
     if visit.is_some() {
         app.ui.open_url = visit;
     }
-    if !open {
+    if !open || crate::widgets::esc_closes(ctx, egui::Id::new("check_updates")) {
         app.update.open = false;
         app.update.pending = None;
     }

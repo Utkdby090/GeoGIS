@@ -241,6 +241,10 @@ pub enum RightPane {
     Inspection,
 }
 
+/// Commands that replace the open project or quit, so ask "Save changes?" first.
+const DISCARDS: &[&str] =
+    &["project.new", "project.sample", "project.open", "project.openText", "project.fromTemplate", "ui.open", "ui.quit"];
+
 pub struct UiState {
     pub tab: String,
     pub backstage: bool,
@@ -420,6 +424,11 @@ pub struct RustGisApp {
     applied_dark: Option<bool>,
     sent_title: String,
     pub quit_requested: bool,
+    /// A command that would throw away unsaved changes (a new or opened project, quitting),
+    /// held until the person answers "Save changes?".
+    pub(crate) unsaved_prompt: Option<(String, Value)>,
+    /// Set while running the held command after Save or Don't Save, so it isn't held again.
+    discard_ok: bool,
     logo: Option<egui::TextureHandle>,
     pub services: Services,
     /// Extra font faces installed with the interface fonts: (name, face, region). The current
@@ -467,6 +476,8 @@ impl RustGisApp {
             applied_dark: None,
             sent_title: String::new(),
             quit_requested: false,
+            unsaved_prompt: None,
+            discard_ok: false,
             logo: None,
             services: Services::default(),
             extra_fonts: Vec::new(),
@@ -886,6 +897,11 @@ impl RustGisApp {
         if !matches!(id, "ui.menu" | "ui.ribbon" | "ui.language" | "ui.worldview") {
             self.ui.ribbon_peek = false;
         }
+        // Replacing the project or quitting asks first when there are changes to lose.
+        if DISCARDS.contains(&id) && !self.discard_ok && self.has_unsaved_changes() {
+            self.unsaved_prompt = Some((id.to_string(), params));
+            return Ok(json!({"waiting": "Save changes?"}));
+        }
         let r = cloudui::check(self, id)
             .and_then(|()| if id.starts_with("ui.") { self.run_ui(id, &params) } else { self.session.run(id, &params) });
         if let Err(e) = &r {
@@ -899,6 +915,54 @@ impl RustGisApp {
         // Sources added, saved or made favourites are kept with the preferences.
         sourcespane::save(self);
         r
+    }
+
+    /// Edits not saved to the project file yet: the project's own, or a tower form in the
+    /// Inspection pane.
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.session.dirty || self.inspection.dirty()
+    }
+
+    /// For the window's close button: true when the window may close now. Otherwise it asks
+    /// "Save changes?" and the shell keeps the window open; the answer quits when it should.
+    pub fn may_close(&mut self) -> bool {
+        if self.quit_requested || !self.has_unsaved_changes() {
+            return true;
+        }
+        self.unsaved_prompt.get_or_insert_with(|| ("ui.quit".into(), Value::Null));
+        false
+    }
+
+    /// The answer to "Save changes?": saves first (`Some(true)`), throws the changes away
+    /// (`Some(false)`), then runs the held command; `None` cancels it. A cancelled or failed save
+    /// keeps everything as it was.
+    pub(crate) fn answer_unsaved(&mut self, save: Option<bool>) {
+        let Some((id, params)) = self.unsaved_prompt.take() else { return };
+        match save {
+            None => return,
+            Some(true) => {
+                if !geofluxpane::save_open_form(self) {
+                    return;
+                }
+                if self.session.dirty {
+                    if let Err(e) = self.run("ui.save", Value::Null) {
+                        self.session.notify(e, true);
+                        return;
+                    }
+                    // Save As cancelled, or a save the browser finishes later: nothing is lost.
+                    if self.session.dirty {
+                        return;
+                    }
+                }
+            }
+            Some(false) => geofluxpane::discard_open_form(self),
+        }
+        self.discard_ok = true;
+        let r = self.run(&id, params);
+        self.discard_ok = false;
+        if let Err(e) = r {
+            self.session.notify(e, true);
+        }
     }
 
     fn run_ui(&mut self, id: &str, p: &Value) -> Result<Value, String> {
@@ -2210,6 +2274,7 @@ impl RustGisApp {
         }
         i18n::set_current(self.lang());
         let t = theme::Tokens::get(&ctx);
+        widgets::route_escape(&ctx);
         chrome::shortcuts(self, &ctx);
         if self.ui.backstage {
             backstage::show(self, ui);
@@ -2229,6 +2294,7 @@ impl RustGisApp {
         cloudui::show(self, &ctx);
         chrome::command_search(self, &ctx);
         chrome::about(self, &ctx);
+        chrome::unsaved_prompt(self, &ctx);
         chrome::notices(self, &ctx);
         if let Some(text) = self.ui.copy_out.take() {
             ctx.copy_text(text);

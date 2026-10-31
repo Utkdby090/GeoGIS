@@ -149,6 +149,10 @@ mod crash {
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.0.logic(ctx);
+        // The window's close button asks "Save changes?" first when there are any.
+        if ctx.input(|i| i.viewport().close_requested()) && !self.0.may_close() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        }
         if self.0.quit_requested {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
