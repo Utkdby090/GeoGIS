@@ -211,6 +211,7 @@ fn manifest(photos: &[(&str, &[u8])]) -> SurveyManifest {
         surveyed: None,
         assets: vec![SurveyAsset {
             asset,
+            findings: Vec::new(),
             photos: photos
                 .iter()
                 .map(|(slot, b)| PhotoRef {

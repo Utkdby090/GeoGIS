@@ -2,8 +2,8 @@
 //!
 //! Three steps, each safe to retry over a weak connection:
 //!
-//! 1. `POST /surveys` with a [`SurveyManifest`]: the towers, their forms and severity, and each
-//!    photo by SHA-256. The server answers with the photos it doesn't have yet. Sending the same
+//! 1. `POST /surveys` with a [`SurveyManifest`]: the towers, their forms and severity, each
+//!    photo by SHA-256, and each tower's findings ([`SyncedFinding`], format 2). The server answers with the photos it doesn't have yet. Sending the same
 //!    `clientSurveyId` and `revision` again returns the same survey, so a retry never duplicates.
 //! 2. `PUT /surveys/{id}/photos/{sha256}` for each missing photo. The server streams the body to a
 //!    temporary file while hashing it, refuses it if the hash or size differs, then hands the file
@@ -13,17 +13,23 @@
 //!
 //! Every upload is a new revision: nothing is overwritten, so trends can compare surveys.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use geoflux_domain::Asset;
 use geoflux_domain::annotation::AnnotationSet;
+use geoflux_domain::finding::{self, Decision, FindingSource, FindingStatus, Region};
+use geoflux_domain::{Asset, DefectId, Finding, FindingId, PartId, Severity};
 use serde::{Deserialize, Serialize};
 
 use crate::Sha256;
 use crate::error::FieldError;
 
-/// The manifest format this build writes and reads.
-pub const MANIFEST_FORMAT: u32 = 1;
+/// The manifest format this build writes. 2 added each tower's `findings`; the server still
+/// reads 1 (an older GeoGIS), which has none.
+pub const MANIFEST_FORMAT: u32 = 2;
+/// Findings on one tower.
+pub const MAX_FINDINGS_PER_ASSET: usize = 2_000;
+/// Findings in one upload, the same as one layer holds.
+pub const MAX_FINDINGS: usize = finding::MAX_FINDINGS;
 /// Towers in one upload. A line has a few hundred to a few thousand.
 pub const MAX_ASSETS: usize = 100_000;
 pub const MAX_PHOTOS_PER_ASSET: usize = 64;
@@ -84,6 +90,92 @@ pub struct SurveyAsset {
     pub asset: Asset,
     #[serde(default)]
     pub photos: Vec<PhotoRef>,
+    /// Its findings, rejected ones included (they are review history and negative examples).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<SyncedFinding>,
+}
+
+/// A finding as uploaded: the desktop [`Finding`] with its photo named by the SHA-256 the upload
+/// uses (one of the same tower's [`PhotoRef`]s) instead of GeoGIS's own photo id. What an
+/// inspector first proposed stays on the desktop.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncedFinding {
+    pub id: FindingId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<Sha256>,
+    #[serde(default)]
+    pub region: Region,
+    pub defect: DefectId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<PartId>,
+    pub severity: Severity,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub measurements: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    pub source: FindingSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f32>,
+    pub status: FindingStatus,
+    /// Unix milliseconds, as GeoGIS records them.
+    pub created: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decided: Option<Decision>,
+}
+
+impl SyncedFinding {
+    /// `photo` is the SHA-256 of the finding's photo as this upload lists it; `None` when the
+    /// finding has no photo or its photo isn't being uploaded (the finding then covers the tower).
+    pub fn of(f: &Finding, photo: Option<Sha256>) -> Self {
+        let region = if photo.is_some() { f.region.clone() } else { Region::Whole };
+        SyncedFinding {
+            id: f.id.clone(),
+            photo,
+            region,
+            defect: f.defect.clone(),
+            part: f.part.clone(),
+            severity: f.severity,
+            measurements: f.measurements.clone(),
+            note: f.note.clone(),
+            source: f.source.clone(),
+            confidence: f.confidence,
+            status: f.status,
+            created: f.created,
+            decided: f.decided.clone(),
+        }
+    }
+
+    /// The problems with this finding as `(field, reason)`; `photos` are its tower's photos.
+    fn problems(&self, photos: &[PhotoRef]) -> Vec<(&'static str, &'static str)> {
+        let mut out = Vec::new();
+        match self.region.clone().checked() {
+            Err(_) => out.push(("region", "invalid")),
+            Ok(r) if r != self.region => out.push(("region", "out_of_range")),
+            Ok(_) => {}
+        }
+        match &self.photo {
+            Some(h) if !photos.iter().any(|p| p.sha256 == *h) => out.push(("photo", "not_listed")),
+            None if self.region != Region::Whole => out.push(("region", "needs_photo")),
+            _ => {}
+        }
+        if self.measurements.len() > finding::MAX_MEASUREMENTS
+            || self.measurements.iter().any(|(k, v)| !finding::is_measure_key(k) || !v.is_finite())
+        {
+            out.push(("measurements", "invalid"));
+        }
+        if self.note.chars().count() > finding::MAX_NOTE_CHARS {
+            out.push(("note", "too_long"));
+        }
+        if self.confidence.is_some_and(|c| !(c.is_finite() && (0.0..=1.0).contains(&c))) {
+            out.push(("confidence", "out_of_range"));
+        }
+        let name_ok = |t: &str| !t.trim().is_empty() && t.chars().count() <= finding::MAX_NAME_CHARS;
+        if self.source.inspector().is_some_and(|(id, v)| !name_ok(id) || !name_ok(v)) {
+            out.push(("source", "invalid"));
+        }
+        out
+    }
 }
 
 /// Step 1's body.
@@ -120,7 +212,7 @@ impl SurveyManifest {
                 errs.push(FieldError::new(field, reason));
             }
         };
-        if self.format != MANIFEST_FORMAT {
+        if !(1..=MANIFEST_FORMAT).contains(&self.format) {
             push("format".into(), "unsupported");
         }
         let id_ok = (8..=64).contains(&self.client_survey_id.len())
@@ -147,6 +239,10 @@ impl SurveyManifest {
             push("assets".into(), "too_many");
             return Err(errs);
         }
+        if self.assets.iter().map(|a| a.findings.len()).fold(0usize, usize::saturating_add) > MAX_FINDINGS {
+            push("assets".into(), "too_many_findings");
+            return Err(errs);
+        }
         let mut ids: HashSet<&str> = HashSet::with_capacity(self.assets.len());
         for (i, a) in self.assets.iter().enumerate() {
             let at = |f: &str| format!("assets[{i}].{f}");
@@ -166,6 +262,22 @@ impl SurveyManifest {
             if a.photos.len() > MAX_PHOTOS_PER_ASSET {
                 push(at("photos"), "too_many");
                 continue;
+            }
+            if self.format < 2 && !a.findings.is_empty() {
+                push(at("findings"), "unsupported");
+            }
+            if a.findings.len() > MAX_FINDINGS_PER_ASSET {
+                push(at("findings"), "too_many");
+            } else {
+                let mut seen: HashSet<&FindingId> = HashSet::with_capacity(a.findings.len());
+                for (k, f) in a.findings.iter().enumerate() {
+                    if !seen.insert(&f.id) {
+                        push(format!("assets[{i}].findings[{k}].id"), "duplicate");
+                    }
+                    for (field, reason) in f.problems(&a.photos) {
+                        push(format!("assets[{i}].findings[{k}].{field}"), reason);
+                    }
+                }
             }
             for (j, ph) in a.photos.iter().enumerate() {
                 let at = |f: &str| format!("assets[{i}].photos[{j}].{f}");
@@ -246,9 +358,9 @@ pub(crate) mod tests {
             schema_id: "com.geo.telecom".into(),
             surveyed: None,
             assets: vec![
-                SurveyAsset { asset, photos: vec![photo("thermal", b"one"), photo("structure", b"two")] },
+                SurveyAsset { asset, photos: vec![photo("thermal", b"one"), photo("structure", b"two")], findings: Vec::new() },
                 // The same photo under another tower: counted and stored once.
-                SurveyAsset { asset: second, photos: vec![photo("thermal", b"one")] },
+                SurveyAsset { asset: second, photos: vec![photo("thermal", b"one")], findings: Vec::new() },
             ],
         }
     }
@@ -298,5 +410,75 @@ pub(crate) mod tests {
         assert!(PhotoType::Jpeg.matches(&[0xff, 0xd8, 0xff, 0xe0]));
         assert!(!PhotoType::Jpeg.matches(b"\x89PNG\r\n\x1a\n"));
         assert!(PhotoType::Png.matches(b"\x89PNG\r\n\x1a\n...."));
+    }
+
+    pub(crate) fn finding(
+        id: &str,
+        photo: Option<&[u8]>,
+        defect: &str,
+        part: Option<&str>,
+        severity: Severity,
+        status: FindingStatus,
+    ) -> SyncedFinding {
+        use geoflux_domain::annotation::NormPoint;
+        SyncedFinding {
+            id: FindingId::parse(id).unwrap(),
+            photo: photo.map(Sha256::of),
+            region: if photo.is_some() { Region::Box { a: NormPoint::new(0.2, 0.2), b: NormPoint::new(0.4, 0.5) } } else { Region::Whole },
+            defect: DefectId::parse(defect).unwrap(),
+            part: part.map(|p| PartId::parse(p).unwrap()),
+            severity,
+            measurements: BTreeMap::new(),
+            note: String::new(),
+            source: FindingSource::Engineer { user: String::new() },
+            confidence: None,
+            status,
+            created: 1,
+            decided: None,
+        }
+    }
+
+    #[test]
+    fn findings_ride_with_their_tower_and_are_checked() {
+        let mut m = manifest();
+        m.assets[0].findings = vec![
+            finding("f-1", Some(b"one"), "hotspot.joint", Some("insulator.left.r"), Severity::High, FindingStatus::Confirmed),
+            finding("f-2", None, "bird_nest", Some("earthwire.left"), Severity::Low, FindingStatus::Proposed),
+        ];
+        assert_eq!(m.validate(), Ok(()));
+        let json = serde_json::to_string(&m).unwrap();
+        assert_eq!(serde_json::from_str::<SurveyManifest>(&json).unwrap(), m);
+
+        let mut bad = m.clone();
+        let fs = &mut bad.assets[0].findings;
+        fs[1].id = fs[0].id.clone();
+        fs[0].photo = Some(Sha256::of(b"not this tower's"));
+        fs[1].region = Region::Point { at: geoflux_domain::annotation::NormPoint::new(0.5, 0.5) };
+        fs[1].measurements.insert("riseC".into(), f64::INFINITY);
+        fs[1].confidence = Some(1.5);
+        let fields: Vec<String> = bad.validate().unwrap_err().into_iter().map(|e| format!("{} {}", e.field, e.reason)).collect();
+        for f in [
+            "assets[0].findings[0].photo not_listed",
+            "assets[0].findings[1].id duplicate",
+            "assets[0].findings[1].region needs_photo",
+            "assets[0].findings[1].measurements invalid",
+            "assets[0].findings[1].confidence out_of_range",
+        ] {
+            assert!(fields.iter().any(|x| x == f), "{f} in {fields:?}");
+        }
+    }
+
+    #[test]
+    fn an_older_geogis_still_uploads() {
+        let mut m = manifest();
+        m.format = 1;
+        assert_eq!(m.validate(), Ok(()), "format 1 has no findings");
+        m.assets[0].findings = vec![finding("f-1", None, "bird_nest", None, Severity::Low, FindingStatus::Confirmed)];
+        assert!(m.validate().unwrap_err().iter().any(|e| e.field == "assets[0].findings" && e.reason == "unsupported"));
+        m.format = MANIFEST_FORMAT + 1;
+        assert!(m.validate().unwrap_err().iter().any(|e| e.field == "format"));
+        // Format 1 JSON has no `findings` key at all.
+        let v = serde_json::to_value(manifest()).unwrap();
+        assert!(v["assets"][0].get("findings").is_none());
     }
 }

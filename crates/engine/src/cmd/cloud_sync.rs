@@ -234,7 +234,7 @@ pub fn prepare(plan: SyncPlan, progress: &geoflux_report::Progress) -> Result<Pr
                 Err(why) => skipped.push(format!("{}: {}: {why}", a.asset.id, ph.path)),
             }
         }
-        assets.push(SurveyAsset { asset: a.asset, photos });
+        assets.push(SurveyAsset { asset: a.asset, photos, findings: Vec::new() });
     }
     let manifest = SurveyManifest {
         format: MANIFEST_FORMAT,

@@ -239,8 +239,59 @@ export const Asset = z.object({
   severity: Severity,
 });
 
+// ---- Findings --------------------------------------------------------------------------------
+
+/** Lowercase words joined by dots, family first: defect types (`hotspot.joint`) and tower parts (`insulator.left.r`). */
+const DottedId = z.string().regex(/^[a-z0-9_]+(\.[a-z0-9_]+)*$/).max(64);
+export const DefectId = DottedId;
+export const PartId = DottedId;
+
+/** Where on the photo, as 0..1 fractions; `whole` for the whole photo or no photo. */
+export const Region = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("whole") }),
+  z.object({ kind: z.literal("point"), at: NormPoint }),
+  z.object({ kind: z.literal("box"), a: NormPoint, b: NormPoint }),
+  z.object({ kind: z.literal("polygon"), points: z.array(NormPoint) }),
+]);
+export type Region = z.infer<typeof Region>;
+
+export const FindingSource = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("engineer"), user: z.string().optional() }),
+  z.object({ kind: z.literal("rule"), inspector: z.string(), version: z.string() }),
+  z.object({ kind: z.literal("model"), inspector: z.string(), version: z.string() }),
+]);
+
+export const FindingStatus = z.enum(["proposed", "confirmed", "edited", "rejected"]);
+export type FindingStatus = z.infer<typeof FindingStatus>;
+
+/** A finding as GeoGIS uploaded it (geoflux_cloud::sync::SyncedFinding). */
+export const Finding = z.object({
+  id: z.string(),
+  /** The SHA-256 of one of the same tower's photos; absent for a finding on the whole tower. */
+  photo: Sha256.optional(),
+  region: Region,
+  defect: DefectId,
+  part: PartId.optional(),
+  severity: Severity,
+  measurements: z.record(z.string(), z.number()).optional(),
+  note: z.string().optional(),
+  source: FindingSource,
+  confidence: z.number().optional(),
+  status: FindingStatus,
+  /** Milliseconds since 1970, as GeoGIS records them. */
+  created: z.number().int(),
+  decided: z.object({ by: z.string(), at: z.number().int() }).optional(),
+});
+export type Finding = z.infer<typeof Finding>;
+
 /** `GET /surveys/{id}/assets/{asset}`. */
-export const TowerDetail = z.object({ survey: SurveyId, asset: Asset, photos: z.array(PhotoRef) });
+export const TowerDetail = z.object({
+  survey: SurveyId,
+  asset: Asset,
+  photos: z.array(PhotoRef),
+  /** Absent for a tower uploaded by a GeoGIS from before findings were synced. */
+  findings: z.array(Finding).optional(),
+});
 export type TowerDetail = z.infer<typeof TowerDetail>;
 
 // ---- Schemas (the form's fields) -------------------------------------------------------------
@@ -258,6 +309,12 @@ export const FieldDef = z.object({
 
 export const ImageSlotDef = z.object({ id: z.string(), label: z.string(), thermal: z.boolean() });
 
+export const DefectDef = z.object({ id: DefectId, label: z.string(), severity: Severity, slots: z.array(z.string()).optional() });
+
+/** A tower part; `node` names the 3D model's attach point (the id when absent). */
+export const PartDef = z.object({ id: PartId, label: z.string(), node: z.string().optional() });
+export type PartDef = z.infer<typeof PartDef>;
+
 /** `GET /schemas/{id}`: only what the web app shows; the rest of the schema is ignored. */
 export const DomainSchema = z.object({
   id: z.string(),
@@ -266,5 +323,66 @@ export const DomainSchema = z.object({
   labelField: z.string().optional(),
   fields: z.array(FieldDef),
   imageSlots: z.array(ImageSlotDef),
+  defects: z.array(DefectDef).optional(),
+  parts: z.array(PartDef).optional(),
 });
 export type DomainSchema = z.infer<typeof DomainSchema>;
+
+// ---- Line health dashboard -------------------------------------------------------------------
+
+/** The dashboard's filters, sent as the query string of `GET /surveys/{id}/health`. */
+export const HealthQuery = z.object({
+  minSeverity: Severity.optional(),
+  /** A defect type or family (`hotspot`). */
+  defect: DefectId.optional(),
+  /** A part or family (`insulator`, `insulator.left`). */
+  part: PartId.optional(),
+});
+export type HealthQuery = z.infer<typeof HealthQuery>;
+
+const Count = z.number().int().nonnegative();
+
+export const TowerHealthRow = z.object({
+  id: z.string(),
+  label: z.string(),
+  position: z.number().int(),
+  inspected: z.boolean(),
+  severity: Severity,
+  findings: Count,
+  pending: Count,
+  top: z.object({ defect: DefectId, part: PartId.optional(), severity: Severity }).optional(),
+});
+export type TowerHealthRow = z.infer<typeof TowerHealthRow>;
+
+/** `GET /surveys/{id}/health`: towers rated by confirmed findings, tallies, peaks, every tower's row. */
+export const LineHealth = z.object({
+  survey: SurveyId,
+  query: HealthQuery,
+  towers: Count,
+  inspected: Count,
+  /** Inspected towers by worst matching finding, in SEVERITIES order. */
+  severityCounts: z.tuple([Count, Count, Count, Count, Count]),
+  findings: Count,
+  pending: Count,
+  byDefect: z.array(z.object({ defect: DefectId, count: Count, worst: Severity })),
+  /** `part: null` is findings on the whole tower. */
+  byPart: z.array(z.object({ part: PartId.nullable(), count: Count, worst: Severity })),
+  peaks: z.array(z.object({ measure: z.string(), value: z.number(), tower: z.string() })),
+  rows: z.array(TowerHealthRow),
+});
+export type LineHealth = z.infer<typeof LineHealth>;
+
+/** One part's marker on the 3D tower. */
+export const PartHealth = z.object({ part: PartId.nullable(), severity: Severity, counted: Count, pending: Count });
+export type PartHealth = z.infer<typeof PartHealth>;
+
+/** `GET /surveys/{id}/assets/{asset}/health`: one tower for the 3D view. */
+export const TowerHealth = z.object({
+  survey: SurveyId,
+  id: z.string(),
+  label: z.string(),
+  severity: Severity,
+  parts: z.array(PartHealth),
+  findings: z.array(Finding),
+});
+export type TowerHealth = z.infer<typeof TowerHealth>;

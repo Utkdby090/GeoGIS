@@ -1,0 +1,107 @@
+{
+  "findings": [
+    {
+      "confidence": 0.8999999761581421,
+      "created": 1790000000000,
+      "decided": {
+        "at": 1790000000005,
+        "by": "asha@example.in"
+      },
+      "defect": "hotspot.joint",
+      "id": "f-hot",
+      "measurements": {
+        "maxC": 78.2,
+        "riseC": 41.7
+      },
+      "part": "insulator.left.y",
+      "photo": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "region": {
+        "a": {
+          "x": 0.25,
+          "y": 0.25
+        },
+        "b": {
+          "x": 0.5,
+          "y": 0.75
+        },
+        "kind": "box"
+      },
+      "severity": "critical",
+      "source": {
+        "inspector": "geoflux.thermal.hotspot",
+        "kind": "rule",
+        "version": "1"
+      },
+      "status": "edited"
+    },
+    {
+      "created": 1790000000000,
+      "decided": {
+        "at": 1790000000005,
+        "by": "asha@example.in"
+      },
+      "defect": "vegetation",
+      "id": "f-veg",
+      "note": "Neem tree 3 m from B phase",
+      "region": {
+        "kind": "whole"
+      },
+      "severity": "medium",
+      "source": {
+        "kind": "engineer",
+        "user": "asha@example.in"
+      },
+      "status": "confirmed"
+    },
+    {
+      "confidence": 0.6200000047683716,
+      "created": 1790000000000,
+      "defect": "insulator.flashover",
+      "id": "f-new",
+      "part": "insulator.right.r",
+      "photo": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "region": {
+        "a": {
+          "x": 0.25,
+          "y": 0.25
+        },
+        "b": {
+          "x": 0.5,
+          "y": 0.75
+        },
+        "kind": "box"
+      },
+      "severity": "high",
+      "source": {
+        "inspector": "geoflux.insulator",
+        "kind": "model",
+        "version": "0.1"
+      },
+      "status": "proposed"
+    }
+  ],
+  "id": "t1",
+  "label": "101",
+  "parts": [
+    {
+      "counted": 1,
+      "part": "insulator.left.y",
+      "pending": 0,
+      "severity": "critical"
+    },
+    {
+      "counted": 1,
+      "part": null,
+      "pending": 0,
+      "severity": "medium"
+    },
+    {
+      "counted": 0,
+      "part": "insulator.right.r",
+      "pending": 1,
+      "severity": "none"
+    }
+  ],
+  "severity": "critical",
+  "survey": "srv_03030303030303030303030303030303"
+}

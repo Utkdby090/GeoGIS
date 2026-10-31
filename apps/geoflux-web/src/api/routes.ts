@@ -25,6 +25,8 @@ export const ROUTES = {
   PHOTO: ["GET", "/api/v1/surveys/{id}/photos/{sha256}"],
   TOWER_REPORT: ["GET", "/api/v1/surveys/{id}/assets/{asset}/report.pdf"],
   LINE_REPORT: ["GET", "/api/v1/surveys/{id}/report.zip"],
+  SURVEY_HEALTH: ["GET", "/api/v1/surveys/{id}/health"],
+  TOWER_HEALTH: ["GET", "/api/v1/surveys/{id}/assets/{asset}/health"],
   SCHEMA: ["GET", "/api/v1/schemas/{id}"],
 } as const satisfies Record<string, readonly [string, string]>;
 

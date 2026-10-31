@@ -24,10 +24,7 @@ impl DefectId {
     pub const UNCLASSIFIED: &'static str = "unclassified";
 
     pub fn parse(text: &str) -> Option<Self> {
-        let ok = !text.is_empty()
-            && text.len() <= MAX_DEFECT_ID
-            && text.split('.').all(|w| !w.is_empty() && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'));
-        ok.then(|| DefectId(text.to_string()))
+        is_dotted_id(text, MAX_DEFECT_ID).then(|| DefectId(text.to_string()))
     }
 
     pub fn unclassified() -> Self {
@@ -65,6 +62,14 @@ impl From<DefectId> for String {
     fn from(id: DefectId) -> String {
         id.0
     }
+}
+
+/// Lowercase words of ASCII letters, digits and `_`, joined by single dots, at most `max` bytes:
+/// the shape of defect and part ids.
+pub(crate) fn is_dotted_id(text: &str, max: usize) -> bool {
+    !text.is_empty()
+        && text.len() <= max
+        && text.split('.').all(|w| !w.is_empty() && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'))
 }
 
 /// One defect type in a schema's `defects` list.

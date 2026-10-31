@@ -101,7 +101,7 @@ impl TowerCollection {
         let features = sorted
             .into_iter()
             .map(|a| {
-                let label = Some(a.asset.properties.get(label_field).trim()).filter(|l| !l.is_empty()).unwrap_or(&a.asset.id);
+                let label = tower_label(a, label_field);
                 TowerFeature {
                     kind: FeatureTag::Feature,
                     id: a.asset.id.clone(),
@@ -129,6 +129,11 @@ impl TowerCollection {
         let [x, y] = it.next()?;
         Some(it.fold([x, y, x, y], |[w, s, e, n], [x, y]| [w.min(x), s.min(y), e.max(x), n.max(y)]))
     }
+}
+
+/// What a tower is called: the schema's label field (the tower number), or its id when that is blank.
+pub fn tower_label<'a>(a: &'a SurveyAsset, label_field: &str) -> &'a str {
+    Some(a.asset.properties.get(label_field).trim()).filter(|l| !l.is_empty()).unwrap_or(&a.asset.id)
 }
 
 /// `[west, south, east, north]` of the towers that have a usable position.

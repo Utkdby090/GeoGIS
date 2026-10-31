@@ -1,5 +1,6 @@
 use super::*;
 use crate::defect::DefectId;
+use crate::part::PartId;
 
 fn schema() -> DomainSchema {
     crate::builtin_schema("com.geo.telecom").expect("listed").expect("valid")
@@ -304,4 +305,64 @@ fn findings_draw_as_labelled_regions_in_their_severity_colour() {
     let Shape::Text { at, .. } = &shapes[3].shape else { panic!("label") };
     assert!(at.y > 0.0, "inside the photo at its top edge");
     assert!(crate::annotation::AnnotationSet::from_shapes(shapes).is_ok(), "valid markup");
+}
+
+fn part(id: &str) -> PartId {
+    PartId::parse(id).expect("part id")
+}
+
+#[test]
+fn a_finding_names_a_schema_part_or_none() {
+    let s = schema();
+    let mut set = FindingSet::new();
+    let on = |p: &str| Observation { part: Some(part(p)), ..obs("insulator.broken_disc") };
+    let id = set.add("8/0", None, "", on("insulator.left.y"), "", 1, &s).expect("added");
+    assert_eq!(set.get(&id).and_then(|f| f.part.clone()), Some(part("insulator.left.y")));
+    assert_eq!(
+        set.add("8/0", None, "", on("insulator.middle.y"), "", 1, &s),
+        Err(FindingError::UnknownPart("insulator.middle.y".into())),
+        "only the schema's parts"
+    );
+    // Moving it to another part, then clearing it; leaving the key out keeps it.
+    set.edit(&id, FindingEdit { part: Some(Some(part("insulator.right.y"))), ..Default::default() }, "", 2, &s).expect("moved");
+    set.edit(&id, FindingEdit { note: Some("2 discs".into()), ..Default::default() }, "", 3, &s).expect("noted");
+    assert_eq!(set.get(&id).and_then(|f| f.part.clone()), Some(part("insulator.right.y")));
+    let clear: FindingEdit = serde_json::from_str(r#"{"part": null}"#).expect("reads");
+    assert_eq!(clear.part, Some(None));
+    let leave: FindingEdit = serde_json::from_str(r#"{"note": "x"}"#).expect("reads");
+    assert_eq!(leave.part, None);
+    set.edit(&id, clear, "", 4, &s).expect("cleared");
+    assert_eq!(set.get(&id).and_then(|f| f.part.clone()), None);
+}
+
+#[test]
+fn sets_without_parts_stay_readable_by_older_builds() {
+    let s = schema();
+    let mut set = FindingSet::new();
+    let id = set.add("8/0", None, "", obs("bird_nest"), "", 1, &s).expect("added");
+    let v = serde_json::to_value(&set).expect("writes");
+    assert_eq!(v["version"], 1, "no parts: the old format");
+    assert!(v["findings"][0].get("part").is_none());
+    set.edit(&id, FindingEdit { part: Some(Some(part("earthwire.left"))), ..Default::default() }, "", 2, &s).expect("moved");
+    let v = serde_json::to_value(&set).expect("writes");
+    assert_eq!(v["version"], 2);
+    assert_eq!(v["findings"][0]["part"], "earthwire.left");
+    let mut back: FindingSet = serde_json::from_value(v).expect("reads");
+    assert_eq!(back.sanitize(), Ok(0));
+    assert_eq!(back, set);
+}
+
+#[test]
+fn part_health_is_per_asset() {
+    let s = schema();
+    let mut set = FindingSet::new();
+    let on = |d: &str, p: &str| Observation { part: Some(part(p)), ..obs(d) };
+    set.add("8/0", None, "", on("insulator.broken_disc", "insulator.left.y"), "", 1, &s).expect("added");
+    set.add("8/0", None, "", on("bird_nest", "earthwire.left"), "", 2, &s).expect("added");
+    set.add("8/0", None, "", obs("vegetation"), "", 3, &s).expect("added");
+    set.add("9/0", None, "", on("hardware.corrosion", "leg.c"), "", 4, &s).expect("added");
+    let h = set.part_health("8/0");
+    let parts: Vec<Option<&str>> = h.iter().map(|x| x.part.as_ref().map(PartId::as_str)).collect();
+    assert_eq!(parts, [Some("insulator.left.y"), None, Some("earthwire.left")], "high, then medium, then low");
+    assert!(set.part_health("10/0").is_empty());
 }

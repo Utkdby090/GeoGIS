@@ -9,6 +9,7 @@ use thiserror::Error;
 
 use crate::asset::Asset;
 use crate::defect::{DefectDef, DefectId, MAX_DEFECTS};
+use crate::part::{MAX_PART_ID, MAX_PARTS, PartDef, PartId};
 
 /// Form keys for the coordinates, which are core [`Asset`] fields rather than properties.
 pub mod core_fields {
@@ -21,8 +22,8 @@ pub mod core_fields {
 }
 
 /// The schema format this build reads. Files with a higher number come from a newer GeoFlux.
-/// 2 added `defects` and `findingFields`; format 1 files read unchanged.
-pub const SCHEMA_VERSION: u32 = 2;
+/// 2 added `defects` and `findingFields`; 3 added `parts`. Older files read unchanged.
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Bounds on a schema, so a hostile or broken file cannot make the app allocate without limit.
 pub const MAX_FIELDS: usize = 1_000;
@@ -228,6 +229,9 @@ pub struct DomainSchema {
     /// Form fields filled from findings rather than typed (format 2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub finding_fields: Vec<DerivedField>,
+    /// The parts of an asset a finding can be on, for the 3D model and the report (format 3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<PartDef>,
 }
 
 /// Why a schema file cannot be used.
@@ -259,6 +263,8 @@ pub enum SchemaError {
     BadDefect { id: String, problem: &'static str },
     #[error("findingFields: {0}")]
     BadFindingField(String),
+    #[error("part \"{id}\": {problem}")]
+    BadPart { id: String, problem: &'static str },
 }
 
 impl DomainSchema {
@@ -369,7 +375,19 @@ impl DomainSchema {
         }
         check_defects(&self.defects, &slots)?;
         check_finding_fields(&self.finding_fields, &keys)?;
+        check_parts(&self.parts)?;
         Ok(())
+    }
+
+    /// The part with this id.
+    pub fn part(&self, id: &PartId) -> Option<&PartDef> {
+        self.parts.iter().find(|p| p.id == *id)
+    }
+
+    /// What people read for a part id: its label, or the id itself when the schema no longer lists
+    /// it (a finding outlives a schema edit).
+    pub fn part_label<'a>(&'a self, id: &'a PartId) -> &'a str {
+        self.part(id).map_or(id.as_str(), |p| p.label.as_str())
     }
 
     /// The defect type with this id.
@@ -443,6 +461,31 @@ fn check_defects(defects: &[DefectDef], slots: &HashSet<&str>) -> Result<(), Sch
         }
         if d.slots.iter().any(|s| !slots.contains(s.as_str())) {
             return bad("names an image slot the schema doesn't have");
+        }
+    }
+    Ok(())
+}
+
+fn check_parts(parts: &[PartDef]) -> Result<(), SchemaError> {
+    if parts.len() > MAX_PARTS {
+        return Err(SchemaError::TooMany { what: "parts", limit: MAX_PARTS });
+    }
+    let mut ids = HashSet::new();
+    let mut nodes = HashSet::new();
+    for p in parts {
+        let bad = |problem| Err(SchemaError::BadPart { id: p.id.to_string(), problem });
+        if !ids.insert(&p.id) {
+            return bad("appears more than once");
+        }
+        if p.label.trim().is_empty() {
+            return bad("no label");
+        }
+        let node = p.node_name();
+        if node.len() > MAX_PART_ID || node.chars().any(char::is_control) || node.trim() != node {
+            return bad("the model node name is too long or has spaces at its ends");
+        }
+        if !nodes.insert(node) {
+            return bad("shares its model node with another part");
         }
     }
     Ok(())
@@ -584,6 +627,26 @@ mod tests {
             Err(SchemaError::BadCsv(_))
         ));
         assert_eq!(DomainSchema::from_json(&" ".repeat(MAX_SCHEMA_BYTES + 1)), Err(SchemaError::TooLarge));
+    }
+
+    #[test]
+    fn parts_are_checked() {
+        let parts = |d: serde_json::Value| with(|v| v["parts"] = d);
+        let ok = parts(serde_json::json!([{"id":"leg.a","label":"Leg A"},{"id":"leg.b","label":"Leg B","node":"LegB"}])).expect("valid");
+        let a = PartId::parse("leg.a").expect("id");
+        assert_eq!(ok.part_label(&a), "Leg A");
+        assert_eq!(ok.part_label(&PartId::parse("leg.z").expect("id")), "leg.z", "unlisted parts show as their id");
+        assert!(matches!(parts(serde_json::json!([{"id":"Leg A","label":"A"}])), Err(SchemaError::Json(_))));
+        assert!(matches!(
+            parts(serde_json::json!([{"id":"leg.a","label":"A"},{"id":"leg.a","label":"B"}])),
+            Err(SchemaError::BadPart { problem: "appears more than once", .. })
+        ));
+        assert!(matches!(parts(serde_json::json!([{"id":"leg.a","label":" "}])), Err(SchemaError::BadPart { problem: "no label", .. })));
+        assert!(matches!(
+            parts(serde_json::json!([{"id":"leg.a","label":"A","node":"leg.b"},{"id":"leg.b","label":"B"}])),
+            Err(SchemaError::BadPart { problem: "shares its model node with another part", .. })
+        ));
+        assert!(matches!(parts(serde_json::json!([{"id":"leg.a","label":"A","node":" x"}])), Err(SchemaError::BadPart { .. })));
     }
 
     #[test]

@@ -11,6 +11,7 @@
 //! - [`annotation`]: markup on a photo, kept as editable shapes (the photo is never changed).
 //! - [`photo_id`]: a photo's identity from its content, so moving a folder never orphans findings.
 //! - [`defect`]: the schema's defect types, the classes findings use.
+//! - [`part`]: the schema's asset parts (where on a tower a finding is), and each part's health.
 //! - [`finding`]: findings as records with provenance and review status; form fields derived from them.
 //! - [`inspector`]: the contract for automatic inspections (thermal rules now, AI models later).
 //! - [`images`]: a folder of inspection photos linked to assets and their image slots.
@@ -33,6 +34,7 @@ pub mod images;
 pub mod inspector;
 pub mod legacy;
 pub mod line_kml;
+pub mod part;
 pub mod photo_id;
 pub mod schema;
 pub mod sequence;
@@ -46,6 +48,7 @@ pub use defect::{DefectDef, DefectId};
 pub use finding::{Finding, FindingError, FindingId, FindingSet, FindingSource, FindingStatus, Observation, Region};
 pub use form::{FieldIssue, IssueKind};
 pub use inspector::Inspector;
+pub use part::{PartDef, PartHealth, PartId};
 pub use photo_id::PhotoId;
 pub use schema::{
     CsvColumn, CsvProfile, Derivation, DerivedField, DomainSchema, FieldDef, FieldType, FlagMatch, ImageSlotDef, SchemaError, SeverityRule,
