@@ -478,6 +478,44 @@ pub(crate) fn project_links(ui: &mut egui::Ui) {
     });
 }
 
+/// "Save changes?" before a command that would lose them (a new or opened project, quitting):
+/// Save, Don't Save or Cancel (Esc).
+pub fn unsaved_prompt(app: &mut RustGisApp, ctx: &egui::Context) {
+    let Some((id, _)) = &app.unsaved_prompt else { return };
+    let quitting = id == "ui.quit";
+    let name = app.session.project.name.clone();
+    let t = Tokens::get(ctx);
+    let mut answer: Option<Option<bool>> = None;
+    egui::Modal::new(egui::Id::new("unsaved_prompt")).show(ctx, |ui| {
+        ui.set_width(400.0);
+        ui.label(egui::RichText::new(crate::i18n::fmt("Save changes to {name}?", &[("name", &name)])).font(semibold(15.0)));
+        ui.add_space(4.0);
+        ui.label(if quitting {
+            tl!("Your changes will be lost if you close GeoGIS without saving.")
+        } else {
+            tl!("Your changes will be lost if you open another project without saving.")
+        });
+        if app.inspection.dirty() {
+            ui.label(egui::RichText::new(tl!("This includes the tower form you're editing.")).size(11.5).color(t.text_dim));
+        }
+        ui.add_space(10.0);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            if crate::widgets::primary_button(ui, tl!("Save"), true, vec2(88.0, 28.0)).clicked() {
+                answer = Some(Some(true));
+            }
+            if ui.button(tl!("Don't Save")).clicked() {
+                answer = Some(Some(false));
+            }
+            if ui.button(tl!("Cancel")).clicked() || ui.input(|i| i.key_pressed(Key::Escape)) {
+                answer = Some(None);
+            }
+        });
+    });
+    if let Some(a) = answer {
+        app.answer_unsaved(a);
+    }
+}
+
 pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
     if app.ui.about {
         let logo_tex = app.logo(ctx);
