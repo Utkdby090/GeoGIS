@@ -325,19 +325,24 @@ fn toolbar(ed: &mut Editor, ui: &mut Ui, t: &Tokens) {
     });
 }
 
-/// The photo, its markup and the shape being drawn; turns pointer input into shapes.
+/// The markup canvas's zoom and pan, in egui's memory.
+pub const ZOOM_ID: &str = "geoflux_markup_zoom";
+
+/// The photo, its markup and the shape being drawn; turns pointer input into shapes. The wheel
+/// zooms and a right-button drag pans; the left button draws.
 fn canvas(ed: &mut Editor, ui: &mut Ui, tex: &egui::TextureHandle, room: egui::Vec2) {
     let size = tex.size_vec2();
     let scale = (room.x / size.x).min(room.y / size.y).max(0.01);
-    let (rect, resp) = ui.allocate_exact_size(size * scale, egui::Sense::click_and_drag());
-    let painter = ui.painter_at(rect);
+    let (fit, resp) = ui.allocate_exact_size(size * scale, egui::Sense::click_and_drag());
+    let rect = crate::widgets::photo_zoom(ui, egui::Id::new(ZOOM_ID), ed.photo(), fit, &resp, false);
+    let painter = ui.painter_at(fit);
     painter.image(tex.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     paint(&painter, rect, ed.editor.set().shapes());
     let pointer = resp.interact_pointer_pos();
     let cursor = if ed.tool == Tool::Erase { egui::CursorIcon::PointingHand } else { egui::CursorIcon::Crosshair };
     let resp = resp.on_hover_cursor(cursor);
 
-    if resp.drag_started()
+    if resp.drag_started_by(egui::PointerButton::Primary)
         && let Some(p) = pointer.map(|p| to_photo(rect, p))
     {
         ed.drawing = match ed.tool {
@@ -348,7 +353,7 @@ fn canvas(ed: &mut Editor, ui: &mut Ui, tex: &egui::TextureHandle, room: egui::V
             Tool::Text | Tool::Marker | Tool::Erase => None,
         };
     }
-    if resp.dragged()
+    if resp.dragged_by(egui::PointerButton::Primary)
         && let (Some(pos), Some(shape)) = (pointer, ed.drawing.as_mut())
     {
         let p = to_photo(rect, pos);
@@ -367,7 +372,7 @@ fn canvas(ed: &mut Editor, ui: &mut Ui, tex: &egui::TextureHandle, room: egui::V
     if let Some(shape) = &ed.drawing {
         paint_one(&painter, rect, shape, ed.color, ed.width);
     }
-    if resp.drag_stopped()
+    if resp.drag_stopped_by(egui::PointerButton::Primary)
         && let Some(shape) = ed.drawing.take()
     {
         add(ed, shape);
