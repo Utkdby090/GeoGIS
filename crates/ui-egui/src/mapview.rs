@@ -1460,7 +1460,11 @@ fn view_tabs(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
             if is { semibold(12.0) } else { regular(12.0) },
             if is { t.text } else { t.text_dim },
         );
-        if resp.clicked() && !is {
+        // A project keeps at least one map, so the last one has no close button.
+        let close = names.len() > 1 && tab_close(ui, tr, egui::Id::new(("maptab_close", i)), is, &format!("{} {n}", tl!("Close map")), t);
+        if close || resp.middle_clicked() && names.len() > 1 {
+            close_tab(app, "map.remove", n, tl!("map"));
+        } else if resp.clicked() && !is {
             let _ = app.run("layout.close", Value::Null);
             let _ = app.run("map.activate", json!({"name": n}));
             app.map.popup = None;
@@ -1498,7 +1502,10 @@ fn view_tabs(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
             if is { semibold(12.0) } else { regular(12.0) },
             if is { t.text } else { t.text_dim },
         );
-        if resp.clicked() && !is {
+        if tab_close(ui, tr, egui::Id::new(("layouttab_close", i)), is, &format!("{} {n}", tl!("Close layout")), t) || resp.middle_clicked()
+        {
+            close_tab(app, "layout.remove", n, tl!("layout"));
+        } else if resp.clicked() && !is {
             let _ = app.run("layout.activate", json!({"name": n}));
             app.ui.tab = "Publish".into();
         }
@@ -1512,6 +1519,39 @@ fn view_tabs(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
     ui.painter().text(pr.center(), Align2::CENTER_CENTER, "+", regular(15.0), t.text_dim);
     if resp.on_hover_text(tl!("New Map")).clicked() {
         let _ = app.run("map.new", Value::Null);
+    }
+}
+
+/// The × at the right end of a view tab, shown on the open tab and on the one under the pointer,
+/// like browser tabs. Added after the tab's own response, so a click on it closes rather than
+/// switches. True when clicked.
+fn tab_close(ui: &mut Ui, tab: Rect, id: egui::Id, open: bool, label: &str, t: &Tokens) -> bool {
+    if !open && !ui.rect_contains_pointer(tab) {
+        return false;
+    }
+    let r = Rect::from_center_size(pos2(tab.max.x - 11.0, tab.center().y), vec2(16.0, 16.0));
+    let resp = ui.interact(r, id, Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label));
+    if resp.hovered() {
+        ui.painter().rect_filled(r, CornerRadius::same(3), t.hover);
+    }
+    let c = if resp.hovered() { t.text } else { t.text_dim };
+    let (a, b) = (r.shrink(4.5).min, r.shrink(4.5).max);
+    ui.painter().line_segment([a, b], Stroke::new(1.3, c));
+    ui.painter().line_segment([pos2(a.x, b.y), pos2(b.x, a.y)], Stroke::new(1.3, c));
+    resp.on_hover_text(tl!("Close (Ctrl+Z brings it back)")).clicked()
+}
+
+/// Closes a map or layout tab. Tabs list every map and layout in the project, so closing one
+/// removes it; the command is undoable, and the status bar says so.
+fn close_tab(app: &mut RustGisApp, cmd: &str, name: &str, kind: &str) {
+    match app.run(cmd, json!({"name": name})) {
+        Ok(_) => {
+            app.map.popup = None;
+            let text = crate::i18n::fmt("Closed {kind} {name}. Press Ctrl+Z to bring it back.", &[("kind", kind), ("name", name)]);
+            app.session.notify(text, false);
+        }
+        Err(e) => app.session.notify(e, true),
     }
 }
 

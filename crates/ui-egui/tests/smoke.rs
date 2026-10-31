@@ -816,3 +816,28 @@ fn findings_window_and_summary_render() {
     let _ = h.get_by_label("1. Other hot spot");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn map_tabs_close_and_undo_brings_them_back() {
+    let mut h = harness();
+    h.state_mut().run("map.new", json!({"name": "Second"})).unwrap();
+    for _ in 0..4 {
+        h.step();
+    }
+    let maps = |h: &mut egui_kittest::Harness<'static, RustGisApp>| {
+        h.state_mut().session.project.maps.iter().map(|m| m.name.clone()).collect::<Vec<_>>()
+    };
+    let before = maps(&mut h);
+    assert_eq!(before.len(), 2, "{before:?}");
+    // The open tab shows its close button; closing removes the map, and Ctrl+Z restores it.
+    h.get_by_label("Close map Second").click();
+    for _ in 0..4 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h).len(), 1);
+    assert!(h.state_mut().session.notices_since(0).iter().any(|n| n.text.contains("Closed map Second")));
+    // The last map has no close button.
+    assert!(h.query_by_label_contains("Close map").is_none());
+    h.state_mut().run("edit.undo", json!(null)).unwrap();
+    assert_eq!(maps(&mut h), before);
+}
