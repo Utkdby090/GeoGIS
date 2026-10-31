@@ -8,15 +8,17 @@
 use std::path::PathBuf;
 
 use geoflux_cloud::api::{DeviceList, Me, Member, MemberList, SurveyList};
+use geoflux_cloud::health::{HealthQuery, LineHealth, TowerHealth};
 use geoflux_cloud::model::{
     Billing, Device, Membership, Organisation, Role, Subscription, SubscriptionState, SurveyState, SurveySummary, User,
 };
 use geoflux_cloud::ports::{DeviceCodeRecord, DeviceCodeState};
-use geoflux_cloud::sync::{PhotoRef, PhotoType, SurveyAsset};
+use geoflux_cloud::sync::{PhotoRef, PhotoType, SurveyAsset, SyncedFinding};
 use geoflux_cloud::view::{PendingDevice, RevisionRef, SurveyDetail, TowerCollection, TowerDetail};
 use geoflux_cloud::{ApiError, DeviceId, ErrorCode, FieldError, OrgId, Sha256, SurveyId, UserId};
 use geoflux_domain::annotation::{Annotation, AnnotationSet, NormPoint, Shape};
-use geoflux_domain::{Asset, AssetDraft, GeoPoint, Properties, RecordStatus, Severity};
+use geoflux_domain::finding::{Decision, FindingSource, FindingStatus, Region};
+use geoflux_domain::{Asset, AssetDraft, DefectId, FindingId, GeoPoint, PartId, Properties, RecordStatus, Severity};
 use geoflux_licence::Plan;
 
 const T0: i64 = 1_790_000_000;
@@ -62,6 +64,38 @@ fn photo(slot: &str, seed: &[u8], markup: Option<AnnotationSet>) -> PhotoRef {
     }
 }
 
+/// Tower 101's findings: a rule's hot spot an engineer edited, a whole-tower finding, a proposal
+/// and a rejected one.
+fn findings() -> Vec<SyncedFinding> {
+    let f = |id: &str, photo: Option<&[u8]>, defect: &str, part: Option<&str>, severity: Severity, status: FindingStatus| SyncedFinding {
+        id: FindingId::parse(id).unwrap(),
+        photo: photo.map(Sha256::of),
+        region: if photo.is_some() { Region::Box { a: NormPoint::new(0.25, 0.25), b: NormPoint::new(0.5, 0.75) } } else { Region::Whole },
+        defect: DefectId::parse(defect).unwrap(),
+        part: part.map(|p| PartId::parse(p).unwrap()),
+        severity,
+        measurements: Default::default(),
+        note: String::new(),
+        source: FindingSource::Engineer { user: "asha@example.in".into() },
+        confidence: None,
+        status,
+        created: T0 * 1000,
+        decided: Some(Decision { by: "asha@example.in".into(), at: T0 * 1000 + 5 }),
+    };
+    let mut hot = f("f-hot", Some(b"1"), "hotspot.joint", Some("insulator.left.y"), Severity::Critical, FindingStatus::Edited);
+    hot.source = FindingSource::Rule { inspector: "geoflux.thermal.hotspot".into(), version: "1".into() };
+    hot.confidence = Some(0.9);
+    hot.measurements.insert("maxC".into(), 78.2);
+    hot.measurements.insert("riseC".into(), 41.7);
+    let mut proposal = f("f-new", Some(b"2"), "insulator.flashover", Some("insulator.right.r"), Severity::High, FindingStatus::Proposed);
+    proposal.decided = None;
+    proposal.source = FindingSource::Model { inspector: "geoflux.insulator".into(), version: "0.1".into() };
+    proposal.confidence = Some(0.62);
+    let mut veg = f("f-veg", None, "vegetation", None, Severity::Medium, FindingStatus::Confirmed);
+    veg.note = "Neem tree 3 m from B phase".into();
+    vec![hot, veg, proposal, f("f-no", None, "bird_nest", Some("earthwire.left"), Severity::Low, FindingStatus::Rejected)]
+}
+
 fn towers() -> Vec<SurveyAsset> {
     let tower = |id: &str, n: u32, label: &str, at: Option<(f64, f64)>, sev: Severity| {
         let mut props = Properties::new();
@@ -82,9 +116,14 @@ fn towers() -> Vec<SurveyAsset> {
         SurveyAsset {
             asset: tower("t1", 0, "101", Some((25.6, 85.1)), Severity::Critical),
             photos: vec![photo("THERMAL", b"1", Some(markup)), photo("STRUCTURE", b"2", None)],
+            findings: findings(),
         },
-        SurveyAsset { asset: tower("t2", 1, "102", Some((25.61, 85.12)), Severity::None), photos: vec![photo("THERMAL", b"3", None)] },
-        SurveyAsset { asset: tower("t3", 2, "", None, Severity::Medium), photos: vec![] },
+        SurveyAsset {
+            asset: tower("t2", 1, "102", Some((25.61, 85.12)), Severity::None),
+            photos: vec![photo("THERMAL", b"3", None)],
+            findings: vec![],
+        },
+        SurveyAsset { asset: tower("t3", 2, "", None, Severity::Medium), photos: vec![], findings: vec![] },
     ]
 }
 
@@ -132,6 +171,8 @@ fn fixtures() -> Vec<(&'static str, serde_json::Value)> {
         ("survey.json", v(serde_json::to_value(&detail))),
         ("towers.json", v(serde_json::to_value(&fc))),
         ("tower.json", v(serde_json::to_value(TowerDetail { survey: survey_id(), uploaded: towers[0].clone() }))),
+        ("health.json", v(serde_json::to_value(LineHealth::build(survey_id(), &towers, "towerNumber", HealthQuery::default())))),
+        ("tower-health.json", v(serde_json::to_value(TowerHealth::of(survey_id(), &towers[0], "towerNumber")))),
         ("pending-device.json", v(serde_json::to_value(PendingDevice::of(&pending, T0).unwrap()))),
         (
             "devices.json",

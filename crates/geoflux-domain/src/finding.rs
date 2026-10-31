@@ -1,7 +1,7 @@
 //! Findings: what is wrong with an asset, as records rather than form text.
 //!
 //! A [`Finding`] says which photo ([`PhotoId`]), where on it ([`Region`]), what ([`DefectId`] from
-//! the schema's taxonomy), how bad ([`Severity`]), what was measured, who or what found it
+//! the schema's taxonomy), which part of the asset ([`PartId`], optional), how bad ([`Severity`]), what was measured, who or what found it
 //! ([`FindingSource`]), how sure it was, and whether a person has decided on it
 //! ([`FindingStatus`]). An engineer's finding is confirmed when made; a rule's or model's finding
 //! is only *proposed* until a person confirms, edits or rejects it, and only confirmed and edited
@@ -24,11 +24,13 @@ use sha2::{Digest, Sha256};
 use crate::annotation::{Annotation, Color, MAX_PEN_POINTS, MAX_TEXT_CHARS, NormPoint, Shape};
 use crate::asset::{Properties, Severity};
 use crate::defect::DefectId;
+use crate::part::{PartHealth, PartId, part_health};
 use crate::photo_id::PhotoId;
 use crate::schema::{Derivation, DomainSchema};
 
 /// The stored format of a [`FindingSet`]. Higher numbers come from a newer GeoFlux.
-pub const FINDINGS_VERSION: u32 = 1;
+/// 2 added a finding's `part`; a set without parts is still written as 1, so older builds read it.
+pub const FINDINGS_VERSION: u32 = 2;
 /// Most findings in one layer (a 300-tower line at ~50 findings a tower is 15,000).
 pub const MAX_FINDINGS: usize = 100_000;
 /// Most findings one inspector run may add on one photo; more are dropped and counted.
@@ -248,6 +250,9 @@ pub struct Observation {
     #[serde(default)]
     pub region: Region,
     pub defect: Option<DefectId>,
+    /// Which part of the asset; `None` for the whole asset or when it isn't known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<PartId>,
     /// `None`: the defect type's default severity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub severity: Option<Severity>,
@@ -276,6 +281,9 @@ pub struct Finding {
     #[serde(default)]
     pub region: Region,
     pub defect: DefectId,
+    /// Which part of the asset (a schema part); `None` for the whole asset or not yet said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<PartId>,
     pub severity: Severity,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub measurements: BTreeMap<String, f64>,
@@ -300,6 +308,7 @@ impl Finding {
         Observation {
             region: self.region.clone(),
             defect: Some(self.defect.clone()),
+            part: self.part.clone(),
             severity: Some(self.severity),
             measurements: self.measurements.clone(),
             note: self.note.clone(),
@@ -325,12 +334,20 @@ pub struct FindingEdit {
     pub region: Option<Region>,
     #[serde(default)]
     pub defect: Option<DefectId>,
+    /// `Some(None)` clears the part (`"part": null`); a missing key leaves it.
+    #[serde(default, deserialize_with = "some_or_null")]
+    pub part: Option<Option<PartId>>,
     #[serde(default)]
     pub severity: Option<Severity>,
     #[serde(default)]
     pub measurements: Option<BTreeMap<String, f64>>,
     #[serde(default)]
     pub note: Option<String>,
+}
+
+/// A present key as `Some` (its value, `null` included), so an edit can tell "clear" from "leave".
+fn some_or_null<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<PartId>>, D::Error> {
+    Option::<PartId>::deserialize(d).map(Some)
 }
 
 /// How one inspector version's run on one photo of one asset ended.
@@ -384,6 +401,8 @@ pub enum FindingError {
     NoDefect,
     #[error("\"{0}\" isn't a defect type in this schema")]
     UnknownDefect(String),
+    #[error("\"{0}\" isn't a part in this schema")]
+    UnknownPart(String),
     #[error("\"{defect}\" isn't found on {slot} photos")]
     DefectNotForSlot { defect: String, slot: String },
     #[error("the region: {0}")]
@@ -548,6 +567,11 @@ fn checked(o: Observation, photo: bool, slot: &str, schema: &DomainSchema) -> Re
         }
         def.severity
     };
+    if let Some(part) = &o.part
+        && schema.part(part).is_none()
+    {
+        return Err(FindingError::UnknownPart(part.to_string()));
+    }
     if o.measurements.len() > MAX_MEASUREMENTS {
         return Err(FindingError::TooManyMeasurements);
     }
@@ -565,8 +589,9 @@ fn checked(o: Observation, photo: bool, slot: &str, schema: &DomainSchema) -> Re
     Ok((Observation { region, defect: Some(defect.clone()), severity: Some(severity), note, ..o }, defect, severity))
 }
 
-/// One layer's findings and inspection runs.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// One layer's findings and inspection runs. Written with the oldest format that holds it
+/// ([`FindingSet::written_version`]), so a project without parts still opens in older builds.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct FindingSet {
     version: u32,
     #[serde(default)]
@@ -576,6 +601,22 @@ pub struct FindingSet {
     /// Whether form values typed before findings existed have been carried over (once per layer).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     migrated: bool,
+}
+
+impl Serialize for FindingSet {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut st = s.serialize_struct("FindingSet", 4)?;
+        st.serialize_field("version", &self.written_version())?;
+        st.serialize_field("findings", &self.findings)?;
+        st.serialize_field("runs", &self.runs)?;
+        if self.migrated {
+            st.serialize_field("migrated", &true)?;
+        } else {
+            st.skip_field("migrated")?;
+        }
+        st.end()
+    }
 }
 
 impl Default for FindingSet {
@@ -626,6 +667,23 @@ impl FindingSet {
 
     pub fn findings(&self) -> &[Finding] {
         &self.findings
+    }
+
+    /// The format number it is saved with: a newer set's own (kept as read), else 2 when a finding
+    /// names a part, else 1.
+    pub fn written_version(&self) -> u32 {
+        if self.version > FINDINGS_VERSION {
+            self.version
+        } else if self.findings.iter().any(|f| f.part.is_some()) {
+            2
+        } else {
+            1
+        }
+    }
+
+    /// Each part's health on one asset, worst first ([`part_health`]).
+    pub fn part_health(&self, asset: &str) -> Vec<PartHealth> {
+        part_health(self.findings.iter().filter(|f| f.asset == asset).map(|f| (f.part.as_ref(), f.severity, f.status)))
     }
 
     pub fn runs(&self) -> &[InspectionRun] {
@@ -727,6 +785,7 @@ impl FindingSet {
             slot: slot.to_string(),
             region: o.region,
             defect,
+            part: o.part,
             severity,
             measurements: o.measurements,
             note: o.note,
@@ -812,6 +871,7 @@ impl FindingSet {
                         slot: slot.to_string(),
                         region: o.region,
                         defect,
+                        part: o.part,
                         severity,
                         measurements: o.measurements,
                         note: o.note,
@@ -874,6 +934,9 @@ impl FindingSet {
             // A new type starts at its own default unless a severity is given too.
             o.severity = edit.severity;
         }
+        if let Some(part) = edit.part {
+            o.part = part;
+        }
         if let Some(s) = edit.severity {
             o.severity = Some(s);
         }
@@ -890,6 +953,7 @@ impl FindingSet {
         }
         f.region = o.region;
         f.defect = defect;
+        f.part = o.part;
         f.severity = severity;
         f.measurements = o.measurements;
         f.note = o.note;
@@ -961,6 +1025,7 @@ impl FindingSet {
             slot: String::new(),
             region: Region::Whole,
             defect: DefectId::unclassified(),
+            part: None,
             severity,
             measurements,
             note,

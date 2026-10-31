@@ -348,6 +348,7 @@ fn add_finding(s: &mut Session, p: &Value) -> CmdResult {
     let observation = Observation {
         region: region_param(p)?.unwrap_or_default(),
         defect: Some(defect_param(p)?.ok_or("defect is required (a defect type id from the schema)")?),
+        part: None,
         severity: severity_param(p)?,
         measurements: measurements_param(p)?.unwrap_or_default(),
         note: ps(p, "note").unwrap_or("").to_string(),
@@ -407,6 +408,7 @@ fn edit_finding(s: &mut Session, p: &Value) -> CmdResult {
     let edit = FindingEdit {
         region: region_param(p)?,
         defect: defect_param(p)?,
+        part: None,
         severity: severity_param(p)?,
         measurements: measurements_param(p)?,
         note: ps(p, "note").map(str::to_string),
@@ -459,7 +461,15 @@ pub(crate) fn thermal_observation(schema: &DomainSchema, slot: &str, max_c: f32,
         (Some(r), Some(rule)) => Some(rule.thresholds.level(f64::from(r))),
         _ => None,
     };
-    Observation { region, defect: Some(thermal_defect(schema, slot)), severity, measurements, note: String::new(), confidence: None }
+    Observation {
+        region,
+        defect: Some(thermal_defect(schema, slot)),
+        part: None,
+        severity,
+        measurements,
+        note: String::new(),
+        confidence: None,
+    }
 }
 
 fn round1(v: f32) -> f64 {

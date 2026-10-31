@@ -12,6 +12,7 @@ import devices from "./fixtures/devices.json";
 import errorInvalid from "./fixtures/error-invalid.json";
 import errorNotFound from "./fixtures/error-not-found.json";
 import errorRateLimited from "./fixtures/error-rate-limited.json";
+import health from "./fixtures/health.json";
 import me from "./fixtures/me.json";
 import members from "./fixtures/members.json";
 import pendingDevice from "./fixtures/pending-device.json";
@@ -20,6 +21,7 @@ import schema from "./fixtures/schema.json";
 import survey from "./fixtures/survey.json";
 import surveys from "./fixtures/surveys.json";
 import tower from "./fixtures/tower.json";
+import towerHealth from "./fixtures/tower-health.json";
 import towers from "./fixtures/towers.json";
 
 const cases: [string, z.ZodType, unknown][] = [
@@ -32,6 +34,8 @@ const cases: [string, z.ZodType, unknown][] = [
   ["devices", S.DeviceList, devices],
   ["members", S.MemberList, members],
   ["schema", S.DomainSchema, schema],
+  ["line health", S.LineHealth, health],
+  ["tower health", S.TowerHealth, towerHealth],
   ["invalid field error", S.ApiErrorBody, errorInvalid],
   ["rate limit error", S.ApiErrorBody, errorRateLimited],
   ["not found error", S.ApiErrorBody, errorNotFound],
@@ -54,6 +58,17 @@ describe("schemas read what the server writes", () => {
     const fc = S.TowerCollection.parse(towers);
     expect(fc.features[0]?.geometry?.coordinates).toEqual([85.1, 25.6]);
     expect(fc.features.some((f) => f.geometry === null)).toBe(true);
+  });
+
+  it("reads tower parts and where findings sit on them", () => {
+    const parts = S.DomainSchema.parse(schema).parts ?? [];
+    expect(parts.map((p) => p.id)).toContain("insulator.left.r");
+    const t = S.TowerHealth.parse(towerHealth);
+    expect(t.parts[0]?.part).toBe("insulator.left.y");
+    expect(t.findings.every((f) => f.status !== "rejected")).toBe(true);
+    const h = S.LineHealth.parse(health);
+    expect(h.rows.map((r) => r.id)).toEqual(["t1", "t2", "t3"]);
+    expect(h.byPart.some((p) => p.part === null)).toBe(true);
   });
 
   it("refuses a body that isn't the expected shape", () => {

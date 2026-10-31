@@ -415,7 +415,65 @@
   ],
   "labelField": "towerNumber",
   "name": "Electric Grid Inspection",
-  "schemaVersion": 2,
+  "parts": [
+    {
+      "id": "earthwire.left",
+      "label": "Earthwire peak, left"
+    },
+    {
+      "id": "earthwire.right",
+      "label": "Earthwire peak, right"
+    },
+    {
+      "id": "insulator.left.r",
+      "label": "R phase insulator, left circuit"
+    },
+    {
+      "id": "insulator.left.y",
+      "label": "Y phase insulator, left circuit"
+    },
+    {
+      "id": "insulator.left.b",
+      "label": "B phase insulator, left circuit"
+    },
+    {
+      "id": "insulator.right.r",
+      "label": "R phase insulator, right circuit"
+    },
+    {
+      "id": "insulator.right.y",
+      "label": "Y phase insulator, right circuit"
+    },
+    {
+      "id": "insulator.right.b",
+      "label": "B phase insulator, right circuit"
+    },
+    {
+      "id": "body",
+      "label": "Body bracing"
+    },
+    {
+      "id": "plate",
+      "label": "Number and danger plates"
+    },
+    {
+      "id": "leg.a",
+      "label": "Leg A and foundation"
+    },
+    {
+      "id": "leg.b",
+      "label": "Leg B and foundation"
+    },
+    {
+      "id": "leg.c",
+      "label": "Leg C and foundation"
+    },
+    {
+      "id": "leg.d",
+      "label": "Leg D and foundation"
+    }
+  ],
+  "schemaVersion": 3,
   "severity": {
     "flaggedWhen": [
       {

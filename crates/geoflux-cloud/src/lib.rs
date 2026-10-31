@@ -10,6 +10,8 @@
 //!   [`auth::Principal`] whose [`auth::OrgScope`] every organisation read needs.
 //! - [`sync`]: the survey upload (a manifest, then photos by hash, then a commit).
 //! - [`view`]: what the web app reads: a survey, its towers as GeoJSON, one tower, reports.
+//! - [`health`]: the line health dashboard: towers rated by findings, tallies by defect and part,
+//!   and one tower's parts for the 3D view.
 //! - [`api`]: routes and request and response bodies.
 //! - [`error`]: one error shape for every route, with its HTTP status.
 //! - [`ports`]: storage, photos, mail, password hashing, randomness, rate limits and single
@@ -22,6 +24,7 @@
 pub mod api;
 pub mod auth;
 pub mod error;
+pub mod health;
 pub mod ids;
 pub mod model;
 pub mod plans;

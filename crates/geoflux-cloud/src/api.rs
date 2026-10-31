@@ -62,13 +62,17 @@ pub mod routes {
     pub const PHOTO: (&str, &str) = ("GET", "/api/v1/surveys/{id}/photos/{sha256}");
     pub const TOWER_REPORT: (&str, &str) = ("GET", "/api/v1/surveys/{id}/assets/{asset}/report.pdf");
     pub const LINE_REPORT: (&str, &str) = ("GET", "/api/v1/surveys/{id}/report.zip");
+    /// The line health dashboard, see [`crate::health::LineHealth`]; filters in the query string.
+    pub const SURVEY_HEALTH: (&str, &str) = ("GET", "/api/v1/surveys/{id}/health");
+    /// One tower's parts and findings for the 3D view, see [`crate::health::TowerHealth`].
+    pub const TOWER_HEALTH: (&str, &str) = ("GET", "/api/v1/surveys/{id}/assets/{asset}/health");
     /// A built-in schema's fields and photo slots, for labelling a tower's form (open).
     pub const SCHEMA: (&str, &str) = ("GET", "/api/v1/schemas/{id}");
 
     // Liveness for the host's health check (open).
     pub const HEALTH: (&str, &str) = ("GET", "/api/v1/health");
 
-    pub const ALL: [(&str, &str); 33] = [
+    pub const ALL: [(&str, &str); 35] = [
         SIGN_UP,
         LOG_IN,
         LOG_OUT,
@@ -100,6 +104,8 @@ pub mod routes {
         PHOTO,
         TOWER_REPORT,
         LINE_REPORT,
+        SURVEY_HEALTH,
+        TOWER_HEALTH,
         SCHEMA,
         HEALTH,
     ];

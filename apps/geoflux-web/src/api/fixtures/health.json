@@ -1,0 +1,85 @@
+{
+  "byDefect": [
+    {
+      "count": 1,
+      "defect": "hotspot.joint",
+      "worst": "critical"
+    },
+    {
+      "count": 1,
+      "defect": "vegetation",
+      "worst": "medium"
+    }
+  ],
+  "byPart": [
+    {
+      "count": 1,
+      "part": "insulator.left.y",
+      "worst": "critical"
+    },
+    {
+      "count": 1,
+      "part": null,
+      "worst": "medium"
+    }
+  ],
+  "findings": 2,
+  "inspected": 2,
+  "peaks": [
+    {
+      "measure": "maxC",
+      "tower": "t1",
+      "value": 78.2
+    },
+    {
+      "measure": "riseC",
+      "tower": "t1",
+      "value": 41.7
+    }
+  ],
+  "pending": 1,
+  "query": {},
+  "rows": [
+    {
+      "findings": 2,
+      "id": "t1",
+      "inspected": true,
+      "label": "101",
+      "pending": 1,
+      "position": 0,
+      "severity": "critical",
+      "top": {
+        "defect": "hotspot.joint",
+        "part": "insulator.left.y",
+        "severity": "critical"
+      }
+    },
+    {
+      "findings": 0,
+      "id": "t2",
+      "inspected": true,
+      "label": "102",
+      "pending": 0,
+      "position": 1,
+      "severity": "none"
+    },
+    {
+      "findings": 0,
+      "id": "t3",
+      "inspected": false,
+      "label": "t3",
+      "pending": 0,
+      "position": 2,
+      "severity": "none"
+    }
+  ],
+  "severityCounts": [
+    1,
+    0,
+    0,
+    0,
+    1
+  ],
+  "survey": "srv_03030303030303030303030303030303",
+  "towers": 3
+}

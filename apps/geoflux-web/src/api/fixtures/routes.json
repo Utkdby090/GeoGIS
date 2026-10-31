@@ -125,6 +125,14 @@
   ],
   [
     "GET",
+    "/api/v1/surveys/{id}/health"
+  ],
+  [
+    "GET",
+    "/api/v1/surveys/{id}/assets/{asset}/health"
+  ],
+  [
+    "GET",
     "/api/v1/schemas/{id}"
   ],
   [
