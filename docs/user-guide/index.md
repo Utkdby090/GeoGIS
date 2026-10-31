@@ -85,7 +85,8 @@ Every change is a command, and every command can be undone (++ctrl+z++) and redo
 | ++ctrl+t++ | Attribute table |
 | ++ctrl+f1++ | Collapse or expand the ribbon |
 | ++home++ | Full extent |
-| ++esc++ | Back to Explore; cancel a sketch |
+| ++esc++ (in a window) | Close the window under the pointer |
+| ++esc++ (on the map) | Back to Explore; cancel a sketch |
 | ++delete++ | Delete selected features |
 | ++ctrl+c++ / ++ctrl+x++ / ++ctrl+v++ | Copy / Cut / Paste features |
 

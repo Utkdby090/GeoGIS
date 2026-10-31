@@ -322,11 +322,13 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, layer: u32, row: usiz
     let (w, h) = (frame.width() as f32, frame.height() as f32);
     let room = ui.available_width();
     let size = vec2(room, (room * h / w.max(1.0)).min(room * 1.5));
-    let (rect, resp) = ui.allocate_exact_size(size, Sense::click_and_drag());
-    let painter = ui.painter_at(rect);
+    let (fit, resp) = ui.allocate_exact_size(size, Sense::click_and_drag());
+    // The wheel zooms and a right-button drag pans; the left button measures.
+    let rect = crate::widgets::photo_zoom(ui, egui::Id::new("geoflux_thermal_zoom"), &shown.key.path, fit, &resp, false);
+    let painter = ui.painter_at(fit);
     painter.image(tex.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     if busy {
-        painter.text(rect.right_top() + vec2(-6.0, 6.0), egui::Align2::RIGHT_TOP, "…", egui::FontId::proportional(14.0), Color32::WHITE);
+        painter.text(fit.left_top() + vec2(6.0, 6.0), egui::Align2::LEFT_TOP, "…", egui::FontId::proportional(14.0), Color32::WHITE);
     }
 
     let to_pixel = |p: Pos2| -> Pixel {
@@ -355,13 +357,13 @@ pub fn show(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens, layer: u32, row: usiz
             }
         }
         Tool::Box | Tool::Reference => {
-            if resp.drag_started()
+            if resp.drag_started_by(egui::PointerButton::Primary)
                 && let Some(p) = resp.interact_pointer_pos()
             {
                 st.drag_from = Some(to_pixel(p));
             }
             let current = st.drag_from.zip(resp.interact_pointer_pos().map(to_pixel)).map(|(a, b)| Region { a, b });
-            if resp.drag_stopped() {
+            if resp.drag_stopped_by(egui::PointerButton::Primary) {
                 st.drag_from = None;
                 if let Some(r) = current {
                     if st.tool == Tool::Box {

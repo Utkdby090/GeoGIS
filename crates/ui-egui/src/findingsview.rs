@@ -372,7 +372,13 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, layer: u32, r
     };
     let photo_id = rv.photo_id().and_then(|r| r.as_ref().ok()).cloned();
     let id_error = rv.photo_id().and_then(|r| r.as_ref().err()).cloned();
-    let texture = if rv.path.is_empty() { None } else { app.inspection.photo(&rv.path, true).cloned() };
+    let texture = if rv.path.is_empty() {
+        None
+    } else {
+        let level = crate::widgets::photo_zoom_level(ctx, egui::Id::new(ZOOM_ID), &rv.path);
+        let max_texture = ctx.input(|i| i.max_texture_side);
+        app.inspection.photo_view(&rv.path, level, max_texture).cloned()
+    };
     let dirty = app.inspection.dirty();
     // Every photo of the tower as (slot id, slot label, path), for the chooser.
     let slots: Vec<(&str, &str, &str)> = app.inspection.slots(layer, row).map_or_else(Vec::new, |s| {
@@ -406,9 +412,12 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, layer: u32, r
     let mut act: Option<Act> = None;
     let mut open = true;
     let title = crate::i18n::fmt("Findings · {tower}", &[("tower", label)]);
-    egui::Window::new(title).id(egui::Id::new("geoflux_findings")).open(&mut open).default_size(vec2(1180.0, 760.0)).resizable(true).show(
-        ctx,
-        |ui| {
+    egui::Window::new(title)
+        .id(egui::Id::new("geoflux_findings"))
+        .open(&mut open)
+        .default_size(crate::widgets::fit_screen(ctx, vec2(1180.0, 760.0)))
+        .resizable(true)
+        .show(ctx, |ui| {
             toolbar(&mut rv, ui, &slots, &mut act, pending_total);
             ui.separator();
             let room = ui.available_size();
@@ -441,10 +450,18 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, layer: u32, r
                     });
                 });
             });
-        },
-    );
+        });
     drop((here, elsewhere, slots));
     app.inspection.tower = Some(tc);
+    // Esc drops a finding being drawn or typed first, then closes the window.
+    if crate::widgets::esc_closes(ctx, egui::Id::new("geoflux_findings")) {
+        if rv.draft.is_some() || rv.drawing.is_some() {
+            rv.draft = None;
+            rv.drawing = None;
+        } else {
+            open = false;
+        }
+    }
     if !open {
         app.inspection.review = None;
         return;
@@ -501,13 +518,17 @@ fn toolbar(rv: &mut Review, ui: &mut Ui, slots: &[(&str, &str, &str)], act: &mut
     });
 }
 
+/// The canvas's zoom and pan, in egui's memory.
+const ZOOM_ID: &str = "geoflux_findings_zoom";
+
 /// The photo with the findings on it; a drag draws a box, a click picks a finding (or, with the
-/// point tool, places a point).
+/// point tool, places a point). The wheel zooms and a right-button drag pans.
 fn canvas(rv: &mut Review, ui: &mut Ui, t: &Tokens, tex: &egui::TextureHandle, room: egui::Vec2, here: &[&Finding]) {
     let size = tex.size_vec2();
     let scale = (room.x / size.x).min(room.y / size.y).max(0.01);
-    let (rect, resp) = ui.allocate_exact_size(size * scale, egui::Sense::click_and_drag());
-    let painter = ui.painter_at(rect);
+    let (fit, resp) = ui.allocate_exact_size(size * scale, egui::Sense::click_and_drag());
+    let rect = crate::widgets::photo_zoom(ui, egui::Id::new(ZOOM_ID), &rv.path, fit, &resp, false);
+    let painter = ui.painter_at(fit);
     painter.image(tex.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     for (i, f) in here.iter().enumerate() {
         let selected = rv.selected.as_deref() == Some(f.id.as_str());
@@ -526,18 +547,18 @@ fn canvas(rv: &mut Review, ui: &mut Ui, t: &Tokens, tex: &egui::TextureHandle, r
     }
     let resp = resp.on_hover_cursor(egui::CursorIcon::Crosshair);
     let pointer = resp.interact_pointer_pos();
-    if resp.drag_started()
+    if resp.drag_started_by(egui::PointerButton::Primary)
         && rv.tool == Tool::Box
         && let Some(p) = pointer.map(|p| to_photo(rect, p))
     {
         rv.drawing = Some((p, p));
     }
-    if resp.dragged()
+    if resp.dragged_by(egui::PointerButton::Primary)
         && let (Some(pos), Some((_, b))) = (pointer, rv.drawing.as_mut())
     {
         *b = to_photo(rect, pos);
     }
-    if resp.drag_stopped()
+    if resp.drag_stopped_by(egui::PointerButton::Primary)
         && let Some((a, b)) = rv.drawing.take()
     {
         let region =

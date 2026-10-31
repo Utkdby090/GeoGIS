@@ -171,6 +171,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
 fn account_window(app: &mut RustGisApp, ctx: &egui::Context) {
     let mut open = true;
     egui::Window::new(tl!("GeoFlux Account"))
+        .id(egui::Id::new("geoflux_account"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
@@ -193,7 +194,7 @@ fn account_window(app: &mut RustGisApp, ctx: &egui::Context) {
                 ui.label(RichText::new(tl!("Paid features are not locked yet: everything works without signing in.")).small().weak());
             }
         });
-    if !open {
+    if !open || crate::widgets::esc_closes(ctx, egui::Id::new("geoflux_account")) {
         app.cloud.open = false;
     }
 }
@@ -729,6 +730,7 @@ mod native {
         }
         let mut open = true;
         egui::Window::new(tl!("Sync to Cloud"))
+            .id(egui::Id::new("sync_to_cloud"))
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
@@ -777,7 +779,7 @@ mod native {
                 }
             });
         // Closing the window doesn't stop a running sync; it closes the result.
-        if !open && st.sync.is_none() {
+        if (!open || crate::widgets::esc_closes(ctx, egui::Id::new("sync_to_cloud"))) && st.sync.is_none() {
             st.sync_note = None;
         }
     }

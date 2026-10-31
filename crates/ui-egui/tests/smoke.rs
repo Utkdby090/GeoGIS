@@ -71,6 +71,11 @@ fn every_tab_pane_and_dialog_renders() {
     for _ in 0..4 {
         h.step();
     }
+    // The symbology edits above are unsaved: New Project asks first.
+    h.get_by_label("Don't Save").click();
+    for _ in 0..4 {
+        h.step();
+    }
     assert!(h.state().session.map().layers.is_empty());
 }
 
@@ -814,6 +819,76 @@ fn findings_window_and_summary_render() {
     }
     assert_eq!(h.state().inspection.row, Some(1));
     let _ = h.get_by_label("1. Other hot spot");
+    // The photo zooms in and back to the whole photo.
+    for _ in 0..20 {
+        if h.query_by_label("Zoom in").is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        h.step();
+    }
+    let _ = h.get_by_label("Zoom 100%");
+    h.get_by_label("Zoom in").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 150%");
+    h.get_by_label("Zoom in").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 225%");
+    h.get_by_label("Fit photo").click();
+    h.step();
+    h.step();
+    let _ = h.get_by_label("Zoom 100%");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn unsaved_changes_are_asked_about_before_they_are_lost() {
+    let mut h = harness();
+    let dir = std::env::temp_dir().join(format!("geogis-unsaved-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("line.rgis");
+    h.state_mut().run("project.saveAs", json!({"path": file.display().to_string()})).unwrap();
+    let maps = |h: &mut egui_kittest::Harness<'static, RustGisApp>| h.state_mut().session.project.maps.len();
+    // An edit, then New Project: held until answered.
+    h.state_mut().run("map.new", json!({"name": "Second"})).unwrap();
+    assert!(h.state_mut().has_unsaved_changes());
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 2, "nothing is replaced before the answer");
+    let _ = h.get_by_label_contains("Save changes to");
+    h.get_by_label("Cancel").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 2);
+    assert!(h.query_by_label_contains("Save changes to").is_none());
+    // Save: written to the project's file, then the new project opens.
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    h.get_by_label("Save").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 1);
+    assert!(std::fs::read_to_string(&file).unwrap().contains("Second"), "saved before replacing");
+    // Closing the window with changes: asked, and Don't Save lets it close.
+    h.state_mut().run("map.new", json!({"name": "Third"})).unwrap();
+    assert!(!h.state_mut().may_close());
+    for _ in 0..3 {
+        h.step();
+    }
+    let _ = h.get_by_label_contains("close GeoGIS");
+    h.get_by_label("Don't Save").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert!(h.state_mut().quit_requested && h.state_mut().may_close());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -897,4 +972,56 @@ fn recent_projects_reopen_from_the_project_page() {
     h.step();
     assert!(h.state().ui.recent.paths.is_empty());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Esc closes the frontmost window (or the one under the pointer) one at a time, and with the
+/// pointer over the map it stays the map's (back to Explore) and closes nothing.
+#[test]
+fn escape_closes_the_window_in_use() {
+    let mut h = harness();
+    for _ in 0..4 {
+        h.step();
+    }
+    h.state_mut().run("ui.about", json!(null)).unwrap();
+    h.state_mut().run("ui.shortcuts", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    let open = |h: &egui_kittest::Harness<'static, RustGisApp>| (h.state().ui.about, h.state().ui.shortcuts);
+    assert_eq!(open(&h), (true, true));
+    // Over the map: Esc is the map's.
+    h.state_mut().run("tool.set", json!({"tool": "measure"})).unwrap();
+    h.step();
+    h.hover_at(egui::pos2(420.0, 760.0));
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (true, true), "nothing closed from the map");
+    assert_eq!(h.state().session.tool.code(), "explore", "Esc on the map still goes back to Explore");
+    // Command Search (a modal) takes Esc itself: the windows behind it stay.
+    h.state_mut().run("ui.commandSearch", json!(null)).unwrap();
+    h.event(egui::Event::PointerGone);
+    h.step();
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert!(h.state().ui.command_search.is_none(), "Command Search closed");
+    assert_eq!(open(&h), (true, true), "only Command Search closed");
+    // Pointer over the shortcuts window: it closes, About stays.
+    let at = h.get_by_label("Close the window under the pointer").rect().center();
+    h.hover_at(at);
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (true, false));
+    let at = h.query_by_label_contains("A fast, free and open-source GIS").unwrap().rect().center();
+    h.hover_at(at);
+    h.step();
+    h.key_press(egui::Key::Escape);
+    h.step();
+    h.step();
+    assert_eq!(open(&h), (false, false));
 }
