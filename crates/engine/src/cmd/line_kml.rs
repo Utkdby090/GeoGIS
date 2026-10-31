@@ -58,7 +58,16 @@ fn import_line_kml(s: &mut Session, p: &Value) -> CmdResult {
 
     // Spans first, so the towers draw over them.
     let mut lines = Vec::new();
-    for layer in others {
+    for mut layer in others {
+        // Named for what they are: the file's own layer names are often all the line's name.
+        let kind = match layer.dataset.geometry_type {
+            GeometryType::Polyline => Some("Spans"),
+            GeometryType::Polygon => Some("Areas"),
+            _ => None,
+        };
+        if let Some(kind) = kind {
+            layer.dataset.name = format!("{kind} · {line}");
+        }
         let id = super::layer::add_dataset(s, layer.dataset);
         super::layer::apply_styles(s, id, &layer.styles);
         lines.push(id);
@@ -139,6 +148,43 @@ mod tests {
         assert_eq!(span.dataset.geometry_type, GeometryType::Polyline);
         assert_eq!(s.project.geoflux.schema_of(span.id), None);
         assert!(s.can_undo());
+    }
+
+    #[test]
+    fn spans_are_named_and_one_style_is_one_symbol() {
+        let mut s = Session::new(Project::default());
+        let r = s.run("geoflux.importLineKml", &json!({"text": LINE, "name": "TW 01"})).expect("import");
+        let span = s.map().layer(r["lines"][0].as_u64().expect("id") as u32).expect("span layer");
+        assert_eq!(span.name, "Spans · BHADLA III TO SIKAR II LINE");
+        // The file's style id ("#span") isn't a legend class: the layer has one red symbol.
+        let rustgis_map::Renderer::Single(sym) = &span.renderer else { panic!("one symbol, got {:?}", span.renderer) };
+        assert_eq!(sym.stroke, rustgis_map::Rgba::new(0xFF, 0, 0, 0xFF));
+    }
+
+    /// Zoomed out to a whole line, close towers draw once each spot instead of as a solid band.
+    #[test]
+    fn towers_thin_out_when_zoomed_out() {
+        let mut kml = String::from("<kml><Document><name>L</name>");
+        for i in 0..240 {
+            let lon = 75.0 + f64::from(i) * 0.0015;
+            kml.push_str(&format!("<Placemark><name>{}/0</name><Point><coordinates>{lon},27.5</coordinates></Point></Placemark>", i + 1));
+        }
+        kml.push_str("</Document></kml>");
+        let mut s = Session::new(Project::default());
+        let id = s.run("geoflux.importLineKml", &json!({"text": kml})).expect("import")["layer"].as_u64().expect("id") as u32;
+        assert!(s.map().layer(id).expect("layer").thin_points);
+        s.run("layer.zoomTo", &json!({"layer": id})).expect("zoom");
+        s.run("map.zoomOut", &Value::Null).expect("zoom out");
+        let dark = |s: &mut Session| {
+            let v = crate::render::View { width: 800.0, height: 600.0, pixels_per_point: 1.0, camera: s.map().camera, dark: false };
+            let r = crate::render::render(s.map_mut(), &v).expect("render");
+            r.pixmap.pixels().iter().filter(|p| p.alpha() > 200 && p.red() < 80 && p.green() < 80 && p.blue() < 80).count()
+        };
+        let thinned = dark(&mut s);
+        s.map_mut().layer_mut(id).expect("layer").thin_points = false;
+        let all = dark(&mut s);
+        assert!(thinned > 0, "towers still draw");
+        assert!((thinned as f64) < all as f64 * 0.6, "thinned {thinned} vs all {all} outline pixels");
     }
 
     #[test]
