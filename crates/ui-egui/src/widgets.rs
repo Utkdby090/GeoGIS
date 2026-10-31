@@ -361,3 +361,185 @@ pub fn icon_button(ui: &mut Ui, icon: &str, hover: &str) -> Response {
     icons::paint(ui.painter(), r.shrink(5.0), icon, t.text, t.accent);
     resp.on_hover_text(hover)
 }
+
+/// Zoom and pan of a photo shown fitted in a box: 1 is the whole photo, up to [`MAX_PHOTO_ZOOM`].
+/// Kept in egui's memory per view, and reset when the view shows another photo.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PhotoZoom {
+    zoom: f32,
+    /// The photo point (0..1 each way) at the middle of the box.
+    centre: egui::Pos2,
+    /// Which photo it is for (a hash of its path).
+    photo: u64,
+}
+
+pub const MAX_PHOTO_ZOOM: f32 = 8.0;
+
+impl PhotoZoom {
+    fn new(photo: u64) -> Self {
+        Self { zoom: 1.0, centre: pos2(0.5, 0.5), photo }
+    }
+
+    /// The photo's rectangle on screen; larger than `fit` once zoomed in.
+    fn rect(&self, fit: Rect) -> Rect {
+        let size = fit.size() * self.zoom;
+        Rect::from_min_size(fit.center() - vec2(self.centre.x * size.x, self.centre.y * size.y), size)
+    }
+
+    /// Keeps the zoom in range and the photo covering the box.
+    fn clamp(&mut self) {
+        self.zoom = self.zoom.clamp(1.0, MAX_PHOTO_ZOOM);
+        let half = 0.5 / self.zoom;
+        self.centre = pos2(self.centre.x.clamp(half, 1.0 - half), self.centre.y.clamp(half, 1.0 - half));
+    }
+
+    /// Zooms by `factor` keeping the photo point under `at` (a screen point in `fit`) still.
+    fn zoom_about(&mut self, fit: Rect, at: egui::Pos2, factor: f32) {
+        let before = self.rect(fit);
+        let p = (at - before.min) / before.size();
+        self.zoom = (self.zoom * factor).clamp(1.0, MAX_PHOTO_ZOOM);
+        let size = fit.size() * self.zoom;
+        let off = (at - fit.center()) / size;
+        self.centre = pos2(p.x - off.x, p.y - off.y);
+        self.clamp();
+    }
+}
+
+fn photo_hash(photo: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    photo.hash(&mut h);
+    h.finish()
+}
+
+/// How far the view `id` is zoomed into `photo` (1 when not, or when it shows another photo).
+/// Read before drawing, to pick a sharper copy of the photo once zoomed in.
+pub fn photo_zoom_level(ctx: &egui::Context, id: egui::Id, photo: &str) -> f32 {
+    let key = photo_hash(photo);
+    ctx.data(|d| d.get_temp::<PhotoZoom>(id)).filter(|z| z.photo == key).map_or(1.0, |z| z.zoom)
+}
+
+/// Zoom and pan for a photo fitted into `fit` (the area `resp` covers): the mouse wheel or a
+/// pinch zooms about the pointer, a right- or middle-button drag pans (a left drag too when
+/// `left_pans`, for views where it draws nothing), a double-click goes back to the whole photo,
+/// and small − / + / Fit buttons sit in the corner. Returns the photo's rectangle on screen, to
+/// draw it (clipped to `fit`) and to map between screen and photo points.
+pub fn photo_zoom(ui: &mut Ui, id: egui::Id, photo: &str, fit: Rect, resp: &Response, left_pans: bool) -> Rect {
+    let key = photo_hash(photo);
+    let mut z = ui.ctx().data(|d| d.get_temp::<PhotoZoom>(id)).filter(|z| z.photo == key).unwrap_or_else(|| PhotoZoom::new(key));
+    let before = z;
+    if resp.hovered()
+        && let Some(at) = resp.hover_pos()
+    {
+        let (wheel, pinch) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
+        let factor = pinch * (wheel * 0.002).exp();
+        if (factor - 1.0).abs() > 1e-4 {
+            z.zoom_about(fit, at, factor);
+            // The wheel zoomed the photo: it doesn't also scroll the window around it.
+            ui.input_mut(|i| i.smooth_scroll_delta = egui::Vec2::ZERO);
+        }
+    }
+    let panning = resp.dragged_by(egui::PointerButton::Secondary)
+        || resp.dragged_by(egui::PointerButton::Middle)
+        || (left_pans && resp.dragged_by(egui::PointerButton::Primary));
+    if panning && z.zoom > 1.0 {
+        let d = resp.drag_delta() / (fit.size() * z.zoom);
+        z.centre -= d;
+        z.clamp();
+    }
+    if resp.double_clicked() {
+        z = PhotoZoom::new(key);
+    }
+    // − / + / Fit, top right of the photo.
+    let t = Tokens::get(ui.ctx());
+    let bar = Rect::from_min_size(pos2(fit.max.x - 178.0, fit.min.y + 6.0), vec2(172.0, 24.0));
+    if fit.width() > 220.0 && fit.height() > 60.0 {
+        // Drawn on a layer kept just above this one, so the photo (painted after) can't cover it.
+        let layer = egui::LayerId::new(ui.layer_id().order, id.with("zoom_bar"));
+        ui.ctx().set_sublayer(ui.layer_id(), layer);
+        let painter = ui.painter().clone().with_layer_id(layer);
+        painter.rect_filled(bar, CornerRadius::same(5), t.pane.gamma_multiply(0.92));
+        let pct = format!("{:.0}%", z.zoom * 100.0);
+        let level = ui.interact(Rect::from_min_size(bar.min, vec2(50.0, 24.0)), id.with("zoom_level"), Sense::hover());
+        level.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, format!("Zoom {pct}")));
+        painter.text(pos2(bar.min.x + 25.0, bar.center().y), Align2::CENTER_CENTER, pct, regular(12.0), t.text_dim);
+        let cells = [("−", 1.0 / 1.5), ("+", 1.5), ("Fit", 0.0)];
+        for (k, (label, factor)) in cells.into_iter().enumerate() {
+            let w = if k == 2 { 46.0 } else { 36.0 };
+            let x = bar.min.x + 50.0 + (k as f32) * 40.0;
+            let r = Rect::from_min_size(pos2(x, bar.min.y + 2.0), vec2(w, 20.0));
+            let b = ui.interact(r, id.with(("zoom_button", k)), Sense::click());
+            b.widget_info(|| {
+                let name = match k {
+                    0 => crate::tl!("Zoom out"),
+                    1 => crate::tl!("Zoom in"),
+                    _ => crate::tl!("Fit photo"),
+                };
+                egui::WidgetInfo::labeled(egui::WidgetType::Button, true, name)
+            });
+            if b.hovered() {
+                painter.rect_filled(r, CornerRadius::same(4), t.hover);
+            }
+            let label = if k == 2 { crate::tl!("Fit") } else { label };
+            painter.text(r.center(), Align2::CENTER_CENTER, label, regular(13.0), t.text);
+            if b.clicked() {
+                if factor == 0.0 {
+                    z = PhotoZoom::new(key);
+                } else {
+                    z.zoom_about(fit, fit.center(), factor);
+                }
+            }
+        }
+    }
+    if z != before || ui.ctx().data(|d| d.get_temp::<PhotoZoom>(id)).is_none() {
+        ui.ctx().data_mut(|d| d.insert_temp(id, z));
+    }
+    if panning && z.zoom > 1.0 {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+    }
+    z.rect(fit)
+}
+
+#[cfg(test)]
+mod photo_zoom_tests {
+    use super::*;
+
+    fn fit() -> Rect {
+        Rect::from_min_size(pos2(100.0, 50.0), vec2(400.0, 300.0))
+    }
+
+    #[test]
+    fn whole_photo_fills_the_box() {
+        assert_eq!(PhotoZoom::new(1).rect(fit()), fit());
+    }
+
+    #[test]
+    fn zooming_keeps_the_point_under_the_pointer_still() {
+        let mut z = PhotoZoom::new(1);
+        let at = pos2(180.0, 120.0);
+        let before = (at - z.rect(fit()).min) / z.rect(fit()).size();
+        z.zoom_about(fit(), at, 2.5);
+        let r = z.rect(fit());
+        let after = (at - r.min) / r.size();
+        assert!((z.zoom - 2.5).abs() < 1e-5);
+        assert!((before - after).length() < 1e-4, "{before:?} vs {after:?}");
+        assert!(r.contains_rect(fit()), "the zoomed photo still covers the box");
+    }
+
+    #[test]
+    fn zoom_stays_in_range_and_the_photo_covers_the_box() {
+        let mut z = PhotoZoom::new(1);
+        z.zoom_about(fit(), fit().left_top(), 100.0);
+        assert_eq!(z.zoom, MAX_PHOTO_ZOOM);
+        assert!(z.rect(fit()).contains_rect(fit()));
+        z.zoom_about(fit(), fit().right_bottom(), 0.001);
+        assert_eq!(z.zoom, 1.0);
+        assert_eq!(z.rect(fit()), fit());
+        // Panning past the edge stops at the edge.
+        z.zoom = 4.0;
+        z.centre = pos2(-3.0, 9.0);
+        z.clamp();
+        assert_eq!(z.centre, pos2(0.125, 0.875));
+        assert!(z.rect(fit()).contains_rect(fit()));
+    }
+}
