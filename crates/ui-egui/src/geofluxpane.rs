@@ -595,6 +595,24 @@ pub(crate) fn go(app: &mut RustGisApp, layer: u32, row: usize) {
     }
 }
 
+/// Saves the tower form's unsaved values, if any (before the project is saved or replaced).
+/// False when they were refused; the pane then says why.
+pub(crate) fn save_open_form(app: &mut RustGisApp) -> bool {
+    match (app.inspection.dirty(), app.inspection.layer, app.inspection.row) {
+        (true, Some(layer), Some(row)) => save_form(app, layer, row),
+        _ => true,
+    }
+}
+
+/// Throws away the tower form's unsaved values, as Revert does.
+pub(crate) fn discard_open_form(app: &mut RustGisApp) {
+    let st = &mut app.inspection;
+    if st.dirty() {
+        st.values = st.original.clone();
+        st.issues = form::validate(&st.fields, &st.values);
+    }
+}
+
 /// Saves the changed values as one undoable edit. False when they were refused.
 fn save_form(app: &mut RustGisApp, layer: u32, row: usize) -> bool {
     let st = &app.inspection;

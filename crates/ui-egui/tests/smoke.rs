@@ -71,6 +71,11 @@ fn every_tab_pane_and_dialog_renders() {
     for _ in 0..4 {
         h.step();
     }
+    // The symbology edits above are unsaved: New Project asks first.
+    h.get_by_label("Don't Save").click();
+    for _ in 0..4 {
+        h.step();
+    }
     assert!(h.state().session.map().layers.is_empty());
 }
 
@@ -814,6 +819,55 @@ fn findings_window_and_summary_render() {
     }
     assert_eq!(h.state().inspection.row, Some(1));
     let _ = h.get_by_label("1. Other hot spot");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn unsaved_changes_are_asked_about_before_they_are_lost() {
+    let mut h = harness();
+    let dir = std::env::temp_dir().join(format!("geogis-unsaved-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("line.rgis");
+    h.state_mut().run("project.saveAs", json!({"path": file.display().to_string()})).unwrap();
+    let maps = |h: &mut egui_kittest::Harness<'static, RustGisApp>| h.state_mut().session.project.maps.len();
+    // An edit, then New Project: held until answered.
+    h.state_mut().run("map.new", json!({"name": "Second"})).unwrap();
+    assert!(h.state_mut().has_unsaved_changes());
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 2, "nothing is replaced before the answer");
+    let _ = h.get_by_label_contains("Save changes to");
+    h.get_by_label("Cancel").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 2);
+    assert!(h.query_by_label_contains("Save changes to").is_none());
+    // Save: written to the project's file, then the new project opens.
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    for _ in 0..3 {
+        h.step();
+    }
+    h.get_by_label("Save").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(maps(&mut h), 1);
+    assert!(std::fs::read_to_string(&file).unwrap().contains("Second"), "saved before replacing");
+    // Closing the window with changes: asked, and Don't Save lets it close.
+    h.state_mut().run("map.new", json!({"name": "Third"})).unwrap();
+    assert!(!h.state_mut().may_close());
+    for _ in 0..3 {
+        h.step();
+    }
+    let _ = h.get_by_label_contains("close GeoGIS");
+    h.get_by_label("Don't Save").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert!(h.state_mut().quit_requested && h.state_mut().may_close());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
