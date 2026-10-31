@@ -948,7 +948,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
         .open(&mut open)
         .collapsible(false)
         .resizable(true)
-        .default_size(vec2(560.0_f32.min(screen.width() - 32.0), 520.0_f32.min(screen.height() - 80.0)))
+        .default_size(crate::widgets::fit_screen(ctx, vec2(560.0, 520.0)))
         .pivot(Align2::CENTER_CENTER)
         .default_pos(screen.center())
         .show(ctx, |ui| {
@@ -975,7 +975,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
                 }
             }
         });
-    if !open {
+    if !open || crate::widgets::esc_closes(ctx, egui::Id::new("plugin_manager")) {
         app.plugins.open = false;
         app.plugins.message = None;
     }

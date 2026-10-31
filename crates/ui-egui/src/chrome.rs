@@ -482,7 +482,7 @@ pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
     if app.ui.about {
         let logo_tex = app.logo(ctx);
         let mut open = true;
-        egui::Window::new(tl!("About GeoGIS")).open(&mut open).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).show(ctx, |ui| {
+        egui::Window::new(tl!("About GeoGIS")).id(egui::Id::new("about")).open(&mut open).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).show(ctx, |ui| {
             ui.set_width(420.0);
             ui.horizontal(|ui| {
                 let (r, _) = ui.allocate_exact_size(vec2(56.0, 56.0), Sense::hover());
@@ -503,11 +503,12 @@ pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
             let (fonts_from, _) = (rustgis_engine::render::fonts::ui_fonts().source.clone(), ());
             ui.label(egui::RichText::new(crate::i18n::fmt("Interface font: {font}", &[("font", &fonts_from)])).small().weak());
         });
-        app.ui.about = open;
+        app.ui.about = open && !crate::widgets::esc_closes(ctx, egui::Id::new("about"));
     }
     if app.ui.shortcuts {
         let mut open = true;
         egui::Window::new(tl!("Keyboard Shortcuts"))
+            .id(egui::Id::new("shortcuts"))
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
@@ -523,7 +524,8 @@ pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
                         ("Ctrl+F1", "Collapse or expand the ribbon"),
                         ("Ctrl+= / Ctrl+-", "Zoom in / out"),
                         ("Home", "Full extent"),
-                        ("Esc", "Back to Explore; cancel a sketch"),
+                        ("Esc (in a window)", "Close the window under the pointer"),
+                        ("Esc (on the map)", "Back to Explore; cancel a sketch"),
                         ("Delete", "Delete selected features"),
                         ("Mouse wheel", "Zoom about the pointer"),
                         ("Drag / middle-drag", "Pan (Explore) · any tool"),
@@ -536,7 +538,7 @@ pub fn about(app: &mut RustGisApp, ctx: &egui::Context) {
                     }
                 });
             });
-        app.ui.shortcuts = open;
+        app.ui.shortcuts = open && !crate::widgets::esc_closes(ctx, egui::Id::new("shortcuts"));
     }
 }
 

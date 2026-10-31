@@ -1038,9 +1038,12 @@ fn viewer(st: &mut InspectionState, ctx: &egui::Context, t: &Tokens) {
     let Some(path) = st.viewer.clone() else { return };
     let name = path.rsplit(['/', '\\']).next().unwrap_or(&path).to_string();
     let mut open = true;
-    egui::Window::new(name).id(egui::Id::new("geoflux_viewer")).open(&mut open).default_size(vec2(900.0, 700.0)).resizable(true).show(
-        ctx,
-        |ui| {
+    egui::Window::new(name)
+        .id(egui::Id::new("geoflux_viewer"))
+        .open(&mut open)
+        .default_size(crate::widgets::fit_screen(ctx, vec2(900.0, 700.0)))
+        .resizable(true)
+        .show(ctx, |ui| {
             let room = ui.available_size() - vec2(0.0, 28.0);
             match st.cache.get(&path, VIEW_SIDE) {
                 Some(Ok(tex)) => {
@@ -1062,9 +1065,8 @@ fn viewer(st: &mut InspectionState, ctx: &egui::Context, t: &Tokens) {
                     st.message = Some((e, true));
                 }
             });
-        },
-    );
-    if !open {
+        });
+    if !open || crate::widgets::esc_closes(ctx, egui::Id::new("geoflux_viewer")) {
         st.viewer = None;
     }
 }

@@ -310,7 +310,7 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context) {
             ui.label(egui::RichText::new(i).color(t.green));
         }
     });
-    if !open || close {
+    if !open || close || crate::widgets::esc_closes(ctx, egui::Id::new("dialog")) {
         app.dialogs.open = None;
     }
 }

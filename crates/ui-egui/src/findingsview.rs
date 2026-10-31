@@ -406,9 +406,12 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, layer: u32, r
     let mut act: Option<Act> = None;
     let mut open = true;
     let title = crate::i18n::fmt("Findings · {tower}", &[("tower", label)]);
-    egui::Window::new(title).id(egui::Id::new("geoflux_findings")).open(&mut open).default_size(vec2(1180.0, 760.0)).resizable(true).show(
-        ctx,
-        |ui| {
+    egui::Window::new(title)
+        .id(egui::Id::new("geoflux_findings"))
+        .open(&mut open)
+        .default_size(crate::widgets::fit_screen(ctx, vec2(1180.0, 760.0)))
+        .resizable(true)
+        .show(ctx, |ui| {
             toolbar(&mut rv, ui, &slots, &mut act, pending_total);
             ui.separator();
             let room = ui.available_size();
@@ -441,10 +444,18 @@ pub fn show(app: &mut RustGisApp, ctx: &egui::Context, t: &Tokens, layer: u32, r
                     });
                 });
             });
-        },
-    );
+        });
     drop((here, elsewhere, slots));
     app.inspection.tower = Some(tc);
+    // Esc drops a finding being drawn or typed first, then closes the window.
+    if crate::widgets::esc_closes(ctx, egui::Id::new("geoflux_findings")) {
+        if rv.draft.is_some() || rv.drawing.is_some() {
+            rv.draft = None;
+            rv.drawing = None;
+        } else {
+            open = false;
+        }
+    }
     if !open {
         app.inspection.review = None;
         return;
