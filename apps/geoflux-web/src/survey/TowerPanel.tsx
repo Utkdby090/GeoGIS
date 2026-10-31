@@ -8,6 +8,7 @@ import { describeFailure } from "../api/http";
 import type { DomainSchema, PhotoRef, TowerDetail } from "../api/schemas";
 import { useApi } from "../app/api-context";
 import { Loading, Notice } from "../app/ui";
+import { TowerHealthView } from "../tower3d/TowerHealthView";
 import { markupElements } from "./markup";
 
 export interface TowerPanelProps {
@@ -74,6 +75,7 @@ function TowerBody({ detail, schema, reportUrl, label }: { detail: TowerDetail; 
           Tower PDF
         </a>
       </p>
+      <TowerHealthView surveyId={detail.survey} towerId={detail.asset.id} schema={schema} />
       <div className="photos">
         {slots.map((slot) => {
           const photo = detail.photos.find((p) => p.slot === slot.id);

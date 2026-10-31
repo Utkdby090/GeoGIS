@@ -16,6 +16,7 @@ fn content_type(path: &Path) -> Option<&'static str> {
         "png" => "image/png",
         "ico" => "image/x-icon",
         "woff2" => "font/woff2",
+        "glb" => "model/gltf-binary",
         "txt" => "text/plain; charset=utf-8",
         // Source maps and anything unexpected stay out of the binary.
         _ => return None,

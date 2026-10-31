@@ -231,3 +231,19 @@ table.list.compact th, table.list.compact td { padding: 0.35rem 0.5rem; font-siz
 table.list.compact { border: 0; }
 .sev-tag { display: inline-flex; align-items: center; gap: 0.35rem; }
 .react-grid-item.react-grid-placeholder { background: var(--accent); opacity: 0.15; border-radius: 8px; }
+
+/* A tower's health in the tower panel: the 3D tower, its parts and findings. */
+.tower-health { margin: 0 0 1rem; }
+.tower-health h3 { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.4rem; }
+.tower-health h3 button { text-transform: none; letter-spacing: 0; }
+.tower-3d { position: relative; height: 18rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; touch-action: none; }
+.tower-3d canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.part-list { list-style: none; margin: 0.5rem 0; padding: 0; }
+.part-list button { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; border: 0; border-radius: 4px; padding: 0.3rem 0.4rem; background: none; }
+.part-list button:hover, .part-list button[aria-pressed="true"] { background: var(--info-bg); }
+.part-list .label { flex: 1; }
+.tower-health h4 { margin: 0.5rem 0 0.25rem; }
+.finding-list { list-style: none; margin: 0; padding: 0; }
+.finding-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.finding-list .note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tag { margin-left: 0.4rem; font-size: 0.75rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--info-bg); }

@@ -13,8 +13,9 @@ import "react-grid-layout/css/styles.css";
 import { describeFailure } from "../api/http";
 import { SEVERITIES, type DomainSchema, type LineHealth, type Severity, type TowerHealthRow } from "../api/schemas";
 import { useApi } from "../app/api-context";
+import { useColours } from "../app/colours";
 import { Loading, Notice } from "../app/ui";
-import { alongOption, escapeHtml as esc, foldTally, severityOption, SEVERITY_LABEL, tallyOption, type Tally, type Tokens } from "./charts";
+import { alongOption, escapeHtml as esc, foldTally, severityOption, SEVERITY_LABEL, tallyOption, type Tally } from "./charts";
 import { BREAKPOINTS, COLS, defaultLayouts, forgetWide, loadWide, ROW_HEIGHT, saveWide, type Panel } from "./layout";
 import { attention, defectChoices, filtersFrom, filtersTo, Labels, measure, partChoices, tiles, type Choice } from "./model";
 
@@ -173,37 +174,6 @@ function FilterSelect({
   );
 }
 
-/** The page's colours, read from its CSS so charts follow light and dark mode. */
-function useTokens(): Tokens {
-  const read = (): Tokens => {
-    const css = getComputedStyle(document.documentElement);
-    const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-    const muted = v("--muted", "#5d6673");
-    return {
-      text: v("--text", "#1b1f24"),
-      muted,
-      border: v("--border", "#d5dae1"),
-      surface: v("--surface", "#ffffff"),
-      sev: {
-        none: muted,
-        low: v("--sev-low", "#2f7d32"),
-        medium: v("--sev-medium", "#b8860b"),
-        high: v("--sev-high", "#d9480f"),
-        critical: v("--sev-critical", "#b3261e"),
-      },
-    };
-  };
-  const [tokens, setTokens] = useState(read);
-  useEffect(() => {
-    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-    if (!mq) return;
-    const changed = () => setTokens(read());
-    mq.addEventListener("change", changed);
-    return () => mq.removeEventListener("change", changed);
-  }, []);
-  return tokens;
-}
-
 /** The grid's width, followed as the window or sidebar changes. `null` until measured, so the
  * grid is first laid out at its real width rather than animating from a guess. */
 function useWidth(): [RefObject<HTMLDivElement | null>, number | null] {
@@ -241,7 +211,7 @@ function Dashboard({
   onFilter: (key: "defect" | "part", value: string) => void;
 }) {
   const navigate = useNavigate();
-  const tokens = useTokens();
+  const tokens = useColours();
   const [ref, width] = useWidth();
   const [layouts, setLayouts] = useState(() => ({ ...defaultLayouts(), lg: loadWide() }));
   const wide = width !== null && width >= BREAKPOINTS.lg;
