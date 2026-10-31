@@ -14,10 +14,10 @@ use std::collections::{HashMap, HashSet};
 
 use geoflux_cloud::Sha256;
 #[cfg(not(target_arch = "wasm32"))]
-use geoflux_cloud::sync::{MANIFEST_FORMAT, MAX_PHOTO_BYTES, PhotoRef, PhotoType, SurveyAsset};
-use geoflux_cloud::sync::{MAX_ASSETS, MAX_PHOTOS_PER_ASSET, SurveyManifest};
+use geoflux_cloud::sync::{MANIFEST_FORMAT, MAX_PHOTO_BYTES, PhotoRef, PhotoType, SurveyAsset, SyncedFinding};
+use geoflux_cloud::sync::{MAX_ASSETS, MAX_FINDINGS_PER_ASSET, MAX_PHOTOS_PER_ASSET, SurveyManifest};
 use geoflux_domain::annotation::AnnotationSet;
-use geoflux_domain::{Asset, Severity};
+use geoflux_domain::{Asset, Finding, Severity};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -77,6 +77,9 @@ pub struct PlannedPhoto {
 pub struct PlannedAsset {
     pub asset: Asset,
     pub photos: Vec<PlannedPhoto>,
+    /// Its findings, each with the path its photo was last seen at (sent by that photo's hash
+    /// when the photo goes with the tower; otherwise as a finding on the whole tower).
+    pub findings: Vec<(Finding, Option<String>)>,
 }
 
 /// A survey ready to prepare: everything but the photos' hashes and sizes.
@@ -147,6 +150,13 @@ pub fn plan(s: &Session, layer: u32) -> Result<SyncPlan, String> {
     for m in s.project.geoflux.markup.iter().filter(|m| m.layer == layer) {
         marks.entry((m.label.trim().to_lowercase(), m.slot.as_str(), m.photo.clone())).or_insert(&m.shapes);
     }
+    // The layer's findings by tower label, in one pass.
+    let mut findings: HashMap<String, Vec<&Finding>> = HashMap::new();
+    if let Some(set) = s.project.geoflux.findings_of(layer) {
+        for f in set.findings() {
+            findings.entry(f.asset.trim().to_lowercase()).or_default().push(f);
+        }
+    }
     let mut seen = HashSet::new();
     let mut out = SyncPlan {
         revision: link.next_revision(),
@@ -185,7 +195,15 @@ pub fn plan(s: &Session, layer: u32) -> Result<SyncPlan, String> {
                 photos.push(PlannedPhoto { slot: sp.slot.id.clone(), path, markup });
             }
         }
-        out.assets.push(PlannedAsset { asset, photos });
+        let mut mine: Vec<(Finding, Option<String>)> = Vec::new();
+        for f in findings.remove(&key).unwrap_or_default() {
+            if mine.len() >= MAX_FINDINGS_PER_ASSET {
+                out.skipped.push(format!("{label}: more than {MAX_FINDINGS_PER_ASSET} findings; the rest stay on this computer"));
+                break;
+            }
+            mine.push((f.clone(), f.photo.as_ref().and_then(|id| s.project.geoflux.photo_paths.get(id)).cloned()));
+        }
+        out.assets.push(PlannedAsset { asset, photos, findings: mine });
     }
     if out.assets.is_empty() {
         return Err("the layer has no labelled towers to send".into());
@@ -220,12 +238,15 @@ pub fn prepare(plan: SyncPlan, progress: &geoflux_report::Progress) -> Result<Pr
     let mut assets = Vec::with_capacity(plan.assets.len());
     for a in plan.assets {
         let mut photos = Vec::with_capacity(a.photos.len());
+        // This tower's sent photos by path, so a finding names its photo by the hash sent.
+        let mut sent: HashMap<String, Sha256> = HashMap::with_capacity(a.photos.len());
         for ph in a.photos {
             let r = read.entry(ph.path.clone()).or_insert_with(|| hash_file(&ph.path)).clone();
             progress.step().map_err(|_| "cancelled".to_string())?;
             match r {
                 Ok((sha, bytes, kind)) => {
                     files.entry(sha.clone()).or_insert_with(|| ph.path.clone());
+                    sent.insert(ph.path.clone(), sha.clone());
                     let file_name = std::path::Path::new(&ph.path)
                         .file_name()
                         .map_or_else(|| "photo".to_string(), |n| n.to_string_lossy().chars().take(255).collect());
@@ -234,7 +255,8 @@ pub fn prepare(plan: SyncPlan, progress: &geoflux_report::Progress) -> Result<Pr
                 Err(why) => skipped.push(format!("{}: {}: {why}", a.asset.id, ph.path)),
             }
         }
-        assets.push(SurveyAsset { asset: a.asset, photos, findings: Vec::new() });
+        let findings = a.findings.iter().map(|(f, path)| SyncedFinding::of(f, path.as_ref().and_then(|p| sent.get(p)).cloned())).collect();
+        assets.push(SurveyAsset { asset: a.asset, photos, findings });
     }
     let manifest = SurveyManifest {
         format: MANIFEST_FORMAT,
@@ -369,6 +391,47 @@ mod tests {
         let text = serde_json::to_string(&s.project.geoflux).unwrap();
         let back: geoflux::GeoFlux = serde_json::from_str(&text).unwrap();
         assert_eq!(back.cloud, Some(link));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn findings_go_with_their_tower_and_photo() {
+        let (mut s, id, dir) = line("findings");
+        ensure_link(&mut s);
+        let thermal = dir.join("76_0/DJI_0001_T.JPG").to_string_lossy().to_string();
+        let region = json!({"kind": "box", "a": {"x": 0.2, "y": 0.2}, "b": {"x": 0.4, "y": 0.5}});
+        let hot = s
+            .run(
+                "geoflux.addFinding",
+                &json!({"layer": id, "row": 0, "path": thermal, "defect": "hotspot.joint", "part": "insulator.left.r", "region": region}),
+            )
+            .unwrap();
+        s.run("geoflux.addFinding", &json!({"layer": id, "row": 0, "defect": "bird_nest", "part": "earthwire.left"})).unwrap();
+        let bad = s.run("geoflux.addFinding", &json!({"layer": id, "row": 0, "defect": "bird_nest", "part": "earthwire.middle"}));
+        assert!(bad.unwrap_err().contains("isn't a part"), "only the schema's parts");
+        let listed = s.run("geoflux.findings", &json!({"layer": id, "row": 0})).unwrap();
+        assert!(listed.to_string().contains("R phase insulator, left circuit"), "{listed}");
+
+        let p = plan(&s, id).unwrap();
+        // The two above, and the typed fault carried over when the first finding was made.
+        assert_eq!(p.assets[0].findings.len(), 3);
+        assert!(p.assets[1].findings.is_empty());
+        let prepared = prepare(p, &geoflux_report::Progress::new()).unwrap();
+        let tower = &prepared.manifest.assets[0];
+        let sent_hot = tower.findings.iter().find(|f| f.id.as_str() == hot["id"].as_str().unwrap()).unwrap();
+        let thermal_sha = tower.photos.iter().find(|ph| ph.file_name == "DJI_0001_T.JPG").map(|ph| ph.sha256.clone());
+        assert_eq!(sent_hot.photo, thermal_sha, "named by the hash it was sent with");
+        assert_eq!(sent_hot.part.as_ref().map(|p| p.as_str()), Some("insulator.left.r"));
+        assert!(matches!(sent_hot.region, geoflux_domain::Region::Box { .. }));
+        let whole = tower.findings.iter().find(|f| f.defect.as_str() == "bird_nest").unwrap();
+        assert!(whole.photo.is_none());
+        assert_eq!(whole.part.as_ref().map(|p| p.as_str()), Some("earthwire.left"));
+        assert_eq!(prepared.manifest.validate(), Ok(()));
+
+        // Editing with an empty part clears it.
+        s.run("geoflux.editFinding", &json!({"layer": id, "id": hot["id"], "part": ""})).unwrap();
+        let p = plan(&s, id).unwrap();
+        assert!(p.assets[0].findings.iter().any(|(f, _)| f.id.as_str() == hot["id"].as_str().unwrap() && f.part.is_none()));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
