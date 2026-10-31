@@ -676,7 +676,7 @@ pub(crate) fn apply_styles(s: &mut Session, id: u32, styles: &[(String, rustgis_
         _ => Symbol::default_for(g, id),
     };
     let rgba = |c: [u8; 4]| Rgba::new(c[0], c[1], c[2], c[3]);
-    let classes = styles
+    let classes: Vec<(String, rustgis_map::Symbol)> = styles
         .iter()
         .map(|(name, st)| {
             let mut sym = base;
@@ -719,7 +719,34 @@ pub(crate) fn apply_styles(s: &mut Session, id: u32, styles: &[(String, rustgis_
             (name.clone(), sym)
         })
         .collect();
-    layer.renderer = Renderer::Unique { field: "style".into(), classes, other: base, ramp: Default::default() };
+    // Every feature with the same style: one symbol, not a legend of the file's style ids
+    // ("#inline-1", "area1") that mean nothing to the reader.
+    let ds = &layer.dataset;
+    let mut used: Option<String> = None;
+    let mut one = true;
+    if let Some(fi) = ds.field_index("style") {
+        for row in 0..ds.features.len() {
+            let v = ds.value(row, fi);
+            if v.is_null() {
+                continue;
+            }
+            let v = v.to_string();
+            match &used {
+                None => used = Some(v),
+                Some(u) if *u == v => {}
+                Some(_) => {
+                    one = false;
+                    break;
+                }
+            }
+        }
+    }
+    layer.renderer = if one {
+        let sym = used.and_then(|u| classes.iter().find(|(n, _)| *n == u).map(|(_, s)| *s)).unwrap_or(base);
+        Renderer::Single(sym)
+    } else {
+        Renderer::Unique { field: "style".into(), classes, other: base, ramp: Default::default() }
+    };
 }
 
 /// The layers a file holds, without adding them: a GeoPackage's feature tables, a GDAL dataset's

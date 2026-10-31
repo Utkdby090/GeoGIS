@@ -50,6 +50,9 @@ pub fn style_towers(s: &mut Session, layer: u32, severity_field: &str, label_fie
         Severity::ALL.iter().map(|&l| (l.as_str().to_string(), point(severity_color(l), outline, 13.0, Marker::Triangle))).collect();
     let other = point(severity_color(Severity::None), outline, 13.0, Marker::Triangle);
     let Some(l) = s.map_mut().layer_mut(layer) else { return };
+    // Zoomed out to a whole line, the towers would merge into a band: like towers overlapping
+    // draw once, while a faulty one still shows among them.
+    l.thin_points = true;
     let has = |f: &str| l.dataset.field_index(f).is_some();
     l.renderer = if has(severity_field) {
         Renderer::Unique { field: severity_field.to_string(), classes, other, ramp: Ramp::default() }
@@ -73,6 +76,8 @@ pub fn style_photos(s: &mut Session, layer: u32, kind_field: &str, label_field: 
     let classes = PhotoKind::ALL.iter().map(|&k| (k.as_str().to_string(), point(kind_color(k), white, 6.0, Marker::Circle))).collect();
     let other = point(kind_color(PhotoKind::Other), white, 6.0, Marker::Circle);
     let Some(l) = s.map_mut().layer_mut(layer) else { return };
+    // A tower's burst of photos from one spot draws as one circle per kind.
+    l.thin_points = true;
     if l.dataset.field_index(kind_field).is_some() {
         l.renderer = Renderer::Unique { field: kind_field.to_string(), classes, other, ramp: Ramp::default() };
     }
