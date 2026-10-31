@@ -6,15 +6,10 @@
 import type { EChartsCoreOption } from "echarts/core";
 
 import { SEVERITIES, type Severity, type TowerHealthRow } from "../api/schemas";
+import type { Tokens } from "../app/colours";
 import { rank } from "./model";
 
-export interface Tokens {
-  text: string;
-  muted: string;
-  border: string;
-  surface: string;
-  sev: Record<Severity, string>;
-}
+export type { Tokens };
 
 /** Most bars a tally shows; the rest are folded into "Others". */
 export const TALLY_BARS = 12;

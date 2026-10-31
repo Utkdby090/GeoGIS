@@ -13,6 +13,7 @@ import { groupFields } from "./TowerPanel";
 import schemaFixture from "../api/fixtures/schema.json";
 import surveyFixture from "../api/fixtures/survey.json";
 import towerFixture from "../api/fixtures/tower.json";
+import towerHealthFixture from "../api/fixtures/tower-health.json";
 import towersFixture from "../api/fixtures/towers.json";
 
 vi.mock("./LineMap", () => ({
@@ -29,12 +30,26 @@ vi.mock("./LineMap", () => ({
   ),
 }));
 
+// jsdom has no WebGL: the 3D tower is a list of its markers.
+vi.mock("../tower3d/TowerModel", () => ({
+  default: ({ parts, onPick }: { parts: S.PartHealth[]; onPick: (key: string) => void }) => (
+    <div data-testid="tower-3d">
+      {parts.map((p) => (
+        <button key={p.part ?? ""} type="button" onClick={() => onPick(p.part ?? "")}>
+          marker {p.part ?? "whole tower"}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
 afterEach(cleanup);
 
 const SURVEY = S.SurveyDetail.parse(surveyFixture);
 const TOWERS = S.TowerCollection.parse(towersFixture);
 const TOWER = S.TowerDetail.parse(towerFixture);
 const SCHEMA = S.DomainSchema.parse(schemaFixture);
+const TOWER_HEALTH = S.TowerHealth.parse(towerHealthFixture);
 const ID = SURVEY.summary.id;
 
 function api() {
@@ -44,6 +59,7 @@ function api() {
     towers: vi.fn(() => Promise.resolve(TOWERS)),
     tower: vi.fn((_s: string, id: string) => Promise.resolve({ ...TOWER, asset: { ...TOWER.asset, id } })),
     schema: vi.fn(() => Promise.resolve(SCHEMA)),
+    towerHealth: vi.fn(() => Promise.resolve(TOWER_HEALTH)),
   });
 }
 
