@@ -29,6 +29,7 @@ mod opendataui;
 mod panes;
 mod pluginsui;
 mod portalsui;
+mod recent;
 mod reportpane;
 mod ribbon;
 mod s3ui;
@@ -329,6 +330,8 @@ pub struct UiState {
     /// The Data Sources pane's boxes, and the sources' generation last kept in the preferences.
     pub sources: sourcespane::State,
     pub sources_saved: u64,
+    /// Projects opened or saved lately, for the Project page.
+    pub recent: recent::Recent,
     /// Add Data › Zarr…: its store, choices and fetches.
     pub zarr: zarrui::State,
     /// A layout picture waiting for its image file (web).
@@ -389,6 +392,7 @@ impl Default for UiState {
             geocode: Default::default(),
             sources: Default::default(),
             sources_saved: 0,
+            recent: Default::default(),
             zarr: Default::default(),
             hidden_tabs: Vec::new(),
             quick_access: Vec::new(),
@@ -914,6 +918,8 @@ impl RustGisApp {
         }
         // Sources added, saved or made favourites are kept with the preferences.
         sourcespane::save(self);
+        // So is the project file just opened or saved.
+        recent::note(self);
         r
     }
 

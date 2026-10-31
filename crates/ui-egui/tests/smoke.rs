@@ -917,6 +917,63 @@ fn map_tabs_close_and_undo_brings_them_back() {
     assert_eq!(maps(&mut h), before);
 }
 
+/// Projects saved or opened show on the Project page, newest first; a click reopens one, and one
+/// whose file is gone leaves the list with a note. The list is kept with the preferences.
+#[test]
+fn recent_projects_reopen_from_the_project_page() {
+    use std::{cell::RefCell, rc::Rc};
+    let dir = std::env::temp_dir().join(format!("geogis-recent-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let (a, b) = (dir.join("Line A.rgis"), dir.join("Line B.rgis"));
+    let prefs: Rc<RefCell<std::collections::HashMap<String, String>>> = Rc::default();
+
+    let mut h = harness();
+    let store = prefs.clone();
+    h.state_mut().services.save_pref = Some(Box::new(move |k: &str, v: &str| {
+        store.borrow_mut().insert(k.to_string(), v.to_string());
+    }));
+    h.state_mut().run("project.saveAs", json!({"path": a.display().to_string()})).unwrap();
+    h.state_mut().run("project.new", json!(null)).unwrap();
+    h.state_mut().run("project.saveAs", json!({"path": b.display().to_string()})).unwrap();
+    let kept: Vec<String> = serde_json::from_str(&prefs.borrow()["recent_projects"]).unwrap();
+    assert_eq!(kept, [b.display().to_string(), a.display().to_string()], "newest first");
+
+    h.state_mut().ui.backstage = true;
+    for _ in 0..3 {
+        h.step();
+    }
+    h.get_by_label("Open Line A").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert_eq!(h.state().session.path.as_deref(), Some(a.as_path()));
+    assert!(!h.state().ui.backstage, "back on the map");
+    let kept: Vec<String> = serde_json::from_str(&prefs.borrow()["recent_projects"]).unwrap();
+    assert_eq!(kept[0], a.display().to_string(), "reopened goes first");
+
+    // B's file is gone: clicking it takes it off the list.
+    std::fs::remove_file(&b).unwrap();
+    h.state_mut().ui.backstage = true;
+    for _ in 0..3 {
+        h.step();
+    }
+    h.get_by_label("Open Line B").click();
+    for _ in 0..3 {
+        h.step();
+    }
+    assert!(h.state().dialogs.error.as_deref().is_some_and(|e| e.contains("no longer there")));
+    assert_eq!(h.state().ui.recent.paths, [a.display().to_string()]);
+    // × removes without opening.
+    h.state_mut().dialogs.error = None;
+    h.state_mut().ui.backstage = true;
+    h.step();
+    h.get_by_label("Remove Line A from the list").click();
+    h.step();
+    assert!(h.state().ui.recent.paths.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Esc closes the frontmost window (or the one under the pointer) one at a time, and with the
 /// pointer over the map it stays the map's (back to Explore) and closes nothing.
 #[test]

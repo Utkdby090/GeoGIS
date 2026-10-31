@@ -112,6 +112,7 @@ fn start(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
             let _ = app.run("ui.open", Value::Null);
         }
     });
+    recent_list(app, ui, t);
     ui.add_space(28.0);
     ui.label(egui::RichText::new(tl!("Current Project")).font(semibold(15.0)));
     ui.add_space(6.0);
@@ -129,6 +130,58 @@ fn start(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
         ui.label(app.session.project.maps.iter().map(|m| m.layers.len()).sum::<usize>().to_string());
         ui.end_row();
     });
+}
+
+/// Projects opened or saved lately: a click reopens one, × takes it off the list.
+fn recent_list(app: &mut RustGisApp, ui: &mut Ui, t: &Tokens) {
+    if app.ui.recent.paths.is_empty() {
+        return;
+    }
+    ui.add_space(28.0);
+    ui.label(egui::RichText::new(tl!("Recent Projects")).font(semibold(15.0)));
+    ui.add_space(6.0);
+    let mut open: Option<String> = None;
+    let mut remove: Option<String> = None;
+    let width = ui.available_width().min(680.0);
+    for path in &app.ui.recent.paths {
+        let (name, folder) = match path.rfind(['/', '\\']) {
+            Some(i) => (&path[i + 1..], &path[..i]),
+            None => (path.as_str(), ""),
+        };
+        let name = name.strip_suffix(".rgisx").or_else(|| name.strip_suffix(".rgis")).unwrap_or(name);
+        let (r, resp) = ui.allocate_exact_size(vec2(width, 44.0), Sense::click());
+        let x = Rect::from_center_size(pos2(r.max.x - 20.0, r.center().y), vec2(24.0, 24.0));
+        let x_resp = ui.interact(x, ui.id().with(("recent_remove", path)), Sense::click());
+        let resp = resp.on_hover_text(path.as_str());
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, crate::i18n::fmt("Open {name}", &[("name", name)])));
+        x_resp.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, true, crate::i18n::fmt("Remove {name} from the list", &[("name", name)]))
+        });
+        let hovered = resp.hovered() || x_resp.hovered();
+        if hovered {
+            ui.painter().rect_filled(r, CornerRadius::same(6), t.hover);
+        }
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 20.0, r.center().y), vec2(20.0, 20.0)), "open", t.icon, t.accent);
+        ui.painter().text(pos2(r.min.x + 42.0, r.min.y + 14.0), Align2::LEFT_CENTER, name, semibold(13.0), t.text);
+        let folder = ui.painter().layout_no_wrap(folder.to_string(), regular(11.0), t.text_dim);
+        let room = (r.width() - 90.0).max(40.0);
+        let shown = Rect::from_min_size(pos2(r.min.x + 42.0, r.min.y + 24.0), vec2(room, 16.0));
+        ui.painter().with_clip_rect(shown).galley(shown.min, folder, t.text_dim);
+        if hovered {
+            ui.painter().text(x.center(), Align2::CENTER_CENTER, "×", regular(16.0), if x_resp.hovered() { t.text } else { t.text_dim });
+        }
+        if x_resp.clicked() {
+            remove = Some(path.clone());
+        } else if resp.clicked() {
+            open = Some(path.clone());
+        }
+    }
+    if let Some(p) = remove {
+        crate::recent::remove(app, &p);
+    }
+    if let Some(p) = open {
+        crate::recent::open(app, &p);
+    }
 }
 
 fn card(ui: &mut Ui, t: &Tokens, title: &str, sub: &str, icon: &str) -> bool {
