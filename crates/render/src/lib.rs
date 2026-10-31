@@ -792,10 +792,23 @@ fn render_with(map: &mut Map, view: &View, full_res_rasters: bool) -> Option<Ren
                 let px_per_m = view.pixels_per_point / map_ground_res(view, &flat);
                 effects::extrude(dest, &ctx, ds_ptr, &geoms, &rows, x, px_per_m, |r| layer.symbol(r));
             } else {
+                // Thinned points: the screen cells (about a symbol across) already holding a
+                // symbol, by symbol colour and size.
+                let mut taken: Option<std::collections::HashSet<(i64, i64, [u8; 4], u32)>> =
+                    (layer.thin_points && layer.geometry_type() == GeometryType::Point).then(std::collections::HashSet::new);
                 for (row, g) in geoms.iter().enumerate() {
                     let Some(g) = g else { continue };
                     if rows.get(row) != Some(&true) || !visible(&g.extent()) {
                         continue;
+                    }
+                    if let (Some(taken), Geometry::Point(c)) = (taken.as_mut(), g)
+                        && let Some((x, y)) = ctx.screen(*c)
+                    {
+                        let sym = layer.symbol(row);
+                        let cell = f64::from(sym.size).max(4.0) * 0.8;
+                        if !taken.insert(((x / cell).floor() as i64, (y / cell).floor() as i64, sym.fill.0, sym.size.to_bits())) {
+                            continue;
+                        }
                     }
                     // A picture draws in its row's turn, so graphics keep their order. (On the globe
                     // the geometry and `px` are both longitude/latitude, so the corners land right.)

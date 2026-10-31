@@ -130,6 +130,11 @@ pub struct Layer {
     /// Polygons drawn extruded.
     #[serde(default)]
     pub extrusion: Option<effects::Extrusion>,
+    /// A point that would land on the same symbol already drawn there is left out, so hundreds
+    /// of points along a line read as a line of symbols, not a solid band, when zoomed out.
+    /// Points with a different symbol (a faulty tower among healthy ones) still draw.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub thin_points: bool,
     /// Layers with a higher priority draw above lower ones, whatever their order (the scene's
     /// depth priority).
     #[serde(default)]
@@ -159,6 +164,10 @@ fn yes() -> bool {
     true
 }
 
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
 impl Layer {
     pub fn new(id: u32, dataset: Dataset) -> Self {
         let renderer = Renderer::Single(Symbol::default_for(dataset.geometry_type, id));
@@ -182,6 +191,7 @@ impl Layer {
             display_filters: Vec::new(),
             aggregation: None,
             extrusion: None,
+            thin_points: false,
             priority: 0,
             design: design::Design::default(),
             raster: None,
