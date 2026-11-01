@@ -336,7 +336,7 @@ function Dashboard({
       body: current ? (
         <>
           <TowerPicker rows={health.rows} current={current} onPick={onPick} />
-          <TowerHealthView key={current.id} surveyId={surveyId} towerId={current.id} schema={schema} turnAtStart />
+          <TowerHealthView key={current.id} surveyId={surveyId} towerId={current.id} schema={schema} turnAtStart model="lattice" />
           <p className="small">
             <Link to={towerLink(current.id)}>Photos and form for {current.label}</Link>
           </p>
