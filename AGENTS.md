@@ -60,3 +60,74 @@ paths, file dialogs).
 - Headless screenshots: `cargo run --release -p rustgis-ui-egui --example ui_shot -- script.jsonl`
   (see the example header). For UI work, look at the PNG.
 - CLI: `rustgis-cli run --sample --cmd 'gp.run={"tool":"buffer","params":{"input":"Cities","distance":100}}' --cmd 'share.exportMap={"path":"out.png"}'`.
+
+## GeoFlux rules (GeoGIS)
+Everything above applies. These add what GeoGIS's inspection product needs: `crates/geoflux-*`,
+`apps/geoflux-*`, the `geoflux.*` commands in `crates/engine/src/cmd/` and the GeoFlux panes in
+`crates/ui-egui`. Definition of done: `docs/definition-of-done.md`. Decisions: `docs/decisions.md`.
+
+### How work is done
+- Pull requests target `dev`, never `main`; `dev` goes to `main` only when the owner asks.
+- A new feature goes in three steps: (1) three options compared on memory, dependency weight,
+  native packaging risk and development speed, no code; (2) a contracts PR with the types, traits
+  and error types only; (3) the implementation. A bug fix starts at step 3.
+- Read the code you change and its neighbours first; follow the patterns already there. Don't
+  rewrite working subsystems, and don't mix unrelated changes into a PR.
+- The PR says which checks actually ran (`cargo xtask ci`, `npm run check`, a screenshot) and
+  what is known not to work yet. Never claim a check that didn't run.
+
+### Where code goes
+- `geoflux-domain`: inspection rules (schemas, rating, findings, photo kinds, tower matching). No
+  file system, network, egui or server types; pure functions over plain data, unit-tested.
+- `engine` `cmd/*.rs`: commands that read files, change the project (one undo step each) and call
+  the domain. `ui-egui`: panes and dialogs only; no rules.
+- `geoflux-cloud`: the HTTP contract (routes, request/response types, permissions, ports) shared
+  by `apps/geoflux-server` and `geoflux-client`. `apps/geoflux-web/src/api` mirrors it with zod.
+- Work on local files stays on the computer: nothing is uploaded just to look at it. The server
+  holds only what is shared: accounts, synced surveys, photos, line health, web reports.
+- Vendor SDKs run outside the process (DJI's in `geoflux-dirp`, over a pipe), so a bad file
+  can't crash GeoGIS and the app stays `unsafe`-free.
+- A new dependency is justified in the PR: what it does, licence, binary or bundle size, wasm and
+  packaging impact. Prefer what the workspace already uses (`geo`, `proj4rs`, `sha2`, `ureq`).
+
+### Coordinates
+- GeoFlux layers are WGS 84 longitude/latitude. KML is WGS 84 by its specification; photo GPS
+  comes from EXIF in WGS 84. Distances between towers and photos are haversine metres, which is
+  well within tolerance at tower scale.
+- Input that may be in another system (a survey sheet in UTM, a DXF) is never assumed to be
+  WGS 84: detect it, reproject through `crates/map/src/projection.rs`, or refuse with a message.
+  Never drop such rows silently.
+- Positions out of range, (0, 0) and missing GPS are reported, not guessed.
+
+### Data safety
+- Source files are never changed or moved. Photos are linked where they are or copied
+  (`.part` then rename; a same-size copy is skipped; a different file with the same name is kept
+  and reported). Projects are written with `rustgis_data::io::write_atomic`.
+- Every edit is one undoable command; a command that fails changes nothing.
+- Only confirmed findings fill forms, the PDF and the dashboard. A rule or model finding records
+  its source and version, so a re-run doesn't repeat what was rejected.
+- Destructive actions (closing unsaved work, deleting findings, overwriting outputs) ask first.
+
+### Performance and threads
+- Never block the UI thread with file reading, photo scanning, thermal decoding or network calls:
+  run a worker thread with progress and Cancel (see the `.geox` import and photo scan in
+  `geofluxpane.rs`). Server CPU work goes through `http::blocking`.
+- Read only what is needed: photo scanning reads the head of each JPEG, not the image.
+- Every limit is a named constant with a reason (`MAX_PICKED`, `FAR_METRES`, body limits); every
+  loop over photos or towers is bounded by one.
+
+### Server and web
+- Every route checks a `Permission`; the organisation comes from the session, never from the
+  request. Errors are `ApiError` codes; never return file paths, SQL or stack traces.
+- Routes live under `/api/v1`; a breaking change needs a new version, not an edit.
+- Every route has a body limit; uploads stream to a `.part` file and stop at the declared size.
+- Configuration comes from `GEOFLUX_*` environment variables; secrets never reach the browser or
+  the repository.
+- Web: TypeScript `strict`, no `any`; every response is checked with zod; the browser's checks
+  are for the user's convenience, the server's are the rule.
+
+### Tests
+- Domain: known coordinates and expected results, floats compared with a tolerance.
+- Server: each flow runs on the in-memory backend and on PostgreSQL (`tests/flow.rs`).
+- Web: page tests (`npm run check`) and the Playwright smoke test (`e2e/`).
+- Every fixed bug gets a test that fails without the fix.
