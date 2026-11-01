@@ -14,7 +14,7 @@ import { Loading, Notice } from "../app/ui";
 import { SEVERITY_LABEL } from "../health/charts";
 import { Labels, measure } from "../health/model";
 import { inkOn } from "../survey/ratings";
-import type { Badge } from "./TowerModel";
+import type { Badge, TowerModelKind } from "./TowerModel";
 import { WHOLE_TOWER } from "./spots";
 
 const TowerModel = lazy(() => import("./TowerModel"));
@@ -25,9 +25,11 @@ export interface TowerHealthViewProps {
   schema: DomainSchema | null;
   /** Start with the tower turning (unless the person asked for less motion). */
   turnAtStart?: boolean;
+  /** The light tower.glb (survey page) or the detailed lattice tower (dashboard). */
+  model?: TowerModelKind;
 }
 
-export function TowerHealthView({ surveyId, towerId, schema, turnAtStart = false }: TowerHealthViewProps) {
+export function TowerHealthView({ surveyId, towerId, schema, turnAtStart = false, model = "simple" }: TowerHealthViewProps) {
   const api = useApi();
   const health = useQuery({
     queryKey: ["tower-health", surveyId, towerId],
@@ -154,6 +156,7 @@ export function TowerHealthView({ surveyId, towerId, schema, turnAtStart = false
                   onTurnStop={() => setTurn(false)}
                   home={home}
                   onFail={setFailed}
+                  model={model}
                 />
               </Suspense>
             </ModelBoundary>

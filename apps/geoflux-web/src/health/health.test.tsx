@@ -50,7 +50,7 @@ vi.mock("../survey/LineMap", () => ({
     </div>
   ),
 }));
-vi.mock("../tower3d/TowerModel", () => ({ default: () => <div data-testid="tower-3d" /> }));
+vi.mock("../tower3d/TowerModel", () => ({ default: ({ model }: { model?: string }) => <div data-testid="tower-3d" data-model={model} /> }));
 
 afterEach(() => {
   cleanup();
@@ -162,6 +162,8 @@ describe("the line health page", () => {
     expect(map.getAttribute("data-selected")).toBe("t1");
     const tower = await screen.findByRole("region", { name: "Tower 101" });
     expect(await within(tower).findByText("Confirmed findings on 101 (2)")).toBeTruthy();
+    // The dashboard draws the detailed lattice tower.
+    expect((await within(tower).findByTestId("tower-3d")).getAttribute("data-model")).toBe("lattice");
     expect(within(tower).getByRole("link", { name: "Photos and form for 101" }).getAttribute("href")).toBe(`/surveys/${ID}?tower=t1`);
 
     fireEvent.click(within(map).getByRole("button", { name: "triangle 102 none" }));

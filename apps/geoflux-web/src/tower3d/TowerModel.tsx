@@ -1,9 +1,13 @@
-// The 3D tower: one static model for every tower (tower.glb), turned with the mouse or a finger,
+// The 3D tower: one static model for every tower, turned with the mouse or a finger,
 // with a marker at each part that has findings, coloured by its worst confirmed finding, and a
 // numbered badge over it matching the findings list. Clicking a marker or badge picks that part
 // and the camera moves to it. Drawn only when something changes or moves (turning, moving to a
 // part), paused while scrolled out of sight, and everything it made (the GPU context included) is
 // released when it goes, so opening tower after tower doesn't leak.
+//
+// Two models: "simple" is tower.glb (small, for the survey page's side panel); "lattice" is the
+// detailed 765 kV tower built in code (latticeTower.ts) for the dashboard. Both name their part
+// nodes by part id, so markers, badges and the camera work the same on either.
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -11,6 +15,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import type { PartDef, PartHealth, Severity } from "../api/schemas";
+import { buildLatticeTower, latticeColours, type LatticeTower } from "./latticeTower";
 import { nodeName, type Spot, spots, type Vec3 } from "./spots";
 import modelUrl from "./tower.glb?url";
 
@@ -44,12 +49,18 @@ export interface TowerModelProps {
   home?: number;
   /** Shown instead of the model when it can't be drawn (no WebGL). */
   onFail?: (why: string) => void;
+  /** Which tower to draw; fixed for the life of the view. */
+  model?: TowerModelKind;
 }
 
-const TARGET = new THREE.Vector3(0, 34, 0);
-/** Half the tower's height and width (metres) the first view must show, with a margin. */
-const HALF_H = 40;
-const HALF_W = 20;
+export type TowerModelKind = "simple" | "lattice";
+
+/** What the first view looks at, per model: the lattice tower is taller (its peak is at 70 m)
+ * and its conductors run 34 m each way, so it gets more room. */
+const FRAMES: Record<TowerModelKind, { target: THREE.Vector3; halfH: number; halfW: number }> = {
+  simple: { target: new THREE.Vector3(0, 34, 0), halfH: 40, halfW: 20 },
+  lattice: { target: new THREE.Vector3(0, 36, 0), halfH: 47, halfW: 24 },
+};
 /** The first view: from the front of the line, a little to the side and above. */
 const VIEW = new THREE.Vector3(0.35, 0.2, 1).normalize();
 const CENTRE: Vec3 = [0, 30, 0];
@@ -74,6 +85,8 @@ interface Live {
   /** Move the camera smoothly to look at `at` from CLOSE, or back to the first view. */
   goTo: (at: Vec3 | null) => void;
   reduced: boolean;
+  /** The lattice tower, to recolour when the page switches between light and dark. */
+  lattice: LatticeTower | null;
 }
 
 export default function TowerModel({
@@ -89,6 +102,7 @@ export default function TowerModel({
   onTurnStop,
   home = 0,
   onFail,
+  model = "simple",
 }: TowerModelProps) {
   const host = useRef<HTMLDivElement>(null);
   const live = useRef<Live | null>(null);
@@ -120,16 +134,20 @@ export default function TowerModel({
     scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
     const camera = new THREE.PerspectiveCamera(35, 1, 1, 1000);
     const controls = new OrbitControls(camera, renderer.domElement);
+    const frame0 = FRAMES[model];
+    const TARGET = frame0.target;
     controls.target.copy(TARGET);
     controls.minDistance = 15;
     controls.maxDistance = 400;
     controls.maxPolarAngle = Math.PI * 0.55;
     controls.enablePan = false;
     controls.autoRotateSpeed = 1;
-    const ground = new THREE.GridHelper(40, 8, 0x888888, 0x888888);
-    (ground.material as THREE.Material).opacity = 0.25;
-    (ground.material as THREE.Material).transparent = true;
-    scene.add(ground);
+    if (model === "simple") {
+      const ground = new THREE.GridHelper(40, 8, 0x888888, 0x888888);
+      (ground.material as THREE.Material).opacity = 0.25;
+      (ground.material as THREE.Material).transparent = true;
+      scene.add(ground);
+    }
     const markers = new THREE.Group();
     scene.add(markers);
     const sphere = new THREE.SphereGeometry(1.3, 20, 14);
@@ -141,7 +159,7 @@ export default function TowerModel({
     const homeDistance = () => {
       // Far enough back that the whole tower fits, whatever the panel's shape.
       const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      return Math.max(HALF_H / t, HALF_W / (t * camera.aspect));
+      return Math.max(frame0.halfH / t, frame0.halfW / (t * camera.aspect));
     };
 
     // Reused every frame, so drawing allocates nothing.
@@ -251,9 +269,22 @@ export default function TowerModel({
     renderer.domElement.addEventListener("pointerup", onUp);
 
     const nodes = new Map<string, Vec3>();
-    live.current = { camera, controls, nodes, markers, sphere, ring, ghost, spots: [], render, goTo, reduced };
+    const live0: Live = { camera, controls, nodes, markers, sphere, ring, ghost, spots: [], render, goTo, reduced, lattice: null };
+    live.current = live0;
     let gone = false;
-    new GLTFLoader()
+    if (model === "lattice") {
+      // Built in code: no download, and its steel needs light from one side to read as steel.
+      const tower = buildLatticeTower(latticeColours());
+      const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+      sun.position.set(40, 90, 60);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.8);
+      fill.position.set(-60, 30, -40);
+      scene.add(sun, fill, tower.root);
+      for (const [name, at] of tower.nodes) nodes.set(name, at);
+      live0.lattice = tower;
+      setReady(true);
+      render();
+    } else new GLTFLoader()
       .loadAsync(modelUrl)
       .then((gltf) => {
         if (gone) {
@@ -333,6 +364,14 @@ export default function TowerModel({
     l.render();
   }, [parts, defs, selected, colours, quiet, allParts, badges, ready]);
 
+  // The page's colours changed (light or dark): the lattice tower follows.
+  useEffect(() => {
+    const l = live.current;
+    if (!l?.lattice || !ready) return;
+    l.lattice.recolour(latticeColours());
+    l.render();
+  }, [colours, ready]);
+
   // The camera moves to a picked part, and back to the whole tower when the pick is cleared.
   const lastPick = useRef<string | null>(null);
   useEffect(() => {
@@ -390,6 +429,8 @@ function dispose(root: THREE.Object3D) {
   const seen = new Set<object>();
   root.traverse((o) => {
     const m = o as THREE.Mesh;
+    // An instanced mesh holds its instance matrices on the GPU apart from its geometry.
+    if ((o as THREE.InstancedMesh).isInstancedMesh) (o as THREE.InstancedMesh).dispose();
     if (m.geometry && !seen.has(m.geometry)) {
       seen.add(m.geometry);
       m.geometry.dispose();
