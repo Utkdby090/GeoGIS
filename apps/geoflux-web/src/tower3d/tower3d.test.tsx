@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as S from "../api/schemas";
 import { fakeApi, ME } from "../test/fake-api";
 import { renderApp } from "../test/render";
+import { buildLatticeTower, LATTICE_PARTS } from "./latticeTower";
 import { nodeName, spots, WHOLE_TOWER, type Vec3 } from "./spots";
 
 import schemaFixture from "../api/fixtures/schema.json";
@@ -25,9 +26,11 @@ vi.mock("./TowerModel", () => ({
     allParts?: boolean;
     turn?: boolean;
     home?: number;
+    model?: string;
   }) => (
     <div
       data-testid="tower-3d"
+      data-model={props.model}
       data-selected={props.selected ?? "none"}
       data-all={String(props.allParts)}
       data-turn={String(props.turn)}
@@ -84,6 +87,7 @@ describe("a tower's health", () => {
 
     // One badge per part with confirmed findings, numbered like the list; none for the proposal.
     const model = await screen.findByTestId("tower-3d");
+    expect(model.getAttribute("data-model")).toBe("simple"); // the survey page keeps tower.glb
     const badge = within(model).getByRole("button", { name: "Finding 1: Y phase insulator, left circuit, critical" });
     expect(badge.textContent).toBe("1");
     expect(within(model).getByRole("button", { name: "Finding 2: Whole tower, medium" }).textContent).toBe("2");
@@ -144,6 +148,26 @@ describe("markers on the 3D tower", () => {
       ["insulator.left.r", centre, false],
       [WHOLE_TOWER, above, true],
     ]);
+  });
+
+  it("has a node on the dashboard's lattice tower for every part of the built-in schema", () => {
+    const tower = buildLatticeTower({ steel: "#888888", insulator: "#5f8b84", wire: "#333333", grid: "#cccccc" });
+    const named = new Set<string>();
+    tower.root.traverse((o) => named.add(o.name));
+    const wanted = (SCHEMA.parts ?? []).map((d) => nodeName(d.id, SCHEMA.parts ?? []));
+    expect(wanted.filter((n) => !named.has(n) || !tower.nodes.has(n))).toEqual([]);
+    // Left circuit on the left (negative x), R the top phase, then Y, then B; legs on the ground.
+    const at = (k: string) => LATTICE_PARTS[k]!;
+    for (const phase of ["r", "y", "b"]) expect(at(`insulator.left.${phase}`)[0]).toBeLessThan(0);
+    expect(at("insulator.left.r")[1]).toBeGreaterThan(at("insulator.left.y")[1]);
+    expect(at("insulator.left.y")[1]).toBeGreaterThan(at("insulator.left.b")[1]);
+    expect(["a", "b", "c", "d"].map((l) => at(`leg.${l}`)[1])).toEqual([1, 1, 1, 1]);
+    // Members are instanced: the whole tower is a few draw calls, not thousands of meshes.
+    let meshes = 0;
+    tower.root.traverse((o) => {
+      if ((o as { isMesh?: boolean }).isMesh) meshes++;
+    });
+    expect(meshes).toBeLessThan(20);
   });
 
   it("has a node in the model for every part of the built-in schema", () => {

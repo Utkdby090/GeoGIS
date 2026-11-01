@@ -14,6 +14,11 @@
   /* Low is blue so it can't be mistaken for healthy (green), as on the dashboard sample. */
   --sev-ok: #2f7d4f;
   --sev-unknown: #8b95a1;
+  /* The dashboard's lattice tower. */
+  --tower-steel: #8d979b;
+  --tower-insulator: #5f8b84;
+  --tower-wire: #3d4441;
+  --tower-grid: #c3ccc7;
   --sev-low: #2563a8;
   --sev-medium: #b8860b;
   --sev-high: #d9480f;
@@ -36,6 +41,10 @@
     --info-bg: #182638;
     --sev-ok: #4ade80;
     --sev-unknown: #9ca3af;
+    --tower-steel: #a7b0b3;
+    --tower-insulator: #7fb3aa;
+    --tower-wire: #8b9592;
+    --tower-grid: #2a3431;
     --sev-low: #60a5fa;
     --sev-medium: #e9c46a;
     --sev-high: #f4a261;
@@ -251,7 +260,7 @@ table.list.compact { border: 0; }
 .tower-picker label { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); font-size: 0.9rem; }
 .tower-picker select { min-width: 7rem; color: var(--text); font-variant-numeric: tabular-nums; }
 .tower-picker button { padding: 0.3rem 0.75rem; font-size: 1.1rem; line-height: 1; }
-.panel .tower-3d { height: 24rem; }
+.panel .tower-3d { height: 30rem; }
 button.link[aria-pressed="true"] { font-weight: 650; }
 .react-grid-item.react-grid-placeholder { background: var(--accent); opacity: 0.15; border-radius: 8px; }
 
