@@ -86,6 +86,46 @@ pub fn metres(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     2.0 * R * a.sqrt().min(1.0).asin()
 }
 
+/// Towers nearer than this to another are almost surely a data error (a copied coordinate, a
+/// photo's position typed for the tower's): real towers stand a span apart, 150 m or more.
+pub const STACKED_METRES: f64 = 20.0;
+
+/// The positions (by index) within `within` metres of an earlier one, each with the first earlier
+/// one it sits on, in order. Grid-bucketed, so a whole line is checked in one pass; positions
+/// that aren't finite are skipped.
+pub fn stacked(points: &[(f64, f64)], within: f64) -> Vec<(usize, usize)> {
+    // A cell a little larger than `within` in latitude; longitude cells are scaled per row, so
+    // a match is always in the same or a neighbouring cell.
+    let cell = (within.max(0.1) / 111_000.0).max(1e-9);
+    let key = |lat: f64, lon: f64| {
+        let row = (lat / cell).floor();
+        let lon_cell = cell / (row * cell).to_radians().cos().abs().max(0.01);
+        (row as i64, (lon / lon_cell).floor() as i64)
+    };
+    let mut grid: HashMap<(i64, i64), Vec<usize>> = HashMap::new();
+    let mut out = Vec::new();
+    for (i, &(lat, lon)) in points.iter().enumerate() {
+        if !usable(lat, lon) {
+            continue;
+        }
+        let (r, c) = key(lat, lon);
+        // The earliest position within reach. Neighbouring rows may use a slightly different
+        // longitude cell, so two cells either side are looked at.
+        let hit = (-1..=1)
+            .flat_map(|dr| (-2..=2).map(move |dc| (r + dr, c + dc)))
+            .filter_map(|k| grid.get(&k))
+            .flatten()
+            .copied()
+            .filter(|&j| points.get(j).is_some_and(|&(lat2, lon2)| metres(lat, lon, lat2, lon2) <= within))
+            .min();
+        if let Some(j) = hit {
+            out.push((i, j));
+        }
+        grid.entry((r, c)).or_default().push(i);
+    }
+    out
+}
+
 /// A tower number or visit as a folder name that works on Windows, macOS and Linux: `/`, `\`
 /// and the other characters Windows refuses become `_` (so `34/1` is `34_1`), and full stops
 /// and spaces at the end are dropped. Never empty, never `.` or `..`.
@@ -117,6 +157,19 @@ mod tests {
 
     fn p(shot: &str, lat: f64, lon: f64) -> PhotoPoint {
         PhotoPoint { shot: shot.into(), lat, lon }
+    }
+
+    #[test]
+    fn stacked_positions_point_at_the_first_one_they_sit_on() {
+        // 1 m east of the first; a span (about 400 m) away; the first again; 25 m north; unusable.
+        let at = [(27.5, 75.1), (27.5, 75.100_01), (27.5, 75.104), (27.5, 75.1), (27.500_225, 75.1), (f64::NAN, 75.1)];
+        assert_eq!(stacked(&at, STACKED_METRES), [(1, 0), (3, 0)]);
+        assert!((metres(27.5, 75.1, 27.500_225, 75.1) - 25.0).abs() < 0.5, "the north one is just outside");
+        assert_eq!(stacked(&at, 30.0), [(1, 0), (3, 0), (4, 0)]);
+        // Near the edges of cells and far north, the neighbouring cells still find a match.
+        assert_eq!(stacked(&[(60.0, 10.0), (60.0, 10.000_3)], STACKED_METRES), [(1, 0)]);
+        assert_eq!(stacked(&[(-33.9, 151.2), (-33.900_1, 151.2)], STACKED_METRES), [(1, 0)]);
+        assert!(stacked(&[], STACKED_METRES).is_empty());
     }
 
     #[test]

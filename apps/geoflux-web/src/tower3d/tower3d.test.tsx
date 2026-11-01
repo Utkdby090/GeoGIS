@@ -87,10 +87,11 @@ describe("a tower's health", () => {
     expect(screen.queryByTestId("tower-3d")).toBeNull();
   });
 
-  it("says so when the tower has no synced findings", async () => {
+  it("still shows the tower, unmarked, when it has no synced findings", async () => {
     renderApp(api({ ...HEALTH, parts: [], findings: [] }), `/surveys/${ID}?tower=t1`);
-    expect(await screen.findByText("No findings were synced for this tower.")).toBeTruthy();
-    expect(screen.queryByTestId("tower-3d")).toBeNull();
+    expect(await screen.findByText(/^No findings yet\./)).toBeTruthy();
+    expect(await screen.findByTestId("tower-3d")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Parts with findings" })).toBeNull();
   });
 });
 

@@ -4,11 +4,14 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiFailure } from "../api/client";
+import surveysFixture from "../api/fixtures/surveys.json";
+import { SurveyList } from "../api/schemas";
 import { planText } from "../app/layout";
 import { safeNext } from "../app/session";
 import { fakeApi, ME } from "../test/fake-api";
 import { renderApp } from "../test/render";
 import { tidyCode } from "./device";
+import { newestUploads } from "./surveys";
 
 afterEach(cleanup);
 
@@ -155,5 +158,25 @@ describe("the header", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
     await waitFor(() => expect(here()).toBe("/login"));
     expect(api.logOut).toHaveBeenCalled();
+  });
+});
+
+describe("the surveys list", () => {
+  const first = SurveyList.parse(surveysFixture).surveys[0]!;
+  const upload = (id: string, clientSurveyId: string, revision: number) => ({ ...first, id, clientSurveyId, revision });
+
+  it("shows each survey once, at its newest upload", async () => {
+    const list = [upload("srv_c", "line-a", 3), upload("srv_x", "line-b", 1), upload("srv_b", "line-a", 2), upload("srv_a", "line-a", 1)];
+    expect(newestUploads(list).map((u) => [u.survey.id, u.uploads])).toEqual([
+      ["srv_c", 3],
+      ["srv_x", 1],
+    ]);
+    // Out of order, the newest revision still wins.
+    expect(newestUploads([upload("srv_a", "line-a", 1), upload("srv_c", "line-a", 3)])[0]!.survey.id).toBe("srv_c");
+
+    renderApp(fakeApi({ me: vi.fn(() => Promise.resolve(ME)), surveys: vi.fn(() => Promise.resolve(list)) }), "/");
+    expect(await screen.findByText("r3 · 3 uploads")).toBeTruthy();
+    expect(screen.getByText("r1")).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(3);
   });
 });

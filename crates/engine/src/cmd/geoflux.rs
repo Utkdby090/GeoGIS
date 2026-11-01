@@ -363,7 +363,34 @@ pub(crate) fn add_inspection_layer(s: &mut Session, schema: &DomainSchema, name:
     if let Some(e) = s.map().layer(id).map(|l| l.extent()).filter(|e| !e.is_empty()) {
         s.zoom_to(&e);
     }
+    warn_stacked(s, schema, drafts);
     id
+}
+
+/// Most stacked towers named in the notice; the count says how many there are.
+const STACKED_NAMED: usize = 8;
+
+/// Towers on top of another (within [`tower_photos::STACKED_METRES`]) draw as one triangle, so
+/// a copied coordinate would hide towers: say which, so the sheet can be put right.
+fn warn_stacked(s: &mut Session, schema: &DomainSchema, drafts: &[AssetDraft]) {
+    let at: Vec<(f64, f64)> = drafts.iter().map(|d| d.location.map_or((f64::NAN, f64::NAN), |g| (g.lat, g.lon))).collect();
+    let pairs = geoflux_domain::tower_photos::stacked(&at, geoflux_domain::tower_photos::STACKED_METRES);
+    if pairs.is_empty() {
+        return;
+    }
+    let key = schema.label_key();
+    let label = |i: usize| drafts.get(i).map_or("?", |d| d.properties.get(key));
+    let named: Vec<String> = pairs.iter().take(STACKED_NAMED).map(|&(i, j)| format!("{} on {}", label(i), label(j))).collect();
+    let more = if pairs.len() > STACKED_NAMED { format!(" and {} more", pairs.len() - STACKED_NAMED) } else { String::new() };
+    s.notify(
+        format!(
+            "{} towers are within {} m of another tower and draw as one: {}{more}. Check their latitude and longitude.",
+            pairs.len(),
+            geoflux_domain::tower_photos::STACKED_METRES,
+            named.join(", ")
+        ),
+        true,
+    );
 }
 
 /// The layer's table: the schema's fields (labels as aliases), other mapped CSV columns, extra
@@ -1084,6 +1111,31 @@ mod tests {
         assert_eq!(s.project.geoflux.schema_of(id), Some(DEFAULT_SCHEMA));
         // Undo removes the layer and the link with it (the project is one snapshot).
         assert!(s.can_undo());
+    }
+
+    #[test]
+    fn towers_on_top_of_each_other_are_named() {
+        // 76_4 repeats 76_0's position; 76_5 is 5 m from 76_1; 76_2 stands a span away.
+        let sheet = "Tower No.,Line Name,Lat.,Long.\n\
+            76_0,L,27.44527,73.80958\n\
+            76_1,L,27.44800,73.81300\n\
+            76_2,L,27.45100,73.81700\n\
+            76_4,L,27.44527,73.80958\n\
+            76_5,L,27.44804,73.81300\n";
+        let mut s = session();
+        s.run("geoflux.importCsv", &json!({"text": sheet})).expect("import");
+        let said: Vec<&str> = s.notices.iter().filter(|n| n.error).map(|n| n.text.as_str()).collect();
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(
+            said[0].starts_with("2 towers are within 20 m of another tower and draw as one: 76_4 on 76_0, 76_5 on 76_1."),
+            "{}",
+            said[0]
+        );
+
+        // A sheet whose towers stand apart says nothing.
+        let mut s = session();
+        s.run("geoflux.importCsv", &json!({"text": SHEET})).expect("import");
+        assert!(!s.notices.iter().any(|n| n.text.contains("draw as one")));
     }
 
     #[test]
