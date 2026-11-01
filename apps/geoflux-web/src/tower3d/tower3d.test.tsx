@@ -17,11 +17,30 @@ import towerHealthFixture from "../api/fixtures/tower-health.json";
 import towersFixture from "../api/fixtures/towers.json";
 
 vi.mock("./TowerModel", () => ({
-  default: ({ parts, onPick, selected }: { parts: S.PartHealth[]; onPick: (key: string) => void; selected: string | null }) => (
-    <div data-testid="tower-3d" data-selected={selected ?? ""}>
-      {parts.map((p) => (
-        <button key={p.part ?? ""} type="button" onClick={() => onPick(p.part ?? "")}>
+  default: (props: {
+    parts: S.PartHealth[];
+    onPick: (key: string) => void;
+    selected: string | null;
+    badges?: ReadonlyMap<string, { text: string; label: string }>;
+    allParts?: boolean;
+    turn?: boolean;
+    home?: number;
+  }) => (
+    <div
+      data-testid="tower-3d"
+      data-selected={props.selected ?? "none"}
+      data-all={String(props.allParts)}
+      data-turn={String(props.turn)}
+      data-home={String(props.home)}
+    >
+      {props.parts.map((p) => (
+        <button key={p.part ?? ""} type="button" onClick={() => props.onPick(p.part ?? "")}>
           marker {p.part ?? "whole tower"}
+        </button>
+      ))}
+      {[...(props.badges ?? [])].map(([key, b]) => (
+        <button key={`b${key}`} type="button" aria-label={b.label} onClick={() => props.onPick(key)}>
+          {b.text}
         </button>
       ))}
     </div>
@@ -51,37 +70,44 @@ function api(health: S.TowerHealth | null = HEALTH) {
 }
 
 describe("a tower's health", () => {
-  it("lists the parts with findings and shows the picked part's findings", async () => {
+  it("numbers the confirmed findings, badges their parts, and lists what waits for review", async () => {
     renderApp(api(), `/surveys/${ID}?tower=t1`);
     const section = await screen.findByRole("region", { name: "Tower health" });
-    const parts = within(section).getByRole("list", { name: "Parts with findings" });
-    await waitFor(() =>
-      expect(
-        within(parts)
-          .getAllByRole("button")
-          .map((b) => b.textContent),
-      ).toEqual([
-        "Y phase insulator, left circuitCritical1 confirmed",
-        "Whole towerMedium1 confirmed",
-        "R phase insulator, right circuit1 waiting",
-      ]),
-    );
-    const findings = () =>
-      within(section)
-        .getAllByRole("listitem")
-        .filter((li) => li.closest(".finding-list"));
-    expect(findings()).toHaveLength(3);
-    expect(findings()[2]!.textContent).toContain("Waiting for review");
+    expect(await within(section).findByText("Confirmed findings on 101 (2)")).toBeTruthy();
+    const confirmed = within(section).getByRole("list", { name: "Confirmed findings" });
+    const items = () => within(confirmed).getAllByRole("button");
+    // Labels come from the schema, which may arrive just after the findings.
+    await waitFor(() => expect(items()[0]!.textContent).toBe("1Hot joint or connectorY phase insulator, left circuitHottest spot 78.2 °C · Hottest rise 41.7 °CCritical"));
+    expect(items()[1]!.textContent).toMatch(/^2.*Whole tower.*Neem tree 3 m from B phase.*Medium$/);
+    const waiting = within(section).getByRole("list", { name: "Findings waiting for review" });
+    expect(within(waiting).getByRole("button").textContent).toMatch(/Flashover marks on insulator.*Waiting for review/);
 
-    // A marker on the 3D tower picks its part; picking it again shows everything.
-    fireEvent.click(await within(section).findByRole("button", { name: "marker insulator.left.y" }));
-    expect(screen.getByTestId("tower-3d").getAttribute("data-selected")).toBe("insulator.left.y");
-    expect(findings().map((li) => li.textContent)).toEqual([expect.stringContaining("Hot joint or connector")]);
-    expect(findings()[0]!.textContent).toContain("Hottest rise 41.7 °C");
-    fireEvent.click(within(section).getByRole("button", { name: "marker whole tower" }));
-    expect(findings().map((li) => li.textContent)).toEqual([expect.stringContaining("Neem tree 3 m from B phase")]);
-    fireEvent.click(within(section).getByRole("button", { name: "Show all" }));
-    expect(findings()).toHaveLength(3);
+    // One badge per part with confirmed findings, numbered like the list; none for the proposal.
+    const model = await screen.findByTestId("tower-3d");
+    const badge = within(model).getByRole("button", { name: "Finding 1: Y phase insulator, left circuit, critical" });
+    expect(badge.textContent).toBe("1");
+    expect(within(model).getByRole("button", { name: "Finding 2: Whole tower, medium" }).textContent).toBe("2");
+    expect(within(model).queryByRole("button", { name: /R phase insulator/ })).toBeNull();
+
+    // A badge, a marker or a list item picks the part; picking it again lets go.
+    fireEvent.click(badge);
+    expect(model.getAttribute("data-selected")).toBe("insulator.left.y");
+    expect(items()[0]!.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(items()[1]!);
+    expect(model.getAttribute("data-selected")).toBe("");
+    fireEvent.click(within(model).getByRole("button", { name: "marker whole tower" }));
+    expect(model.getAttribute("data-selected")).toBe("none");
+
+    // The view's tools.
+    fireEvent.click(items()[0]!);
+    fireEvent.click(within(section).getByRole("button", { name: "Reset view" }));
+    expect(model.getAttribute("data-selected")).toBe("none");
+    expect(model.getAttribute("data-home")).toBe("1");
+    expect(model.getAttribute("data-turn")).toBe("false"); // the survey page starts still
+    fireEvent.click(within(section).getByRole("checkbox", { name: "Turn" }));
+    expect(model.getAttribute("data-turn")).toBe("true");
+    fireEvent.click(within(section).getByRole("checkbox", { name: "All parts" }));
+    expect(model.getAttribute("data-all")).toBe("true");
 
     fireEvent.click(within(section).getByRole("button", { name: "Hide 3D" }));
     expect(screen.queryByTestId("tower-3d")).toBeNull();
@@ -91,7 +117,7 @@ describe("a tower's health", () => {
     renderApp(api({ ...HEALTH, parts: [], findings: [] }), `/surveys/${ID}?tower=t1`);
     expect(await screen.findByText(/^No findings yet\./)).toBeTruthy();
     expect(await screen.findByTestId("tower-3d")).toBeTruthy();
-    expect(screen.queryByRole("list", { name: "Parts with findings" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Confirmed findings" })).toBeNull();
   });
 });
 

@@ -13,8 +13,9 @@ use crate::http::Fail;
 
 include!(concat!(env!("OUT_DIR"), "/web_files.rs"));
 
-/// Where the map's basemap comes from (apps/geoflux-web/src/survey/LineMap.tsx).
-const BASEMAP: &str = "https://tiles.openfreemap.org";
+/// Where the maps' basemaps come from (apps/geoflux-web/src/survey/LineMap.tsx): OpenFreeMap's
+/// streets (and the fonts for tower labels), and Esri's World Imagery on the dashboard.
+const BASEMAPS: &str = "https://tiles.openfreemap.org https://server.arcgisonline.com";
 
 fn csp() -> String {
     [
@@ -22,8 +23,8 @@ fn csp() -> String {
         "script-src 'self'".to_string(),
         // MapLibre and React set style attributes.
         "style-src 'self' 'unsafe-inline'".to_string(),
-        format!("img-src 'self' data: blob: {BASEMAP}"),
-        format!("connect-src 'self' {BASEMAP}"),
+        format!("img-src 'self' data: blob: {BASEMAPS}"),
+        format!("connect-src 'self' {BASEMAPS}"),
         "worker-src 'self' blob:".to_string(),
         "font-src 'self'".to_string(),
         "object-src 'none'".to_string(),
@@ -99,5 +100,16 @@ mod tests {
         let p = csp();
         assert!(p.contains("script-src 'self'") && !p.contains("unsafe-eval"));
         assert!(p.contains("frame-ancestors 'none'"));
+    }
+
+    #[test]
+    fn the_policy_lets_the_maps_load_their_tiles_and_nothing_else() {
+        let p = csp();
+        for d in ["img-src", "connect-src"] {
+            let rule = p.split("; ").find(|r| r.starts_with(d)).unwrap_or_default();
+            assert!(rule.contains("https://tiles.openfreemap.org"), "{rule}");
+            assert!(rule.contains("https://server.arcgisonline.com"), "{rule}");
+        }
+        assert!(!p.contains("script-src 'self' https"));
     }
 }

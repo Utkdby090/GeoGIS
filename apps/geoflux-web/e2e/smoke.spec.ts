@@ -1,7 +1,7 @@
 // One pass through the app as people use it, against the real server: an inspector's account and
 // a survey synced from GeoGIS (made through the API, as GeoGIS would), then in the browser: log in,
 // approve a GeoGIS sign-in, open the survey, a tower, its photo with markup and its PDF, use it
-// offline, log out.
+// offline, see the line health dashboard, log out.
 //
 // Email links aren't sent: the server writes them to its log, which GEOFLUX_E2E_LOG names.
 
@@ -137,6 +137,16 @@ test("an inspector's day on the web app", async ({ page, context, request }) => 
   await expect(page.getByText("You're offline")).toBeVisible();
   await expect(page.getByRole("region", { name: "Tower 102" }).getByRole("img", { name: /tower 102/ })).toBeVisible();
   await context.setOffline(false);
+
+  // The dashboard: the line on imagery and the worst tower in 3D, then the next one.
+  await page.getByRole("link", { name: "Line health" }).click();
+  await expect(page.getByRole("region", { name: "Line map" }).locator("canvas")).toBeVisible();
+  const worst = page.getByRole("region", { name: "Tower 102" });
+  await expect(worst.locator(".tower-3d canvas")).toBeVisible();
+  await expect(worst.getByText(/^No findings yet\./)).toBeVisible();
+  await worst.getByRole("button", { name: "Next tower" }).click();
+  await expect(page.getByRole("region", { name: "Tower 103" })).toBeVisible();
+  await expect(page).toHaveURL(/\/health\?tower=t2$/);
 
   // Logging out forgets the account's data on this browser.
   await page.getByRole("button", { name: "Log out" }).click();

@@ -4,7 +4,7 @@
 
 import type { Layout, LayoutItem } from "react-grid-layout";
 
-export const PANELS = ["tiles", "severity", "along", "defects", "parts", "attention", "peaks"] as const;
+export const PANELS = ["tiles", "map", "tower", "along", "severity", "defects", "parts", "attention", "peaks"] as const;
 export type Panel = (typeof PANELS)[number];
 
 export const COLS = { lg: 12, sm: 1 } as const;
@@ -12,23 +12,30 @@ export const COLS = { lg: 12, sm: 1 } as const;
 export const BREAKPOINTS = { lg: 900, sm: 0 } as const;
 export const ROW_HEIGHT = 40;
 
-const STORE_KEY = "geoflux.dashboard.layout.v1";
+// v2 added the map and the tower; an older arrangement is simply not used.
+const STORE_KEY = "geoflux.dashboard.layout.v2";
 
 const WIDE: Layout = [
   { i: "tiles", x: 0, y: 0, w: 12, h: 3, minH: 3, minW: 6 },
-  { i: "severity", x: 0, y: 3, w: 4, h: 7, minW: 3, minH: 5 },
-  { i: "along", x: 4, y: 3, w: 8, h: 7, minW: 4, minH: 5 },
-  { i: "defects", x: 0, y: 10, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "parts", x: 6, y: 10, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "attention", x: 0, y: 18, w: 8, h: 10, minW: 4, minH: 5 },
-  { i: "peaks", x: 8, y: 18, w: 4, h: 10, minW: 3, minH: 4 },
+  // The map and the 3D tower side by side, as on the dashboard sample; the tower runs down
+  // beside the map and the chart along the line.
+  { i: "map", x: 0, y: 3, w: 7, h: 10, minW: 4, minH: 6 },
+  { i: "tower", x: 7, y: 3, w: 5, h: 18, minW: 4, minH: 10 },
+  { i: "along", x: 0, y: 13, w: 7, h: 8, minW: 4, minH: 5 },
+  { i: "severity", x: 0, y: 21, w: 4, h: 8, minW: 3, minH: 5 },
+  { i: "defects", x: 4, y: 21, w: 4, h: 8, minW: 3, minH: 5 },
+  { i: "parts", x: 8, y: 21, w: 4, h: 8, minW: 3, minH: 5 },
+  { i: "attention", x: 0, y: 29, w: 8, h: 10, minW: 4, minH: 5 },
+  { i: "peaks", x: 8, y: 29, w: 4, h: 10, minW: 3, minH: 4 },
 ];
+
+const NARROW_HEIGHT: Partial<Record<string, number>> = { tiles: 5, map: 9, tower: 20 };
 
 /** On a narrow screen panels stack in this order and stay put. */
 const NARROW: Layout = (() => {
   let y = 0;
   return WIDE.map((p): LayoutItem => {
-    const h = p.i === "tiles" ? 5 : p.h;
+    const h = NARROW_HEIGHT[p.i] ?? p.h;
     const item = { i: p.i, x: 0, y, w: 1, h, static: true };
     y += h;
     return item;
