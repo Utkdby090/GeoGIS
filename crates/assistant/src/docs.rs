@@ -44,6 +44,8 @@ pub const PAGES: &[Page] = pages![
     "geoflux.md",
     "i18n.md",
     "architecture.md",
+    "definition-of-done.md",
+    "decisions.md",
     "contributing.md",
     "sponsor.md",
     "privacy.md",
