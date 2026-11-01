@@ -5,6 +5,8 @@
 //! GeoGIS runs it in its own process so that a crash inside DJI's library, on a damaged photo,
 //! ends this program and not the app. GeoGIS then starts a fresh one for the next photo.
 
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+
 #[cfg(not(target_arch = "wasm32"))]
 mod measure;
 #[cfg(not(target_arch = "wasm32"))]
