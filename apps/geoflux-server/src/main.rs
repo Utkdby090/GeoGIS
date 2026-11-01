@@ -18,6 +18,8 @@
 //!   password reset, invite) to the log instead. Only on your own computer: the links are secrets.
 //!   In-memory storage always does this.
 
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
