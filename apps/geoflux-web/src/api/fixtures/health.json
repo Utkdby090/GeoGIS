@@ -24,7 +24,7 @@
     }
   ],
   "findings": 2,
-  "inspected": 2,
+  "inspected": 3,
   "peaks": [
     {
       "measure": "maxC",
@@ -66,17 +66,17 @@
     {
       "findings": 0,
       "id": "t3",
-      "inspected": false,
+      "inspected": true,
       "label": "t3",
       "pending": 0,
       "position": 2,
-      "severity": "none"
+      "severity": "medium"
     }
   ],
   "severityCounts": [
     1,
     0,
-    0,
+    1,
     0,
     1
   ],
