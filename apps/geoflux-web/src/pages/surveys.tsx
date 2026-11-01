@@ -1,6 +1,9 @@
 // The surveys GeoGIS has synced, newest first. The map and tower pages build on this list.
+// Every Sync is a new upload (revision) of the same survey; the list shows each survey once, at its
+// newest upload, and the survey page lists the earlier ones.
 
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Link } from "react-router";
 
 import { describeFailure } from "../api/http";
@@ -11,6 +14,7 @@ import { Loading, Notice } from "../app/ui";
 export function SurveysPage() {
   const api = useApi();
   const surveys = useQuery({ queryKey: ["surveys"], queryFn: ({ signal }) => api.surveys(signal) });
+  const latest = useMemo(() => newestUploads(surveys.data ?? []), [surveys.data]);
   return (
     <main className="wide">
       <h1>Surveys</h1>
@@ -35,11 +39,11 @@ export function SurveysPage() {
             </tr>
           </thead>
           <tbody>
-            {surveys.data.map((s) => (
+            {latest.map(({ survey: s, uploads }) => (
               <tr key={s.id}>
                 <td>
                   <Link to={`/surveys/${encodeURIComponent(s.id)}`}>{s.line ?? s.project}</Link>{" "}
-                  <span className="muted">r{s.revision}</span>
+                  <span className="muted">{uploads > 1 ? `r${s.revision} · ${uploads} uploads` : `r${s.revision}`}</span>
                 </td>
                 <td>{s.project}</td>
                 <td>{s.assets}</td>
@@ -54,6 +58,21 @@ export function SurveysPage() {
       )}
     </main>
   );
+}
+
+/** Each survey once (by GeoGIS's survey id), at its newest upload, in the list's order. */
+export function newestUploads(list: readonly SurveySummary[]): { survey: SurveySummary; uploads: number }[] {
+  const by = new Map<string, { survey: SurveySummary; uploads: number }>();
+  for (const s of list) {
+    const seen = by.get(s.clientSurveyId);
+    if (!seen) {
+      by.set(s.clientSurveyId, { survey: s, uploads: 1 });
+    } else {
+      seen.uploads += 1;
+      if (s.revision > seen.survey.revision) seen.survey = s;
+    }
+  }
+  return [...by.values()];
 }
 
 function Findings({ survey }: { survey: SurveySummary }) {

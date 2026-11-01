@@ -60,7 +60,7 @@ export function HealthPage() {
         <div>
           <h1>{s.line ?? s.project}: line health</h1>
           <p className="muted">
-            {s.line ? `${s.project} · ` : ""}upload r{s.revision} · rated by confirmed findings only
+            {s.line ? `${s.project} · ` : ""}upload r{s.revision} · rated by confirmed findings, or GeoGIS's own rating where a tower has none
           </p>
         </div>
         <Link className="button" to={`/surveys/${encodeURIComponent(s.id)}`}>

@@ -79,7 +79,8 @@ pub struct LineHealth {
     pub query: HealthQuery,
     /// Towers in the survey.
     pub towers: u32,
-    /// Towers with at least one photo or finding; the rest weren't inspected in this survey.
+    /// Towers with a photo, a finding or a rating of their own from GeoGIS (a survey sheet's fault
+    /// values); the rest weren't inspected in this survey.
     pub inspected: u32,
     /// Inspected towers by their worst counted finding that matches, in [`Severity::ALL`] order
     /// (a healthy tower is `none`), like [`crate::model::SurveySummary::severity_counts`].
@@ -189,7 +190,9 @@ impl LineHealth {
         // One buffer for every tower's counted findings, so the loop doesn't allocate per tower.
         let mut counted: Vec<&SyncedFinding> = Vec::new();
         for a in sorted {
-            let inspected = !a.photos.is_empty() || !a.findings.is_empty();
+            // A survey sheet's row rated by GeoGIS (its typed fault values) was inspected too,
+            // photos or not, so the dashboard agrees with the surveys list.
+            let inspected = !a.photos.is_empty() || !a.findings.is_empty() || a.asset.severity != Severity::None;
             counted.clear();
             let mut pending = 0usize;
             for f in a.findings.iter().filter(|f| out.query.matches(f)) {
@@ -349,6 +352,17 @@ mod tests {
         assert_eq!(h.by_defect.len(), 2);
         assert_eq!(h.by_part.iter().map(|p| p.part.as_ref().map(PartId::as_str)).collect::<Vec<_>>().len(), 2);
         assert_eq!(h.peaks, [Peak { measure: "riseC".into(), value: 41.7, tower: "T-001".into() }]);
+    }
+
+    #[test]
+    fn a_survey_sheet_rating_counts_as_inspected_without_photos() {
+        // A survey CSV's row: no photos, no findings, rated medium from its typed fault values.
+        let mut a = assets();
+        a[2].asset.severity = Severity::Medium;
+        let h = LineHealth::build(survey(), &a, "tower_no", HealthQuery::default());
+        assert_eq!((h.towers, h.inspected), (4, 4));
+        assert_eq!(h.severity_counts, [1, 0, 1, 1, 1]);
+        assert_eq!((h.rows[2].inspected, h.rows[2].severity), (true, Severity::Medium));
     }
 
     #[test]

@@ -32,7 +32,7 @@ export function TowerHealthView({ surveyId, towerId, schema }: { surveyId: strin
   if (health.isPending) return <Loading what="Loading the tower's health" />;
   if (health.error) return <Notice kind="error">{describeFailure(health.error)}</Notice>;
   const h = health.data;
-  if (!h || h.parts.length === 0) {
+  if (!h) {
     return (
       <section className="tower-health" aria-label="Tower health">
         <h3>Tower health</h3>
@@ -40,6 +40,8 @@ export function TowerHealthView({ surveyId, towerId, schema }: { surveyId: strin
       </section>
     );
   }
+  // No findings yet: the tower still shows, unmarked, so it's clear where they will appear.
+  const empty = h.parts.length === 0;
   const keyOf = (p: PartHealth) => p.part ?? WHOLE_TOWER;
   const partOf = (f: Finding) => f.part ?? WHOLE_TOWER;
   const shown = picked === null ? h.findings : h.findings.filter((f) => partOf(f) === picked);
@@ -72,55 +74,64 @@ export function TowerHealthView({ surveyId, towerId, schema }: { surveyId: strin
           </ModelBoundary>
         )
       ) : null}
-      <ul className="part-list" aria-label="Parts with findings">
-        {h.parts.map((p) => {
-          const key = keyOf(p);
-          return (
-            <li key={key}>
-              <button type="button" aria-pressed={picked === key} onClick={() => toggle(key)}>
-                <span className={`dot sev-bg-${p.counted > 0 ? p.severity : "none"}`} aria-hidden="true" />
-                <span className="label">{labels.part(p.part)}</span>
-                {p.counted > 0 ? <span className={`sev sev-${p.severity} small`}>{SEVERITY_LABEL[p.severity]}</span> : null}
-                <span className="muted small">
-                  {p.counted > 0 ? `${p.counted} confirmed` : ""}
-                  {p.counted > 0 && p.pending > 0 ? ", " : ""}
-                  {p.pending > 0 ? `${p.pending} waiting` : ""}
-                </span>
-              </button>
-              {missing.has(key) ? <span className="muted small"> (not on the 3D model; shown at its centre)</span> : null}
-            </li>
-          );
-        })}
-      </ul>
-      <h4 className="small">
-        {picked === null ? "All findings" : `Findings on: ${labels.part(picked === WHOLE_TOWER ? null : picked)}`}
-        {picked !== null ? (
-          <>
-            {" "}
-            <button type="button" className="link small" onClick={() => setPicked(null)}>
-              Show all
-            </button>
-          </>
-        ) : null}
-      </h4>
-      <ol className="finding-list">
-        {shown.map((f) => (
-          <li key={f.id}>
-            <div>
-              <span className={`sev sev-${f.severity}`}>{SEVERITY_LABEL[f.severity]}</span> {labels.defect(f.defect)}
-              {f.status === "proposed" ? <span className="tag">Waiting for review</span> : null}
-            </div>
-            <div className="muted small">
-              {labels.part(f.part)}
-              {Object.entries(f.measurements ?? {}).map(([k, v]) => {
-                const m = measure(k);
-                return ` · ${m.label} ${Number.isInteger(v) ? v : v.toFixed(1)}${m.unit ? ` ${m.unit}` : ""}`;
-              })}
-            </div>
-            {f.note ? <div className="small note">{f.note}</div> : null}
-          </li>
-        ))}
-      </ol>
+      {empty ? (
+        <p className="muted small">
+          No findings yet. Findings made in GeoGIS (Analyze › Inspection › Review Findings, with a part picked) and
+          synced show here on their part of the tower.
+        </p>
+      ) : (
+        <>
+          <ul className="part-list" aria-label="Parts with findings">
+            {h.parts.map((p) => {
+              const key = keyOf(p);
+              return (
+                <li key={key}>
+                  <button type="button" aria-pressed={picked === key} onClick={() => toggle(key)}>
+                    <span className={`dot sev-bg-${p.counted > 0 ? p.severity : "none"}`} aria-hidden="true" />
+                    <span className="label">{labels.part(p.part)}</span>
+                    {p.counted > 0 ? <span className={`sev sev-${p.severity} small`}>{SEVERITY_LABEL[p.severity]}</span> : null}
+                    <span className="muted small">
+                      {p.counted > 0 ? `${p.counted} confirmed` : ""}
+                      {p.counted > 0 && p.pending > 0 ? ", " : ""}
+                      {p.pending > 0 ? `${p.pending} waiting` : ""}
+                    </span>
+                  </button>
+                  {missing.has(key) ? <span className="muted small"> (not on the 3D model; shown at its centre)</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+          <h4 className="small">
+            {picked === null ? "All findings" : `Findings on: ${labels.part(picked === WHOLE_TOWER ? null : picked)}`}
+            {picked !== null ? (
+              <>
+                {" "}
+                <button type="button" className="link small" onClick={() => setPicked(null)}>
+                  Show all
+                </button>
+              </>
+            ) : null}
+          </h4>
+          <ol className="finding-list">
+            {shown.map((f) => (
+              <li key={f.id}>
+                <div>
+                  <span className={`sev sev-${f.severity}`}>{SEVERITY_LABEL[f.severity]}</span> {labels.defect(f.defect)}
+                  {f.status === "proposed" ? <span className="tag">Waiting for review</span> : null}
+                </div>
+                <div className="muted small">
+                  {labels.part(f.part)}
+                  {Object.entries(f.measurements ?? {}).map(([k, v]) => {
+                    const m = measure(k);
+                    return ` · ${m.label} ${Number.isInteger(v) ? v : v.toFixed(1)}${m.unit ? ` ${m.unit}` : ""}`;
+                  })}
+                </div>
+                {f.note ? <div className="small note">{f.note}</div> : null}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
     </section>
   );
 }

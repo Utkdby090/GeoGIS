@@ -55,20 +55,25 @@ describe("the line health page", () => {
     const glance = await screen.findByRole("region", { name: "At a glance" });
     const tile = (name: string) => within(glance).getByText(name).nextElementSibling?.textContent;
     expect(tile("Towers")).toBe("3");
-    expect(tile("Inspected")).toBe("2");
+    // t3 has no photos or findings but GeoGIS rated it medium (a survey sheet's values): inspected.
+    expect(tile("Inspected")).toBe("3");
     expect(tile("Need action (high or critical)")).toBe("1");
     expect(tile("Confirmed findings")).toBe("2");
     expect(tile("Waiting for review")).toBe("1");
     expect(await screen.findByRole("img", { name: /Inspected towers by their worst finding/ })).toBeTruthy();
 
-    const table = within(screen.getByRole("region", { name: "Towers needing attention (1)" })).getByRole("table");
+    const table = within(screen.getByRole("region", { name: "Towers needing attention (2)" })).getByRole("table");
     await waitFor(() =>
       expect(
         within(table)
           .getAllByRole("cell")
-          .map((c) => c.textContent),
+          .map((c) => c.textContent)
+          .slice(0, 5),
       ).toEqual(["101", "Critical", "Hot joint or connector, Y phase insulator, left circuit", "2", "1"]),
     );
+    // Then t3, rated medium by GeoGIS with no findings of its own.
+    expect(within(table).getAllByRole("cell")[5]?.textContent).toBe("t3");
+    expect(within(table).getAllByRole("cell")[6]?.textContent).toBe("Medium");
     expect(within(table).getByRole("link", { name: "101" }).getAttribute("href")).toBe(`/surveys/${ID}?tower=t1`);
 
     const peaks = within(screen.getByRole("region", { name: "Highest readings" }));
