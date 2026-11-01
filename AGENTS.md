@@ -90,6 +90,11 @@ Everything above applies. These add what GeoGIS's inspection product needs: `cra
 - A new dependency is justified in the PR: what it does, licence, binary or bundle size, wasm and
   packaging impact. Prefer what the workspace already uses (`geo`, `proj4rs`, `sha2`, `ureq`).
 
+### Interface text
+- GeoFlux screens stay English-only for now (owner's decision, 2026-11-01). Still wrap every
+  user-visible literal in `tl!` / `i18n::fmt` as above, so the catalogs can be filled in one go
+  before release; just don't add catalog rows yet.
+
 ### Coordinates
 - GeoFlux layers are WGS 84 longitude/latitude. KML is WGS 84 by its specification; photo GPS
   comes from EXIF in WGS 84. Distances between towers and photos are haversine metres, which is

@@ -18,3 +18,4 @@ Add a row when a choice would surprise someone reading the code later.
 | 2026-10-31 | Line health dashboard built in the web app (ECharts, react-grid-layout) | Superset, Kibana or Grafana | Same login and team as Sync; no second system to host |
 | 2026-10-31 | One static 3D tower model with named attach points for every tower | A model per tower type now; photogrammetry | Works for every line today; a real model drops in later |
 | 2026-11-01 | Engineering rules for GeoFlux code in `AGENTS.md`; done list in `docs/definition-of-done.md` | One long prompt | Rules live with the code, under review like code |
+| 2026-11-01 | GeoFlux screens stay English-only until before release; text is still wrapped in `tl!` | Translating the 15 catalogs now | Screens are still changing; translate once, before release (Hindi waits on egui text shaping) |
