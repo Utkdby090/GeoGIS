@@ -11,7 +11,10 @@
   --success: #1e6b34;
   --success-bg: #e7f4ea;
   --info-bg: #e8f1fb;
-  --sev-low: #2f7d32;
+  /* Low is blue so it can't be mistaken for healthy (green), as on the dashboard sample. */
+  --sev-ok: #2f7d4f;
+  --sev-unknown: #8b95a1;
+  --sev-low: #2563a8;
   --sev-medium: #b8860b;
   --sev-high: #d9480f;
   --sev-critical: #b3261e;
@@ -31,7 +34,9 @@
     --success: #7fd08f;
     --success-bg: #18301e;
     --info-bg: #182638;
-    --sev-low: #7fd08f;
+    --sev-ok: #4ade80;
+    --sev-unknown: #9ca3af;
+    --sev-low: #60a5fa;
     --sev-medium: #e9c46a;
     --sev-high: #f4a261;
     --sev-critical: #f2877f;
@@ -134,7 +139,7 @@ a.button {
   white-space: nowrap;
 }
 .small { font-size: 0.85rem; }
-.sev-bg-none { background: #8b95a1; }
+.sev-bg-none { background: var(--sev-unknown); }
 .sev-bg-low { background: var(--sev-low); }
 .sev-bg-medium { background: var(--sev-medium); }
 .sev-bg-high { background: var(--sev-high); }
@@ -165,6 +170,16 @@ main.survey { display: flex; flex-direction: column; height: calc(100vh - 3.2rem
 .map-wrap { position: relative; min-height: 18rem; }
 /* More specific than MapLibre's own .maplibregl-map { position: relative }. */
 .map-wrap .line-map { position: absolute; inset: 0; }
+.map-legend { position: absolute; left: 0.6rem; bottom: 1.9rem; display: flex; flex-wrap: wrap; gap: 0.2rem 0.75rem; max-width: calc(100% - 1.2rem); margin: 0; padding: 0.3rem 0.55rem; list-style: none; font-size: 0.78rem; color: var(--text); background: color-mix(in srgb, var(--surface) 90%, transparent); border-radius: 6px; pointer-events: none; }
+.map-legend li { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.tri { width: 0.75rem; height: 0.7rem; clip-path: polygon(50% 0, 100% 100%, 0 100%); flex: none; }
+.tri-critical { background: var(--sev-critical); }
+.tri-high { background: var(--sev-high); }
+.tri-medium { background: var(--sev-medium); }
+.tri-low { background: var(--sev-low); }
+.tri-none { background: var(--sev-ok); }
+.tri-unknown { background: var(--sev-unknown); }
+.map-whole { position: absolute; left: 0.6rem; top: 0.6rem; padding: 0.3rem 0.7rem; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
 
 .tower-panel { overflow-y: auto; border-left: 1px solid var(--border); background: var(--surface); }
 .tower-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--surface); border-bottom: 1px solid var(--border); }
@@ -230,20 +245,43 @@ main.health { padding-bottom: 2rem; }
 table.list.compact th, table.list.compact td { padding: 0.35rem 0.5rem; font-size: 0.875rem; }
 table.list.compact { border: 0; }
 .sev-tag { display: inline-flex; align-items: center; gap: 0.35rem; }
+.panel-body.flush { position: relative; padding: 0; overflow: hidden; }
+.panel-body.flush .map-wrap { position: absolute; inset: 0; height: auto; min-height: 0; }
+.tower-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.6rem; }
+.tower-picker label { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); font-size: 0.9rem; }
+.tower-picker select { min-width: 7rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.tower-picker button { padding: 0.3rem 0.75rem; font-size: 1.1rem; line-height: 1; }
+.panel .tower-3d { height: 24rem; }
+button.link[aria-pressed="true"] { font-weight: 650; }
 .react-grid-item.react-grid-placeholder { background: var(--accent); opacity: 0.15; border-radius: 8px; }
 
 /* A tower's health in the tower panel: the 3D tower, its parts and findings. */
 .tower-health { margin: 0 0 1rem; }
 .tower-health h3 { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.4rem; }
 .tower-health h3 button { text-transform: none; letter-spacing: 0; }
+.tower-stage { position: relative; }
 .tower-3d { position: relative; height: 18rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; touch-action: none; }
 .tower-3d canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.tower-3d .badges { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tower-3d .badge { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: auto; min-width: 1.6rem; height: 1.6rem; margin: -0.8rem 0 0 -0.8rem; padding: 0 0.35rem; border-radius: 0.8rem; border: 2px solid var(--surface); font-size: 0.8rem; font-weight: 650; line-height: 1; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+.tower-3d .badge[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--accent), 0 1px 6px rgba(0, 0, 0, 0.4); }
+.stage-tools { position: absolute; left: 0.5rem; top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.stage-tools button, .stage-tools label { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; font-size: 0.8rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.stage-help { position: absolute; right: 0.5rem; bottom: 0.5rem; margin: 0; padding: 0.1rem 0.45rem; font-size: 0.75rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 5px; pointer-events: none; }
+.fitem { display: flex; gap: 0.6rem; align-items: flex-start; width: 100%; text-align: left; padding: 0.5rem; border: 1px solid transparent; border-radius: 6px; background: none; }
+.fitem:hover { background: var(--info-bg); }
+.fitem[aria-pressed="true"] { border-color: var(--accent); background: var(--info-bg); }
+.fitem .num { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; font-size: 0.8rem; font-weight: 650; }
+.fitem .num.pending { border: 2px solid var(--sev-unknown); }
+.fitem .fbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.fitem .fbody span { font-size: 0.85rem; color: var(--muted); }
+.fitem .sev, .fitem .tag { flex: none; }
 .part-list { list-style: none; margin: 0.5rem 0; padding: 0; }
 .part-list button { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; border: 0; border-radius: 4px; padding: 0.3rem 0.4rem; background: none; }
 .part-list button:hover, .part-list button[aria-pressed="true"] { background: var(--info-bg); }
 .part-list .label { flex: 1; }
 .tower-health h4 { margin: 0.5rem 0 0.25rem; }
 .finding-list { list-style: none; margin: 0; padding: 0; }
-.finding-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.finding-list li { padding: 0.15rem 0; border-bottom: 1px solid var(--border); }
 .finding-list .note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tag { margin-left: 0.4rem; font-size: 0.75rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--info-bg); }

@@ -9,12 +9,15 @@ import * as S from "../api/schemas";
 import { fakeApi, ME } from "../test/fake-api";
 import { renderApp } from "../test/render";
 import { foldTally, TALLY_BARS, type Tally } from "./charts";
-import { checkWide, defaultLayouts, loadWide, saveWide } from "./layout";
+import { featureRating, healthRatings, inkOn } from "../survey/ratings";
+import { checkWide, defaultLayouts, loadWide, PANELS, saveWide } from "./layout";
 import { attention, defectChoices, filtersFrom, Labels, partChoices } from "./model";
 
 import healthFixture from "../api/fixtures/health.json";
 import schemaFixture from "../api/fixtures/schema.json";
 import surveyFixture from "../api/fixtures/survey.json";
+import towerHealthFixture from "../api/fixtures/tower-health.json";
+import towersFixture from "../api/fixtures/towers.json";
 
 vi.mock("./EChart", () => ({
   default: ({ label, onPick }: { label: string; onPick?: (s: number, i: number) => void }) => (
@@ -28,6 +31,27 @@ vi.mock("./EChart", () => ({
   ),
 }));
 
+// The map and the 3D tower draw with WebGL, which jsdom lacks: stand-ins show what they were given.
+vi.mock("../survey/LineMap", () => ({
+  default: (props: {
+    towers: S.TowerCollection;
+    selected: string | null;
+    onSelect: (id: string) => void;
+    basemap?: string;
+    ratings?: ReadonlyMap<string, string>;
+    healthyLabel?: string;
+  }) => (
+    <div data-testid="map" data-basemap={props.basemap} data-selected={props.selected ?? ""} data-healthy={props.healthyLabel ?? ""}>
+      {props.towers.features.map((f) => (
+        <button key={f.id} type="button" onClick={() => props.onSelect(f.id)}>
+          triangle {f.properties.label} {props.ratings?.get(f.id)}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+vi.mock("../tower3d/TowerModel", () => ({ default: () => <div data-testid="tower-3d" /> }));
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -36,6 +60,8 @@ afterEach(() => {
 const SURVEY = S.SurveyDetail.parse(surveyFixture);
 const SCHEMA = S.DomainSchema.parse(schemaFixture);
 const HEALTH = S.LineHealth.parse(healthFixture);
+const TOWERS = S.TowerCollection.parse(towersFixture);
+const TOWER_HEALTH = S.TowerHealth.parse(towerHealthFixture);
 const ID = SURVEY.summary.id;
 
 function api() {
@@ -44,6 +70,10 @@ function api() {
     survey: vi.fn(() => Promise.resolve(SURVEY)),
     schema: vi.fn(() => Promise.resolve(SCHEMA)),
     lineHealth: vi.fn((_id: string, query: S.HealthQuery) => Promise.resolve({ ...HEALTH, query })),
+    towers: vi.fn(() => Promise.resolve(TOWERS)),
+    towerHealth: vi.fn((_s: string, tower: string) =>
+      Promise.resolve(tower === "t1" ? TOWER_HEALTH : { ...TOWER_HEALTH, id: tower, label: tower, severity: "none" as const, parts: [], findings: [] }),
+    ),
   });
 }
 
@@ -74,7 +104,10 @@ describe("the line health page", () => {
     // Then t3, rated medium by GeoGIS with no findings of its own.
     expect(within(table).getAllByRole("cell")[5]?.textContent).toBe("t3");
     expect(within(table).getAllByRole("cell")[6]?.textContent).toBe("Medium");
-    expect(within(table).getByRole("link", { name: "101" }).getAttribute("href")).toBe(`/surveys/${ID}?tower=t1`);
+    // A tower in the table shows it in the tower panel, keeping the dashboard open.
+    fireEvent.click(within(table).getByRole("button", { name: "t3" }));
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?tower=t3`));
+    expect(await screen.findByRole("region", { name: "Tower t3" })).toBeTruthy();
 
     const peaks = within(screen.getByRole("region", { name: "Highest readings" }));
     expect(peaks.getAllByRole("row").map((r) => r.textContent)).toEqual([
@@ -102,14 +135,54 @@ describe("the line health page", () => {
     await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health`));
   });
 
-  it("filters by a defect from its bar, and opens a tower from the line chart", async () => {
+  it("filters by a defect from its bar, and shows a tower from the line chart, each keeping the other", async () => {
     renderApp(api(), `/surveys/${ID}/health`);
     const defects = await screen.findByRole("region", { name: "Findings by defect" });
     fireEvent.click(await within(defects).findByRole("button", { name: "pick first" }));
     await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?defect=hotspot.joint`));
     const along = screen.getByRole("region", { name: "Along the line" });
     fireEvent.click(await within(along).findByRole("button", { name: "pick first" }));
-    await waitFor(() => expect(here()).toBe(`/surveys/${ID}?tower=t1`));
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?defect=hotspot.joint&tower=t1`));
+    fireEvent.change(screen.getByRole("combobox", { name: "Severity" }), { target: { value: "high" } });
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?defect=hotspot.joint&minSeverity=high&tower=t1`));
+  });
+
+  it("shows the line on imagery, and the tower picked on the map in 3D with its findings", async () => {
+    const a = api();
+    renderApp(a, `/surveys/${ID}/health`);
+    const map = await screen.findByTestId("map");
+    expect(map.getAttribute("data-basemap")).toBe("imagery");
+    // Rated by the dashboard's numbers: t3 has no photos but GeoGIS rated it, so it isn't grey.
+    expect(within(map).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "triangle 101 critical",
+      "triangle 102 none",
+      "triangle t3 medium",
+    ]);
+    // With nothing picked, the worst tower is shown.
+    expect(map.getAttribute("data-selected")).toBe("t1");
+    const tower = await screen.findByRole("region", { name: "Tower 101" });
+    expect(await within(tower).findByText("Confirmed findings on 101 (2)")).toBeTruthy();
+    expect(within(tower).getByRole("link", { name: "Photos and form for 101" }).getAttribute("href")).toBe(`/surveys/${ID}?tower=t1`);
+
+    fireEvent.click(within(map).getByRole("button", { name: "triangle 102 none" }));
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?tower=t2`));
+    const next = await screen.findByRole("region", { name: "Tower 102" });
+    expect(await within(next).findByText(/^No findings yet\./)).toBeTruthy();
+    expect(a.towerHealth).toHaveBeenLastCalledWith(ID, "t2", expect.anything());
+    expect((within(next).getByRole("combobox", { name: "Tower number" }) as HTMLSelectElement).value).toBe("t2");
+
+    // Previous and next walk the line, and stop at its ends.
+    fireEvent.click(within(next).getByRole("button", { name: "Next tower" }));
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?tower=t3`));
+    const last = await screen.findByRole("region", { name: "Tower t3" });
+    expect((within(last).getByRole("button", { name: "Next tower" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(last).getByRole("combobox", { name: "Tower number" }), { target: { value: "t1" } });
+    await waitFor(() => expect(here()).toBe(`/surveys/${ID}/health?tower=t1`));
+  });
+
+  it("calls healthy towers 'no matching finding' on the map while filtered", async () => {
+    renderApp(api(), `/surveys/${ID}/health?minSeverity=high`);
+    await waitFor(() => expect(screen.getByTestId("map").getAttribute("data-healthy")).toBe("No matching finding"));
   });
 
   it("shows each chart's numbers as a table", async () => {
@@ -219,7 +292,27 @@ describe("the dashboard's rules", () => {
     expect(checkWide([...wide.slice(1), wide[1]])).toBeNull(); // one twice
     expect(checkWide(wide.map((p) => (p.i === "tiles" ? { ...p, x: 6 } : p)))).toBeNull(); // off the grid
     expect(checkWide(wide.map((p) => (p.i === "along" ? { ...p, w: 1.5 } : p)))).toBeNull();
-    localStorage.setItem("geoflux.dashboard.layout.v1", "{not json");
+    localStorage.setItem("geoflux.dashboard.layout.v2", "{not json");
     expect(loadWide()).toBe(wide);
+    // An arrangement saved before the map and the tower existed is left alone.
+    localStorage.setItem("geoflux.dashboard.layout.v2", JSON.stringify(wide.filter((p) => p.i !== "map" && p.i !== "tower")));
+    expect(loadWide()).toBe(wide);
+    expect(wide.map((p) => p.i)).toEqual([...PANELS]);
+  });
+
+  it("rates towers on the map, and writes badge numbers in a colour that reads", () => {
+    const f = (severity: S.Severity, photos: number): S.TowerFeature => ({
+      type: "Feature",
+      id: "x",
+      geometry: null,
+      properties: { label: "x", position: 0, severity, status: "ready", photos },
+    });
+    expect([featureRating(f("high", 0)), featureRating(f("none", 3)), featureRating(f("none", 0))]).toEqual(["high", "none", "unknown"]);
+    expect(healthRatings(HEALTH.rows)).toEqual(
+      new Map(HEALTH.rows.map((r) => [r.id, r.inspected ? r.severity : "unknown"])),
+    );
+    expect(inkOn("#b3261e")).toBe("#ffffff");
+    expect(inkOn("#e9c46a")).toBe("#111111");
+    expect(inkOn("not a colour")).toBe("#ffffff");
   });
 });

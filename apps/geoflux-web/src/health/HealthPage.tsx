@@ -1,25 +1,30 @@
 // /surveys/:id/health: the line at a glance. Filters in one row at the top (kept in the address,
-// so a filtered view can be shared), headline numbers, charts, and the towers that need attention.
-// Panels can be dragged by their title and resized on a wide screen; the arrangement is kept in
-// this browser. Every chart has its numbers in a table too.
+// so a filtered view can be shared), headline numbers, the line on satellite imagery, the picked
+// tower in 3D with its findings, charts, and the towers that need attention. Picking a tower
+// anywhere on the page (map, chart, table) shows it in the tower panel; the pick is in the address
+// too (?tower=). Panels can be dragged by their title and resized on a wide screen; the
+// arrangement is kept in this browser. Every chart has its numbers in a table too.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { EChartsCoreOption } from "echarts/core";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Responsive, type Layout } from "react-grid-layout";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import "react-grid-layout/css/styles.css";
 
 import { describeFailure } from "../api/http";
-import { SEVERITIES, type DomainSchema, type LineHealth, type Severity, type TowerHealthRow } from "../api/schemas";
+import { SEVERITIES, type DomainSchema, type LineHealth, type Severity, type SurveyDetail, type TowerCollection, type TowerHealthRow } from "../api/schemas";
 import { useApi } from "../app/api-context";
 import { useColours } from "../app/colours";
 import { Loading, Notice } from "../app/ui";
+import { healthRatings } from "../survey/ratings";
+import { TowerHealthView } from "../tower3d/TowerHealthView";
 import { alongOption, escapeHtml as esc, foldTally, severityOption, SEVERITY_LABEL, tallyOption, type Tally } from "./charts";
 import { BREAKPOINTS, COLS, defaultLayouts, forgetWide, loadWide, ROW_HEIGHT, saveWide, type Panel } from "./layout";
 import { attention, defectChoices, filtersFrom, filtersTo, Labels, measure, partChoices, tiles, type Choice } from "./model";
 
 const EChart = lazy(() => import("./EChart"));
+const LineMap = lazy(() => import("../survey/LineMap"));
 
 export function HealthPage() {
   const { id = "" } = useParams();
@@ -34,6 +39,8 @@ export function HealthPage() {
     enabled: !!schemaId,
     staleTime: Infinity,
   });
+  // The same list (and cache entry) as the survey page's map.
+  const towers = useQuery({ queryKey: ["towers", id], queryFn: ({ signal }) => api.towers(id, signal), staleTime: Infinity });
   const health = useQuery({
     queryKey: ["health", id, filtersTo(query)],
     queryFn: ({ signal }) => api.lineHealth(id, query, signal),
@@ -53,7 +60,10 @@ export function HealthPage() {
     );
   }
   const s = survey.data.summary;
-  const setQuery = (next: Record<string, string>) => setParams(next, { replace: true });
+  const picked = params.get("tower");
+  // Filters and the picked tower share the address; changing one keeps the other.
+  const setQuery = (next: Record<string, string>) => setParams(picked ? { ...next, tower: picked } : next, { replace: true });
+  const pick = (tower: string) => setParams({ ...filtersTo(query), tower }, { replace: true });
   return (
     <main className="health">
       <header className="survey-head">
@@ -74,9 +84,12 @@ export function HealthPage() {
         </div>
       ) : health.data ? (
         <Dashboard
-          surveyId={s.id}
+          survey={survey.data}
           health={health.data}
           schema={schema.data ?? null}
+          towers={towers}
+          picked={picked}
+          onPick={pick}
           onFilter={(k, v) => setQuery({ ...filtersTo(query), [k]: v })}
         />
       ) : (
@@ -199,18 +212,34 @@ function useWidth(): [RefObject<HTMLDivElement | null>, number | null] {
   return [ref, width];
 }
 
+/** Brings the tower panel into view when it's off screen (a pick from the table further down). */
+function reveal() {
+  const el = document.getElementById("panel-tower");
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  if (r.top >= 0 && r.top < window.innerHeight - 120) return;
+  const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  el.scrollIntoView?.({ behavior: calm ? "auto" : "smooth", block: "start" });
+}
+
 function Dashboard({
-  surveyId,
+  survey,
   health,
   schema,
+  towers,
+  picked,
+  onPick,
   onFilter,
 }: {
-  surveyId: string;
+  survey: SurveyDetail;
   health: LineHealth;
   schema: DomainSchema | null;
+  towers: { data: TowerCollection | null | undefined; error: unknown; isPending: boolean };
+  picked: string | null;
+  onPick: (towerId: string) => void;
   onFilter: (key: "defect" | "part", value: string) => void;
 }) {
-  const navigate = useNavigate();
+  const surveyId = survey.summary.id;
   const tokens = useColours();
   const [ref, width] = useWidth();
   const [layouts, setLayouts] = useState(() => ({ ...defaultLayouts(), lg: loadWide() }));
@@ -248,8 +277,25 @@ function Dashboard({
   );
   const t = tiles(health);
   const need = attention(health.rows);
+  const ratings = useMemo(() => healthRatings(health.rows), [health.rows]);
+  // The picked tower, or the worst one, or the first inspected, or the first.
+  const current =
+    (picked === null ? undefined : health.rows.find((r) => r.id === picked)) ??
+    need.rows[0] ??
+    health.rows.find((r) => r.inspected) ??
+    health.rows[0];
+  const show = (id: string) => {
+    onPick(id);
+    reveal();
+  };
+  // A plain function, not a component, so the buttons aren't remade (losing focus) on each render.
+  const towerButton = (id: string, label: string) => (
+    <button type="button" className="link" aria-pressed={current?.id === id} onClick={() => show(id)}>
+      {label}
+    </button>
+  );
 
-  const panels: Record<Panel, { title: string; body: ReactNode }> = {
+  const panels: Record<Panel, { title: string; body: ReactNode; flush?: boolean }> = {
     tiles: {
       title: filtered ? "At a glance, matching the filters" : "At a glance",
       body: (
@@ -260,6 +306,43 @@ function Dashboard({
           <Tile label="Confirmed findings" value={t.findings} />
           <Tile label="Waiting for review" value={t.pending} />
         </dl>
+      ),
+    },
+    map: {
+      title: "Line map",
+      flush: true,
+      body: towers.isPending ? (
+        <Loading what="Loading the towers" />
+      ) : towers.error ? (
+        <Notice kind="error">{describeFailure(towers.error)}</Notice>
+      ) : (
+        <div className="map-wrap">
+          <Suspense fallback={<Loading what="Loading the map" />}>
+            <LineMap
+              towers={towers.data ?? { type: "FeatureCollection", features: [] }}
+              bounds={survey.bounds}
+              selected={current?.id ?? null}
+              onSelect={onPick}
+              basemap="imagery"
+              ratings={ratings}
+              {...(filtered ? { healthyLabel: "No matching finding" } : {})}
+            />
+          </Suspense>
+        </div>
+      ),
+    },
+    tower: {
+      title: current ? `Tower ${current.label}` : "Tower",
+      body: current ? (
+        <>
+          <TowerPicker rows={health.rows} current={current} onPick={onPick} />
+          <TowerHealthView key={current.id} surveyId={surveyId} towerId={current.id} schema={schema} turnAtStart />
+          <p className="small">
+            <Link to={towerLink(current.id)}>Photos and form for {current.label}</Link>
+          </p>
+        </>
+      ) : (
+        <p className="empty">This upload has no towers.</p>
       ),
     },
     severity: {
@@ -281,10 +364,10 @@ function Dashboard({
         ) : (
           <ChartWithTable
             option={options.along}
-            label="Each inspected tower's rating in walking order; select a dot to open the tower"
+            label="Each inspected tower's rating in walking order; select a dot to show the tower"
             onPick={(_s, i) => {
               const r = inspected[i];
-              if (r) void navigate(towerLink(r.id));
+              if (r) show(r.id);
             }}
             head={["Tower", "Rating"]}
             rows={inspected.filter((r) => r.severity !== "none").map((r) => [r.label, SEVERITY_LABEL[r.severity]])}
@@ -348,7 +431,7 @@ function Dashboard({
                 {need.rows.map((r) => (
                   <tr key={r.id}>
                     <td>
-                      <Link to={towerLink(r.id)}>{r.label}</Link>
+                      {towerButton(r.id, r.label)}
                     </td>
                     <td>
                       <SeverityTag severity={r.severity} />
@@ -393,7 +476,7 @@ function Dashboard({
                       {m.unit ? ` ${m.unit}` : ""}
                     </td>
                     <td>
-                      <Link to={towerLink(p.tower)}>{labelOf.get(p.tower) ?? p.tower}</Link>
+                      {towerButton(p.tower, labelOf.get(p.tower) ?? p.tower)}
                     </td>
                   </tr>
                 );
@@ -443,12 +526,39 @@ function Dashboard({
                 <header className="panel-head">
                   <h2 id={`panel-${key}`}>{panels[key].title}</h2>
                 </header>
-                <div className="panel-body">{panels[key].body}</div>
+                <div className={`panel-body${panels[key].flush ? " flush" : ""}`}>{panels[key].body}</div>
               </section>
             ))}
           </Responsive>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The tower number list with previous and next, in walking order. */
+function TowerPicker({ rows, current, onPick }: { rows: readonly TowerHealthRow[]; current: TowerHealthRow; onPick: (id: string) => void }) {
+  const at = rows.findIndex((r) => r.id === current.id);
+  const before = at > 0 ? rows[at - 1] : undefined;
+  const after = at >= 0 ? rows[at + 1] : undefined;
+  return (
+    <div className="tower-picker">
+      <label>
+        Tower number{" "}
+        <select value={current.id} onChange={(e) => onPick(e.target.value)}>
+          {rows.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button type="button" aria-label="Previous tower" disabled={!before} onClick={() => before && onPick(before.id)}>
+        ‹
+      </button>
+      <button type="button" aria-label="Next tower" disabled={!after} onClick={() => after && onPick(after.id)}>
+        ›
+      </button>
     </div>
   );
 }

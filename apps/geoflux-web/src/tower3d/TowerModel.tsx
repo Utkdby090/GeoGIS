@@ -1,7 +1,9 @@
 // The 3D tower: one static model for every tower (tower.glb), turned with the mouse or a finger,
-// with a marker at each part that has findings, coloured by its worst confirmed finding. Clicking
-// a marker picks that part. Drawn only when something changes, and everything it made (the GPU
-// context included) is released when it goes, so opening tower after tower doesn't leak.
+// with a marker at each part that has findings, coloured by its worst confirmed finding, and a
+// numbered badge over it matching the findings list. Clicking a marker or badge picks that part
+// and the camera moves to it. Drawn only when something changes or moves (turning, moving to a
+// part), paused while scrolled out of sight, and everything it made (the GPU context included) is
+// released when it goes, so opening tower after tower doesn't leak.
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -9,8 +11,17 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import type { PartDef, PartHealth, Severity } from "../api/schemas";
-import { spots, type Vec3 } from "./spots";
+import { nodeName, type Spot, spots, type Vec3 } from "./spots";
 import modelUrl from "./tower.glb?url";
+
+export interface Badge {
+  /** What the badge shows: the numbers of the part's findings in the list. */
+  text: string;
+  /** What a screen reader says for it. */
+  label: string;
+  colour: string;
+  ink: string;
+}
 
 export interface TowerModelProps {
   parts: readonly PartHealth[];
@@ -20,6 +31,17 @@ export interface TowerModelProps {
   onPick: (key: string) => void;
   /** Colours per severity, from the page's CSS. */
   colours: Record<Severity, string>;
+  /** The colour of a part with only findings waiting for review, and of the "all parts" ghosts. */
+  quiet: string;
+  /** A badge per part key; parts without one show only their marker. */
+  badges?: ReadonlyMap<string, Badge>;
+  /** Show a faint marker at every part of the schema, so it's clear where findings can go. */
+  allParts?: boolean;
+  /** Turn the tower slowly; stops (and onTurnStop is called) when the person grabs it. */
+  turn?: boolean;
+  onTurnStop?: () => void;
+  /** Changing this number moves the camera back to the first view. */
+  home?: number;
   /** Shown instead of the model when it can't be drawn (no WebGL). */
   onFail?: (why: string) => void;
 }
@@ -32,10 +54,12 @@ const HALF_W = 20;
 const VIEW = new THREE.Vector3(0.35, 0.2, 1).normalize();
 const CENTRE: Vec3 = [0, 30, 0];
 const ABOVE: Vec3 = [0, 70, 0];
+/** How far (metres) the camera stays from a picked part. */
+const CLOSE = 60;
+/** How far the badge sits above its marker on screen (pixels). */
+const BADGE_LIFT = 20;
 
 interface Live {
-  renderer: THREE.WebGLRenderer;
-  scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   nodes: Map<string, Vec3>;
@@ -43,10 +67,29 @@ interface Live {
   /** Shared by every marker; released with the scene. */
   sphere: THREE.SphereGeometry;
   ring: THREE.TorusGeometry;
+  ghost: THREE.SphereGeometry;
+  /** Where each part's marker is, from the last time markers were drawn. */
+  spots: Spot[];
   render: () => void;
+  /** Move the camera smoothly to look at `at` from CLOSE, or back to the first view. */
+  goTo: (at: Vec3 | null) => void;
+  reduced: boolean;
 }
 
-export default function TowerModel({ parts, defs, selected, onPick, colours, onFail }: TowerModelProps) {
+export default function TowerModel({
+  parts,
+  defs,
+  selected,
+  onPick,
+  colours,
+  quiet,
+  badges,
+  allParts = false,
+  turn = false,
+  onTurnStop,
+  home = 0,
+  onFail,
+}: TowerModelProps) {
   const host = useRef<HTMLDivElement>(null);
   const live = useRef<Live | null>(null);
   const [ready, setReady] = useState(false);
@@ -54,6 +97,10 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
   pick.current = onPick;
   const fail = useRef(onFail);
   fail.current = onFail;
+  const stopped = useRef(onTurnStop);
+  stopped.current = onTurnStop;
+  /** The badge buttons by part key, positioned by the render loop. */
+  const badgeEls = useRef(new Map<string, HTMLButtonElement>());
 
   // The scene, made once per mount.
   useEffect(() => {
@@ -66,17 +113,19 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
       fail.current?.(e instanceof Error ? e.message : String(e));
       return;
     }
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    el.appendChild(renderer.domElement);
+    el.prepend(renderer.domElement);
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
     const camera = new THREE.PerspectiveCamera(35, 1, 1, 1000);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.copy(TARGET);
-    controls.minDistance = 30;
+    controls.minDistance = 15;
     controls.maxDistance = 400;
     controls.maxPolarAngle = Math.PI * 0.55;
     controls.enablePan = false;
+    controls.autoRotateSpeed = 1;
     const ground = new THREE.GridHelper(40, 8, 0x888888, 0x888888);
     (ground.material as THREE.Material).opacity = 0.25;
     (ground.material as THREE.Material).transparent = true;
@@ -85,32 +134,87 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
     scene.add(markers);
     const sphere = new THREE.SphereGeometry(1.3, 20, 14);
     const ring = new THREE.TorusGeometry(2.1, 0.25, 8, 32);
+    const ghost = new THREE.SphereGeometry(0.8, 10, 8);
 
-    let frame = 0;
-    const render = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        renderer.render(scene, camera);
-      });
+    let width = 300;
+    let height = 300;
+    const homeDistance = () => {
+      // Far enough back that the whole tower fits, whatever the panel's shape.
+      const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      return Math.max(HALF_H / t, HALF_W / (t * camera.aspect));
     };
-    // Once the person turns the tower, a resize keeps their view.
+
+    // Reused every frame, so drawing allocates nothing.
+    const at = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const placeBadges = () => {
+      for (const m of markers.children) {
+        const key = m.userData.key;
+        const b = typeof key === "string" ? badgeEls.current.get(key) : undefined;
+        if (!b) continue;
+        at.copy(m.position).project(camera);
+        const off = at.z > 1 || at.x < -1.1 || at.x > 1.1 || at.y < -1.1 || at.y > 1.1;
+        b.style.visibility = off ? "hidden" : "visible";
+        if (!off) b.style.transform = `translate(${(((at.x + 1) / 2) * width).toFixed(1)}px, ${(((1 - at.y) / 2) * height - BADGE_LIFT).toFixed(1)}px)`;
+      }
+    };
+
+    // One loop: it runs while the camera is moving to a part or the tower turns, and draws a
+    // single frame for anything else (a drag, a resize, new markers).
+    let goal: { target: THREE.Vector3; dist: number } | null = null;
+    let visible = true;
+    let frame = 0;
+    let stepping = false;
+    const step = () => {
+      frame = 0;
+      if (!visible) return;
+      stepping = true;
+      let again = false;
+      if (goal) {
+        const k = reduced ? 1 : 0.14;
+        controls.target.lerp(goal.target, k);
+        dir.copy(camera.position).sub(controls.target);
+        const d = dir.length();
+        const next = d + (goal.dist - d) * k;
+        camera.position.copy(controls.target).addScaledVector(dir.normalize(), next);
+        if (controls.target.distanceTo(goal.target) < 0.05 && Math.abs(next - goal.dist) < 0.05) goal = null;
+        else again = true;
+      }
+      if (controls.autoRotate) again = true;
+      controls.update();
+      renderer.render(scene, camera);
+      placeBadges();
+      stepping = false;
+      if (again) frame = requestAnimationFrame(step);
+    };
+    const render = () => {
+      if (frame || stepping) return;
+      frame = requestAnimationFrame(step);
+    };
+    const goTo = (p: Vec3 | null) => {
+      goal = p ? { target: new THREE.Vector3(...p), dist: CLOSE } : { target: TARGET.clone(), dist: homeDistance() };
+      render();
+    };
+
+    // Once the person turns the tower, a resize keeps their view, and turning stops.
     let moved = false;
     controls.addEventListener("start", () => {
       moved = true;
+      goal = null;
+      if (controls.autoRotate) {
+        controls.autoRotate = false;
+        stopped.current?.();
+      }
     });
     controls.addEventListener("change", render);
     const size = () => {
-      const w = el.clientWidth || 300;
-      const h = el.clientHeight || 300;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
+      width = el.clientWidth || 300;
+      height = el.clientHeight || 300;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      if (!moved) {
-        // Far enough back that the whole tower fits, whatever the panel's shape.
-        const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const distance = Math.max(HALF_H / t, HALF_W / (t * camera.aspect));
-        camera.position.copy(TARGET).addScaledVector(VIEW, distance);
+      if (!moved && !goal) {
+        camera.position.copy(TARGET).addScaledVector(VIEW, homeDistance());
         controls.update();
       }
       render();
@@ -118,6 +222,15 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
     size();
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(size);
     ro?.observe(el);
+    // Nothing is drawn while the panel is scrolled away; turning resumes when it's back.
+    const io =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver((entries) => {
+            visible = entries.some((e) => e.isIntersecting);
+            if (visible) render();
+          });
+    io?.observe(el);
 
     // A click (not a drag) on a marker picks its part.
     let down: { x: number; y: number } | null = null;
@@ -130,7 +243,7 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
       down = null;
       const r = renderer.domElement.getBoundingClientRect();
       ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
-      const hit = ray.intersectObjects(markers.children, false)[0];
+      const hit = ray.intersectObjects(markers.children, false).find((h) => typeof h.object.userData.key === "string");
       const key = hit?.object.userData.key;
       if (typeof key === "string") pick.current(key);
     };
@@ -138,7 +251,7 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
     renderer.domElement.addEventListener("pointerup", onUp);
 
     const nodes = new Map<string, Vec3>();
-    live.current = { renderer, scene, camera, controls, nodes, markers, sphere, ring, render };
+    live.current = { camera, controls, nodes, markers, sphere, ring, ghost, spots: [], render, goTo, reduced };
     let gone = false;
     new GLTFLoader()
       .loadAsync(modelUrl)
@@ -171,12 +284,14 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
       gone = true;
       if (frame) cancelAnimationFrame(frame);
       ro?.disconnect();
+      io?.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
       controls.dispose();
       dispose(scene);
       sphere.dispose();
       ring.dispose();
+      ghost.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
@@ -191,23 +306,83 @@ export default function TowerModel({ parts, defs, selected, onPick, colours, onF
     // Each marker's own material goes; the shared shapes stay for the next markers.
     for (const m of l.markers.children) ((m as THREE.Mesh).material as THREE.Material).dispose();
     l.markers.clear();
-    for (const s of spots(parts, defs, l.nodes, CENTRE, ABOVE)) {
+    l.spots = spots(parts, defs, l.nodes, CENTRE, ABOVE);
+    for (const s of l.spots) {
       // A part with only proposals waiting has no rating yet: it shows as a hollow ring.
-      const colour = colours[s.severity];
       const mesh =
         s.counted > 0
-          ? new THREE.Mesh(l.sphere, new THREE.MeshBasicMaterial({ color: colour, depthTest: false }))
-          : new THREE.Mesh(l.ring, new THREE.MeshBasicMaterial({ color: colours.none, depthTest: false }));
+          ? new THREE.Mesh(l.sphere, new THREE.MeshBasicMaterial({ color: colours[s.severity], depthTest: false }))
+          : new THREE.Mesh(l.ring, new THREE.MeshBasicMaterial({ color: quiet, depthTest: false }));
       mesh.position.set(...s.at);
       mesh.userData.key = s.key;
+      mesh.renderOrder = 1;
       if (s.key === selected) mesh.scale.setScalar(1.7);
       if (s.counted === 0) mesh.lookAt(l.camera.position);
       l.markers.add(mesh);
     }
+    if (allParts) {
+      const used = new Set(parts.map((p) => p.part));
+      for (const d of defs) {
+        const p = used.has(d.id) ? undefined : l.nodes.get(nodeName(d.id, defs));
+        if (!p) continue;
+        const mesh = new THREE.Mesh(l.ghost, new THREE.MeshBasicMaterial({ color: quiet, wireframe: true }));
+        mesh.position.set(...p);
+        l.markers.add(mesh);
+      }
+    }
     l.render();
-  }, [parts, defs, selected, colours, ready]);
+  }, [parts, defs, selected, colours, quiet, allParts, badges, ready]);
 
-  return <div ref={host} className="tower-3d" />;
+  // The camera moves to a picked part, and back to the whole tower when the pick is cleared.
+  const lastPick = useRef<string | null>(null);
+  useEffect(() => {
+    const l = live.current;
+    if (!l || !ready || selected === lastPick.current) return;
+    lastPick.current = selected;
+    const spot = selected === null ? undefined : l.spots.find((s) => s.key === selected);
+    if (selected === null) l.goTo(null);
+    else if (spot) l.goTo(spot.at);
+  }, [selected, ready]);
+
+  const lastHome = useRef(home);
+  useEffect(() => {
+    if (home === lastHome.current) return;
+    lastHome.current = home;
+    live.current?.goTo(null);
+  }, [home]);
+
+  useEffect(() => {
+    const l = live.current;
+    if (!l || !ready) return;
+    l.controls.autoRotate = turn && !l.reduced;
+    l.render();
+  }, [turn, ready]);
+
+  return (
+    <div ref={host} className="tower-3d">
+      {badges && ready ? (
+        <div className="badges">
+          {[...badges].map(([key, b]) => (
+            <button
+              key={key}
+              ref={(e) => {
+                if (e) badgeEls.current.set(key, e);
+                else badgeEls.current.delete(key);
+              }}
+              type="button"
+              className="badge"
+              aria-label={b.label}
+              aria-pressed={selected === key}
+              style={{ background: b.colour, color: b.ink }}
+              onClick={() => onPick(key)}
+            >
+              {b.text}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /** Releases every geometry and material under `root`, each once. */
